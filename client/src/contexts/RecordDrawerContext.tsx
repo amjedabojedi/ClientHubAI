@@ -2,6 +2,14 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, Re
 
 export type DrawerSize = "normal" | "wide";
 
+/**
+ * Sentinel `type` for drawers whose body is rendered inline by the page that
+ * opened them (via a portal into the host outlet) rather than by a registered
+ * component. Used for the lighter staff child-record dialogs that stay coupled
+ * to the client page's local state/mutations.
+ */
+export const INLINE_DRAWER_TYPE = "__inline__";
+
 export interface DrawerEntry {
   /** Unique instance id for this open drawer. */
   id: string;
@@ -15,6 +23,11 @@ export interface DrawerEntry {
   size?: DrawerSize;
   /** Arbitrary props forwarded to the registered drawer component. */
   props?: Record<string, any>;
+  /**
+   * For inline drawers (type === INLINE_DRAWER_TYPE): identifies which inline
+   * body the opening page should portal into the host outlet.
+   */
+  inlineKey?: string;
 }
 
 export interface OpenDrawerInput {
@@ -23,6 +36,7 @@ export interface OpenDrawerInput {
   subtitle?: string;
   size?: DrawerSize;
   props?: Record<string, any>;
+  inlineKey?: string;
 }
 
 interface RecordDrawerContextValue {
@@ -37,6 +51,13 @@ interface RecordDrawerContextValue {
   /** Drop all drawers immediately WITHOUT touching history (used on real navigation). */
   resetDrawers: () => void;
   isOpen: boolean;
+  /**
+   * DOM node inside the host's body where the page should portal the inline
+   * drawer body. Non-null only while an inline drawer is the top of the stack.
+   */
+  outletEl: HTMLElement | null;
+  /** Ref callback the host uses to publish/clear the inline outlet element. */
+  registerOutletEl: (el: HTMLElement | null) => void;
 }
 
 /** Maximum number of stacked drawers. The plan caps nesting at two levels. */
@@ -58,11 +79,14 @@ function buildEntry(input: OpenDrawerInput): DrawerEntry {
     subtitle: input.subtitle,
     size: input.size ?? "normal",
     props: input.props,
+    inlineKey: input.inlineKey,
   };
 }
 
 export function RecordDrawerProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<DrawerEntry[]>([]);
+  const [outletEl, setOutletEl] = useState<HTMLElement | null>(null);
+  const registerOutletEl = useCallback((el: HTMLElement | null) => setOutletEl(el), []);
 
   // --- Browser history / Back-button integration ---------------------------
   // Each time a drawer LEVEL opens we push one history entry with the SAME URL
@@ -180,6 +204,8 @@ export function RecordDrawerProvider({ children }: { children: ReactNode }) {
         closeToIndex,
         resetDrawers,
         isOpen: stack.length > 0,
+        outletEl,
+        registerOutletEl,
       }}
     >
       {children}

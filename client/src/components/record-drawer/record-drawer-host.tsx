@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useRecordDrawer, type DrawerEntry } from "@/contexts/RecordDrawerContext";
+import { useRecordDrawer, INLINE_DRAWER_TYPE, type DrawerEntry } from "@/contexts/RecordDrawerContext";
 import { recordDrawerRegistry } from "./record-drawer-registry";
 
 const sizeClass: Record<string, string> = {
@@ -109,6 +109,18 @@ export function RecordDrawerHost() {
 }
 
 function DrawerBody({ entry }: { entry: DrawerEntry }) {
+  const { registerOutletEl } = useRecordDrawer();
+
+  // Inline drawers have no registered component. The host renders an empty
+  // outlet element and the page that opened the drawer portals its body into
+  // it (keeping the body coupled to the page's local state/mutations). The
+  // ref callback publishes the element when mounted and clears it on unmount,
+  // which happens automatically when this drawer stops being the top entry
+  // (the body is keyed by entry id in the host).
+  if (entry.type === INLINE_DRAWER_TYPE) {
+    return <div ref={registerOutletEl} data-testid="record-drawer-inline-outlet" />;
+  }
+
   const Component = recordDrawerRegistry[entry.type];
   if (!Component) {
     return <p className="text-sm text-muted-foreground">Unable to display this item.</p>;

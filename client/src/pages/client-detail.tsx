@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -88,7 +89,7 @@ import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
-import { useRecordDrawer } from "@/contexts/RecordDrawerContext";
+import { useRecordDrawer, INLINE_DRAWER_TYPE } from "@/contexts/RecordDrawerContext";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { getClientStageColor } from "@/lib/task-utils";
 import { cn } from "@/lib/utils";
@@ -1132,7 +1133,25 @@ export default function ClientDetailPage({
   const { addRecentClient } = useRecentItems();
 
   // Stacked record drawers (child records open in slide-over drawers)
-  const { openDrawer } = useRecordDrawer();
+  const { openDrawer, closeTopDrawer, stack: drawerStack, outletEl: drawerOutletEl } = useRecordDrawer();
+  const topDrawer = drawerStack[drawerStack.length - 1];
+  const topInlineKey =
+    topDrawer?.type === INLINE_DRAWER_TYPE ? topDrawer.inlineKey : undefined;
+  // Open one of the inline child-record drawers. The body is portaled into the
+  // host outlet from this page (see the portal blocks near the end of render),
+  // so it keeps full access to local state and mutations while gaining the
+  // drawer's breadcrumb + browser-Back behaviour.
+  const openInlineDrawer = (
+    inlineKey: string,
+    opts: { title: string; subtitle?: string; size?: "normal" | "wide" },
+  ) =>
+    openDrawer({
+      type: INLINE_DRAWER_TYPE,
+      inlineKey,
+      title: opts.title,
+      subtitle: opts.subtitle,
+      size: opts.size,
+    });
   
   // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
@@ -1170,7 +1189,6 @@ export default function ClientDetailPage({
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [documentForm, setDocumentForm] = useState({
@@ -1185,7 +1203,6 @@ export default function ClientDetailPage({
   const [reviewAction, setReviewAction] = useState<'reviewed' | 'rejected'>('reviewed');
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewChecklist, setReviewChecklist] = useState<Record<string, boolean>>({});
-  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(
     sessionIdFromUrl ? parseInt(sessionIdFromUrl) : null
@@ -1195,7 +1212,6 @@ export default function ClientDetailPage({
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [noteStatusFilter, setNoteStatusFilter] = useState<string>("all");
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
   const [paymentForm, setPaymentForm] = useState({
     status: 'paid',
@@ -1205,7 +1221,6 @@ export default function ClientDetailPage({
     method: 'cash',
     notes: ''
   });
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
@@ -1505,7 +1520,10 @@ export default function ClientDetailPage({
       requiresTherapistReview: false,
       requiresSupervisorReview: false,
     });
-    setIsUploadDialogOpen(true);
+    openInlineDrawer("upload-document", {
+      title: "Upload Document",
+      subtitle: client?.fullName ?? undefined,
+    });
   };
 
   const CLINICAL_CATEGORIES = ['referral', 'insurance', 'medical', 'assessment', 'legal', 'consent', 'authorization', 'lab', 'imaging', 'prescription'];
@@ -1591,7 +1609,7 @@ export default function ClientDetailPage({
       requiresTherapistReview: false,
       requiresSupervisorReview: false,
     });
-    setIsUploadDialogOpen(false);
+    closeTopDrawer();
   };
 
   const handlePreviewDocument = (doc: Document) => {
@@ -1600,7 +1618,10 @@ export default function ClientDetailPage({
       window.open(`/api/clients/${clientId}/documents/${doc.id}/file`, '_blank');
     } else {
       setPreviewDocument(doc);
-      setIsPreviewDialogOpen(true);
+      openInlineDrawer("document-preview", {
+        title: "Document Preview",
+        subtitle: doc.fileName ?? undefined,
+      });
     }
   };
 
@@ -1842,6 +1863,7 @@ export default function ClientDetailPage({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
       toast({ title: "Document updated", description: `Document has been marked as ${reviewAction}.` });
+      closeTopDrawer();
       setReviewDialogDoc(null);
       setReviewNotes('');
     },
@@ -1862,7 +1884,7 @@ export default function ClientDetailPage({
         title: "Payment recorded",
         description: "Payment details have been updated successfully.",
       });
-      setIsPaymentDialogOpen(false);
+      closeTopDrawer();
       setPaymentBillingRecord(null);
       setPaymentForm({
         status: 'paid',
@@ -1892,7 +1914,10 @@ export default function ClientDetailPage({
       method: 'cash',
       notes: ''
     });
-    setIsPaymentDialogOpen(true);
+    openInlineDrawer("payment-record", {
+      title: "Record Payment",
+      subtitle: client?.fullName ?? undefined,
+    });
   };
 
   const handlePaymentSubmit = () => {
@@ -2496,7 +2521,7 @@ export default function ClientDetailPage({
     },
     onSuccess: (_, templateId) => {
       const template = (checklistTemplates as ChecklistTemplate[]).find((t: ChecklistTemplate) => t.id === templateId);
-      setShowAssignDialog(false);
+      closeTopDrawer();
       toast({ 
         title: "Checklist assigned successfully",
         description: `${template?.name} has been assigned to the client.`
@@ -4585,7 +4610,7 @@ export default function ClientDetailPage({
                           <span className="text-amber-600 text-xs">— uploaded {d.createdAt ? formatDateDisplay(d.createdAt) : ''}</span>
                           <button
                             className="ml-1 text-xs underline text-amber-800 hover:text-amber-900 font-semibold"
-                            onClick={() => { setReviewDialogDoc(d); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); }}
+                            onClick={() => { setReviewDialogDoc(d); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); openInlineDrawer("document-review", { title: "Review Document", subtitle: client?.fullName ?? undefined }); }}
                           >
                             Review now →
                           </button>
@@ -4687,7 +4712,7 @@ export default function ClientDetailPage({
                                   variant="default"
                                   size="sm"
                                   className="bg-amber-600 hover:bg-amber-700 text-white"
-                                  onClick={() => { setReviewDialogDoc(doc); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); }}
+                                  onClick={() => { setReviewDialogDoc(doc); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); openInlineDrawer("document-review", { title: "Review Document", subtitle: client?.fullName ?? undefined }); }}
                                 >
                                   <ClipboardCheck className="w-4 h-4 mr-1" />
                                   Review Now
@@ -5102,7 +5127,7 @@ export default function ClientDetailPage({
                     <span>Client Process Checklists</span>
                   </div>
                   <Button 
-                    onClick={() => setShowAssignDialog(true)}
+                    onClick={() => openInlineDrawer("assign-checklist", { title: "Assign Checklist Template", subtitle: client?.fullName ?? undefined })}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -5231,15 +5256,12 @@ export default function ClientDetailPage({
         </DialogContent>
       </Dialog>
 
-      {/* Upload Document Dialog */}
-      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
-            <DialogDescription>
-              Upload a document for {client?.fullName}. Supports PDFs, Word docs, images, and text files.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Upload Document Drawer */}
+      {drawerOutletEl && topInlineKey === "upload-document" && createPortal(
+        <>
+          <p className="text-sm text-muted-foreground -mt-1 mb-2">
+            Upload a document for {client?.fullName}. Supports PDFs, Word docs, images, and text files.
+          </p>
           <div className="grid gap-6 py-4">
             {/* File Selection */}
             <div className="space-y-2">
@@ -5416,22 +5438,13 @@ export default function ClientDetailPage({
               {uploadDocumentMutation.isPending ? "Uploading..." : "Upload Document"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>,
+        drawerOutletEl
+      )}
 
-      {/* Document Review Dialog */}
-      <Dialog open={!!reviewDialogDoc} onOpenChange={(open) => { if (!open) { setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); } }}>
-        <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-amber-600" />
-              Review Document
-            </DialogTitle>
-            <DialogDescription>
-              Review the document then approve or reject it.
-            </DialogDescription>
-          </DialogHeader>
-
+      {/* Document Review Drawer */}
+      {drawerOutletEl && topInlineKey === "document-review" && createPortal(
+        <>
           {/* Document info */}
           <div className="bg-slate-50 border rounded-lg p-3 space-y-1">
             <p className="font-semibold text-slate-900 text-sm">{reviewDialogDoc?.originalName || reviewDialogDoc?.fileName}</p>
@@ -5448,7 +5461,7 @@ export default function ClientDetailPage({
                   <Download className="w-3 h-3 mr-1" />
                 )} Download
               </Button>
-              <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (reviewDialogDoc) { setPreviewDocument(reviewDialogDoc); setIsPreviewDialogOpen(true); } }}>
+              <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (reviewDialogDoc) { setPreviewDocument(reviewDialogDoc); openInlineDrawer("document-preview", { title: "Document Preview", subtitle: reviewDialogDoc.fileName ?? undefined }); } }}>
                 <Eye className="w-3 h-3 mr-1" /> Preview
               </Button>
             </div>
@@ -5466,7 +5479,7 @@ export default function ClientDetailPage({
           </div>
 
           <DialogFooter className="flex gap-2 flex-wrap sm:flex-nowrap">
-            <Button variant="outline" onClick={() => { setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); }}>
+            <Button variant="outline" onClick={() => { closeTopDrawer(); setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); }}>
               Cancel
             </Button>
             <Button
@@ -5490,16 +5503,13 @@ export default function ClientDetailPage({
               )}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>,
+        drawerOutletEl
+      )}
 
-      {/* Assign Checklist Dialog */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Assign Checklist Template</DialogTitle>
-            <DialogDescription>Choose a checklist template to assign to this client</DialogDescription>
-          </DialogHeader>
+      {/* Assign Checklist Drawer */}
+      {drawerOutletEl && topInlineKey === "assign-checklist" && createPortal(
+        <>
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
               Select a checklist template to assign to {client?.fullName}. This will create a workflow with all required items.
@@ -5535,32 +5545,27 @@ export default function ClientDetailPage({
             <DialogFooter>
               <Button 
                 variant="outline" 
-                onClick={() => setShowAssignDialog(false)}
+                onClick={() => closeTopDrawer()}
                 disabled={assignChecklistMutation.isPending}
               >
                 Cancel
               </Button>
             </DialogFooter>
           </div>
-        </DialogContent>
-      </Dialog>
+        </>,
+        drawerOutletEl
+      )}
 
-      {/* Document Preview Dialog */}
-      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Document Preview</DialogTitle>
-            <DialogDescription>
-              {previewDocument?.fileName}
-            </DialogDescription>
-          </DialogHeader>
+      {/* Document Preview Drawer */}
+      {drawerOutletEl && topInlineKey === "document-preview" && createPortal(
+        <>
           <div className="max-h-[60vh] overflow-auto">
             {previewDocument && renderDocumentPreview(previewDocument)}
           </div>
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setIsPreviewDialogOpen(false)}
+              onClick={() => closeTopDrawer()}
             >
               Close
             </Button>
@@ -5578,8 +5583,9 @@ export default function ClientDetailPage({
               </Button>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>,
+        drawerOutletEl
+      )}
 
       {/* Invoice Preview Dialog */}
       <Dialog open={isInvoicePreviewOpen} onOpenChange={setIsInvoicePreviewOpen}>
@@ -5706,15 +5712,12 @@ export default function ClientDetailPage({
         </DialogContent>
       </Dialog>
 
-      {/* Payment Recording Dialog - Matches Billing Dashboard */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>
-              Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
-            </DialogDescription>
-          </DialogHeader>
+      {/* Payment Recording Drawer - Matches Billing Dashboard */}
+      {drawerOutletEl && topInlineKey === "payment-record" && createPortal(
+        <>
+          <p className="text-sm text-muted-foreground -mt-1 mb-2">
+            Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
+          </p>
           <form onSubmit={(e) => {
             e.preventDefault();
             if (!paymentForm.amount || !paymentForm.method) {
@@ -5783,7 +5786,7 @@ export default function ClientDetailPage({
                 type="button" 
                 variant="outline" 
                 onClick={() => {
-                  setIsPaymentDialogOpen(false);
+                  closeTopDrawer();
                   setPaymentBillingRecord(null);
                 }}
               >
@@ -5797,8 +5800,9 @@ export default function ClientDetailPage({
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </>,
+        drawerOutletEl
+      )}
 
       {/* Full Edit Session Modal */}
       <Dialog open={isFullEditModalOpen} onOpenChange={setIsFullEditModalOpen}>
