@@ -47,6 +47,13 @@ export function RecordDrawerHost() {
   // (child records / heavy report & assessment editors) stay MODAL so the dimmed
   // backdrop protects in-progress edits from an accidental outside click.
   const isModal = stack.length > 1;
+  // Keep ONE consistent width across the whole open stack so the panel never
+  // shrinks/grows as the user drills into a child record and back. The drawer
+  // adopts the widest width any open level needs: once any level is "wide", the
+  // entire stack stays "wide", so navigating between levels feels steady.
+  const effectiveSize: "normal" | "wide" = stack.some((e) => e.size === "wide")
+    ? "wide"
+    : "normal";
 
   return (
     <Sheet
@@ -60,7 +67,7 @@ export function RecordDrawerHost() {
         <SheetContent
           side="right"
           overlay={isModal}
-          className={cn(sizeClass[top.size ?? "normal"], "p-0 flex flex-col gap-0 h-full")}
+          className={cn(sizeClass[effectiveSize], "p-0 flex flex-col gap-0 h-full")}
           data-testid="record-drawer"
           onPointerDownOutside={(e) => {
             // Non-modal browsing panel: a click on the list/page behind must

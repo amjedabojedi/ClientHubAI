@@ -22,3 +22,11 @@ close depth-1 only via X / breadcrumb / Escape / Back. `SheetContent` takes an
 `overlay?: boolean` (default true) so other Sheets are unaffected. If more entry
 points open depth-1 drawers, consider gating modeless behavior by drawer *type*,
 not depth alone, so only intended browsing panels are modeless.
+
+**Width must stay consistent across the whole open stack.** The host width is the
+*widest* level present (`effectiveSize = stack.some(e => e.size === 'wide') ? 'wide'
+: 'normal'`), NOT each level's own `size`. **Why:** per-level width made the panel
+visibly shrink (wide profile → normal child) then jump back wide, which reads as a
+jarring, unsteady stacked-drawer flow. Driving width off the stack-max means it
+never shrinks when drilling in. Keep the outside-close guard keyed to the *actual*
+top level's `size` though, so only genuine heavy editors block accidental close.
