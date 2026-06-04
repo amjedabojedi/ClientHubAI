@@ -1123,7 +1123,7 @@ export default function ClientDetailPage({
   const { addRecentClient } = useRecentItems();
 
   // Stacked record drawers (child records open in slide-over drawers)
-  const { openDrawer, closeTopDrawer, closeAllDrawers, stack: drawerStack, outletEl: drawerOutletEl } = useRecordDrawer();
+  const { openDrawer, closeTopDrawer, closeAllDrawers, resetDrawers, stack: drawerStack, outletEl: drawerOutletEl } = useRecordDrawer();
   const topDrawer = drawerStack[drawerStack.length - 1];
   const topInlineKey =
     topDrawer?.type === INLINE_DRAWER_TYPE ? topDrawer.inlineKey : undefined;
@@ -3244,7 +3244,7 @@ export default function ClientDetailPage({
                   size="sm"
                   onClick={() => {
                     const schedulingUrl = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`;
-                    closeAllDrawers();
+                    resetDrawers();
                     setLocation(schedulingUrl);
                   }}
                   disabled={client.status === 'inactive'}
@@ -3257,7 +3257,7 @@ export default function ClientDetailPage({
                   variant="outline" 
                   size="sm"
                   onClick={() => {
-                    closeAllDrawers();
+                    resetDrawers();
                     setLocation('/scheduling');
                   }}
                 >
@@ -3938,7 +3938,7 @@ export default function ClientDetailPage({
                           variant="outline"
                           onClick={() => {
                             const schedulingUrl = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
-                            closeAllDrawers();
+                            resetDrawers();
                             setLocation(schedulingUrl);
                           }}
                           className="text-sm px-3 py-2 h-9"

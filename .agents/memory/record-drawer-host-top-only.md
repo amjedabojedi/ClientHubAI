@@ -15,4 +15,6 @@ description: How RecordDrawerHost keeps lower drawer levels mounted so nested dr
 
 **Navigation + history:** Drawer open/close uses empty-url `pushState`/`history.back` so the path never changes. `resetDrawers()` clears drawer state WITHOUT touching history; the host calls it whenever the wouter pathname changes (genuine navigation) so a drawer never hangs over a different page. Orphaned synthetic entries share the original path, so the first Back press still lands correctly and the popstate handler's `depthRef<=0` branch prevents loops.
 
+**Close-then-navigate race (bug):** NEVER pair `closeAllDrawers(); setLocation(url)` — `closeAllDrawers()`/`closeTopDrawer()` work via async `window.history.back()`, which fires AFTER the synchronous `setLocation` pushState and UNDOES the navigation, bouncing the user back to the underlying page (e.g. Schedule Session from a client-detail drawer landed on /clients). When a button must close the drawer AND route away, call `resetDrawers()` (synchronous, no history.back) then `setLocation(url)`.
+
 **How to apply:** any drawer body that owns state or portals content can now be safely nested; it will not remount when a child opens. If you ever revert to top-only rendering, the empty-nested-drawer bug returns.
