@@ -106,6 +106,13 @@ uploads/
 *.db
 *.sqlite
 *.sqlite3
+# ...but keep curated SQL maintenance scripts
+!scripts/sql/
+!scripts/sql/*.sql
+
+# One-off debug artifacts / leaked session cookies (keep root clean)
+cookies.txt
+*.report.json
 
 
 # Test coverage
