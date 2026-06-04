@@ -54,6 +54,19 @@ FAILED=()
 # seconds) and a "slowest-first" view assembled after the run.
 DURATIONS=()
 
+# Where per-suite durations from the previous run are persisted, so this run
+# can flag suites that have gotten significantly slower over time. Lives under
+# .local/ (untracked working state) and is keyed by suite path.
+HISTORY_FILE=".local/privacy-test-durations.json"
+
+# A suite is flagged as a regression when it is at least this fraction slower
+# than its previous recorded run. 0.5 == "more than 50% slower".
+REGRESSION_THRESHOLD="0.5"
+
+# Suites this fast (whole seconds) are ignored for regression flagging: a jump
+# from 1s to 3s is 200% slower but almost always just scheduling noise.
+REGRESSION_MIN_SECONDS=5
+
 TOTAL=${#SUITES[@]}
 INDEX=0
 
@@ -115,6 +128,69 @@ for i in "${!SUITES[@]}"; do
 done | sort -rn | while IFS=$'\t' read -r secs suite; do
   printf '  %8s  %s\n' "$(format_duration "${secs}")" "${suite}"
 done
+
+# ── Slow-down regression detection ──────────────────────────────────────────
+# Compare each suite's duration against the previous recorded run (if any) and
+# flag suites that have gotten significantly slower. Then persist this run's
+# durations so the next run has a baseline to compare against.
+if command -v jq >/dev/null 2>&1; then
+  echo ""
+
+  # Read the previous run's duration for a suite (empty string if unknown).
+  prev_duration() {
+    local suite=$1
+    if [ -f "${HISTORY_FILE}" ]; then
+      jq -r --arg s "${suite}" '.suites[$s] // empty' "${HISTORY_FILE}" 2>/dev/null
+    fi
+  }
+
+  REGRESSIONS=()
+  for i in "${!SUITES[@]}"; do
+    suite="${SUITES[$i]}"
+    now="${DURATIONS[$i]}"
+    prev="$(prev_duration "${suite}")"
+
+    # Skip if no prior baseline, or current run is too fast to be meaningful.
+    [ -n "${prev}" ] || continue
+    [ "${prev}" -gt 0 ] 2>/dev/null || continue
+    [ "${now}" -ge "${REGRESSION_MIN_SECONDS}" ] || continue
+
+    # Flag when (now - prev) / prev > REGRESSION_THRESHOLD.
+    if awk -v now="${now}" -v prev="${prev}" -v t="${REGRESSION_THRESHOLD}" \
+        'BEGIN { exit !((now - prev) / prev > t) }'; then
+      pct="$(awk -v now="${now}" -v prev="${prev}" \
+        'BEGIN { printf "%d", ((now - prev) / prev) * 100 }')"
+      REGRESSIONS+=("${suite}|${prev}|${now}|${pct}")
+    fi
+  done
+
+  if [ "${#REGRESSIONS[@]}" -gt 0 ]; then
+    echo "⚠️  Slow-down regressions (>$(awk -v t="${REGRESSION_THRESHOLD}" 'BEGIN { printf "%d", t * 100 }')% slower than last run):"
+    for entry in "${REGRESSIONS[@]}"; do
+      IFS='|' read -r suite prev now pct <<< "${entry}"
+      printf '  🐌 %s  %s → %s  (+%s%%)\n' \
+        "${suite}" "$(format_duration "${prev}")" "$(format_duration "${now}")" "${pct}"
+    done
+  else
+    echo "No slow-down regressions detected."
+  fi
+
+  # Persist this run's durations as the new baseline for next time.
+  mkdir -p "$(dirname "${HISTORY_FILE}")"
+  {
+    printf '{\n  "updated": "%s",\n  "suites": {\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    for i in "${!SUITES[@]}"; do
+      sep=","
+      [ "${i}" -eq $(( ${#SUITES[@]} - 1 )) ] && sep=""
+      printf '    %s: %s%s\n' \
+        "$(printf '%s' "${SUITES[$i]}" | jq -R .)" "${DURATIONS[$i]}" "${sep}"
+    done
+    printf '  }\n}\n'
+  } > "${HISTORY_FILE}"
+else
+  echo ""
+  echo "(jq not found — skipping slow-down regression tracking.)"
+fi
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   echo ""
