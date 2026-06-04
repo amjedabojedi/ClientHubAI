@@ -3242,7 +3242,11 @@ export default function ClientDetailPage({
               <div className="flex items-center space-x-2">
                 <Button 
                   size="sm"
-                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`}
+                  onClick={() => {
+                    const schedulingUrl = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`;
+                    closeAllDrawers();
+                    setLocation(schedulingUrl);
+                  }}
                   disabled={client.status === 'inactive'}
                   title={client.status === 'inactive' ? 'Cannot schedule sessions for inactive clients' : ''}
                 >
@@ -3252,7 +3256,10 @@ export default function ClientDetailPage({
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.location.href = '/scheduling'}
+                  onClick={() => {
+                    closeAllDrawers();
+                    setLocation('/scheduling');
+                  }}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   View Calendar
@@ -3929,7 +3936,9 @@ export default function ClientDetailPage({
                         <Button 
                           variant="outline"
                           onClick={() => {
-                            window.location.href = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
+                            const schedulingUrl = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
+                            closeAllDrawers();
+                            setLocation(schedulingUrl);
                           }}
                           className="text-sm px-3 py-2 h-9"
                         >
