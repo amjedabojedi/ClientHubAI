@@ -34,6 +34,18 @@ npm run db:generate
 npm run db:push
 ```
 
+**Run Privacy/Regression Test Suite:**
+```bash
+bash scripts/run-privacy-tests.sh
+```
+Runs all privacy/regression suites serially and prints a pass/fail summary plus per-suite durations. It also tracks each suite's runtime in `.local/privacy-test-durations.json` and flags suites that get significantly slower than the previous run.
+
+Set `FAIL_ON_SLOWDOWN=1` to make a flagged slow-down fail the run (default is warning-only):
+```bash
+FAIL_ON_SLOWDOWN=1 bash scripts/run-privacy-tests.sh
+```
+The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so performance regressions fail the run automatically. The first run on a fresh checkout has no baseline, so nothing can be flagged yet — that baseline run always passes.
+
 **Required Environment Variables:**
 `DATABASE_URL`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `SENDGRID_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`
 

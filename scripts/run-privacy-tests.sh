@@ -71,6 +71,12 @@ REGRESSION_MIN_SECONDS=5
 # detected slow-down regression makes the overall run exit non-zero. Default
 # (unset/0) is warning-only — the run still passes. Useful in CI to catch
 # performance regressions automatically.
+#
+# CI: the `test-privacy` workflow (see .replit) runs this script with
+# FAIL_ON_SLOWDOWN=1, so a flagged slow-down fails the run there. The very
+# first run on a fresh checkout has no baseline (.local/privacy-test-durations.json
+# is untracked working state), so nothing can be flagged until a baseline exists
+# — the baseline run always passes.
 FAIL_ON_SLOWDOWN="${FAIL_ON_SLOWDOWN:-0}"
 case "${FAIL_ON_SLOWDOWN}" in
   1 | true | TRUE | yes | YES) FAIL_ON_SLOWDOWN=1 ;;
