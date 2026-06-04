@@ -49,6 +49,29 @@ inactive tab does not exist in the DOM until that tab is activated. A synthetic
 needs a trusted event. Use a real `ElementHandle.click()` (find the
 `[role="tab"]` whose textContent matches) or `page.click(selector)`.
 
+## clickablePoint fails during slide-in animations — click in-page instead
+`ElementHandle.click()` / `page.click(selector)` run puppeteer's `clickablePoint`
+check, which throws `Node is either not clickable or not an Element` when the
+target is mid-transition (e.g. a shadcn/Radix `Sheet`/drawer sliding in with
+`data-[state=open]:duration-500`, so its centre is momentarily off-screen) or is
+a tiny icon button (the Radix close "X"). For PLAIN buttons with an `onClick`
+(no trusted-event requirement, unlike Radix Tabs) just do an in-page DOM click:
+`page.evaluate(sel => document.querySelector(sel).click(), selector)`. Reserve
+trusted `ElementHandle.click()` for controls that truly need a real event.
+
+## Testing context/history behavior without seeding data — DEV-only harness
+To browser-test logic that lives in a React context and is independent of record
+content (e.g. the record-drawer Back-button/history integration), add a DEV-only
+route (`{import.meta.env.DEV && <Route .../>}`) rendering a tiny harness page that
+drives the context API directly via buttons; register any throwaway drawer/type
+only under `import.meta.env.DEV` so prod never sees it. Note: an open drawer's
+overlay covers the underlying page, so controls to open DEEPER levels must live
+INSIDE the drawer body (a registered component), exactly like the real app opens a
+nested drawer from a control in its parent. Read live depth from a page-rendered
+`data-testid` (DOM is readable behind the overlay); step history with
+`page.evaluate(() => history.back())` and `waitForFunction` on the depth readout —
+don't use `page.goBack()` for same-URL `pushState` entries (no navigation fires).
+
 ## Asserting persistence
 Toggle, `page.waitForResponse` for the PUT (200), then `page.goto` to reload and
 re-read the control's `aria-checked` from a fresh server fetch — that's what

@@ -15,6 +15,7 @@ import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
 import ClientDetailPage from "@/pages/client-detail";
+import DrawerTestHarnessPage from "@/pages/drawer-test-harness";
 import SchedulingPage from "@/pages/scheduling";
 import LibraryPage from "@/pages/library";
 import TasksPage from "@/pages/tasks";
@@ -480,6 +481,9 @@ function Router() {
             }
             return <AdminConsentPage />;
           }} />
+          {import.meta.env.DEV && (
+            <Route path="/__drawer-test-harness" component={DrawerTestHarnessPage} />
+          )}
           <Route component={NotFound} />
         </Switch>
       </main>
