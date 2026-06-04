@@ -1081,6 +1081,35 @@ function PortalManagement({ clientId, client }: { clientId: number; client: Clie
   );
 }
 
+const TAB_GROUPS = [
+  {
+    label: "Clinical",
+    items: [
+      { value: "overview", label: "Overview", Icon: UserIcon },
+      { value: "sessions", label: "Sessions", Icon: Calendar },
+      { value: "assessments", label: "Assessments", Icon: ClipboardList },
+      { value: "reports", label: "Reports", Icon: FileText },
+      { value: "forms", label: "Forms", Icon: FileText },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { value: "billing", label: "Billing", Icon: CreditCard },
+      { value: "tasks", label: "Tasks", Icon: CheckSquare },
+      { value: "checklist", label: "Checklists", Icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Files & Records",
+    items: [
+      { value: "documents", label: "Documents", Icon: FolderOpen },
+      { value: "communications", label: "Communications", Icon: Mail },
+      { value: "history", label: "History", Icon: Clock },
+    ],
+  },
+];
+
 export default function ClientDetailPage() {
   // Routing
   const [match, params] = useRoute("/clients/:id");
@@ -1095,7 +1124,9 @@ export default function ClientDetailPage() {
   
   // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get('tab') || "overview";
+  const requestedTab = urlParams.get('tab');
+  const validTabValues = TAB_GROUPS.flatMap((g) => g.items.map((i) => i.value));
+  const initialTab = requestedTab && validTabValues.includes(requestedTab) ? requestedTab : "overview";
   const sessionIdFromUrl = urlParams.get('sessionId');
   const fromPage = urlParams.get('from'); // Track where user came from
   
@@ -2625,67 +2656,46 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex flex-wrap items-start w-full h-auto gap-x-6 gap-y-3 p-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Clinical</span>
-              <div className="flex flex-wrap gap-1.5">
-                <TabsTrigger value="overview" className="flex items-center space-x-2 px-4">
-                  <UserIcon className="w-4 h-4" />
-                  <span>Overview</span>
-                </TabsTrigger>
-                <TabsTrigger value="sessions" className="flex items-center space-x-2 px-4">
-                  <Calendar className="w-4 h-4" />
-                  <span>Sessions</span>
-                </TabsTrigger>
-                <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
-                  <ClipboardList className="w-4 h-4" />
-                  <span>Assessments</span>
-                </TabsTrigger>
-                <TabsTrigger value="reports" className="flex items-center space-x-2 px-4" data-testid="tab-reports">
-                  <FileText className="w-4 h-4" />
-                  <span>Reports</span>
-                </TabsTrigger>
-                <TabsTrigger value="forms" className="flex items-center space-x-2 px-4">
-                  <FileText className="w-4 h-4" />
-                  <span>Forms</span>
-                </TabsTrigger>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Admin</span>
-              <div className="flex flex-wrap gap-1.5">
-                <TabsTrigger value="billing" className="flex items-center space-x-2 px-4">
-                  <CreditCard className="w-4 h-4" />
-                  <span>Billing</span>
-                </TabsTrigger>
-                <TabsTrigger value="tasks" className="flex items-center space-x-2 px-4">
-                  <CheckSquare className="w-4 h-4" />
-                  <span>Tasks</span>
-                </TabsTrigger>
-                <TabsTrigger value="checklist" className="flex items-center space-x-2 px-4">
-                  <ClipboardList className="w-4 h-4" />
-                  <span>Checklists</span>
-                </TabsTrigger>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Files &amp; Records</span>
-              <div className="flex flex-wrap gap-1.5">
-                <TabsTrigger value="documents" className="flex items-center space-x-2 px-4">
-                  <FolderOpen className="w-4 h-4" />
-                  <span>Documents</span>
-                </TabsTrigger>
-                <TabsTrigger value="communications" className="flex items-center space-x-2 px-4" data-testid="tab-communications">
-                  <Mail className="w-4 h-4" />
-                  <span>Communications</span>
-                </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center space-x-2 px-4" data-testid="tab-history">
-                  <Clock className="w-4 h-4" />
-                  <span>History</span>
-                </TabsTrigger>
-              </div>
-            </div>
-          </TabsList>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-2">
+            {TAB_GROUPS.map((group) => {
+              const activeItem = group.items.find((i) => i.value === activeTab);
+              return (
+                <DropdownMenu key={group.label}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={activeItem ? "default" : "ghost"}
+                      size="sm"
+                      className="h-9 gap-2"
+                      data-testid={`tab-group-${group.label.toLowerCase().replace(/[^a-z]+/g, "-").replace(/(^-|-$)/g, "")}`}
+                    >
+                      <span className="text-xs font-semibold uppercase tracking-wide">{group.label}</span>
+                      {activeItem && (
+                        <span className="flex items-center gap-1 normal-case font-normal">
+                          <span className="opacity-50">·</span>
+                          <activeItem.Icon className="w-4 h-4" />
+                          {activeItem.label}
+                        </span>
+                      )}
+                      <ChevronDown className="w-4 h-4 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-52">
+                    {group.items.map((item) => (
+                      <DropdownMenuItem
+                        key={item.value}
+                        onSelect={() => setActiveTab(item.value)}
+                        data-testid={`tab-${item.value}`}
+                        className={`gap-2 cursor-pointer ${activeTab === item.value ? "bg-accent text-accent-foreground font-medium" : ""}`}
+                      >
+                        <item.Icon className="w-4 h-4" />
+                        {item.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })}
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
