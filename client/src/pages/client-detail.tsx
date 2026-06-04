@@ -1083,34 +1083,24 @@ function PortalManagement({ clientId, client }: { clientId: number; client: Clie
   );
 }
 
-const TAB_GROUPS = [
-  {
-    label: "Clinical",
-    items: [
-      { value: "overview", label: "Overview", Icon: UserIcon },
-      { value: "sessions", label: "Sessions", Icon: Calendar },
-      { value: "assessments", label: "Assessments", Icon: ClipboardList },
-      { value: "reports", label: "Reports", Icon: FileText },
-      { value: "forms", label: "Forms", Icon: FileText },
-    ],
-  },
-  {
-    label: "Admin",
-    items: [
-      { value: "billing", label: "Billing", Icon: CreditCard },
-      { value: "tasks", label: "Tasks", Icon: CheckSquare },
-      { value: "checklist", label: "Checklists", Icon: ClipboardList },
-    ],
-  },
-  {
-    label: "Files & Records",
-    items: [
-      { value: "documents", label: "Documents", Icon: FolderOpen },
-      { value: "communications", label: "Communications", Icon: Mail },
-      { value: "history", label: "History", Icon: Clock },
-    ],
-  },
+// Tabs shown directly on the bar (one click each), in display order.
+const PINNED_TABS = [
+  { value: "overview", label: "Overview", Icon: UserIcon },
+  { value: "sessions", label: "Sessions", Icon: Calendar },
+  { value: "assessments", label: "Assessments", Icon: ClipboardList },
+  { value: "reports", label: "Reports", Icon: FileText },
+  { value: "documents", label: "Documents", Icon: FolderOpen },
+  { value: "billing", label: "Billing", Icon: CreditCard },
 ];
+// Remaining tabs, tucked under the "More" menu.
+const MORE_TABS = [
+  { value: "forms", label: "Forms", Icon: FileText },
+  { value: "tasks", label: "Tasks", Icon: CheckSquare },
+  { value: "checklist", label: "Checklists", Icon: ClipboardList },
+  { value: "communications", label: "Communications", Icon: Mail },
+  { value: "history", label: "History", Icon: Clock },
+];
+const ALL_TABS = [...PINNED_TABS, ...MORE_TABS];
 
 export default function ClientDetailPage({
   clientId: clientIdProp,
@@ -1156,7 +1146,7 @@ export default function ClientDetailPage({
   // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
   const requestedTab = urlParams.get('tab');
-  const validTabValues = TAB_GROUPS.flatMap((g) => g.items.map((i) => i.value));
+  const validTabValues = ALL_TABS.map((i) => i.value);
   // Persist the active tab per client so this page restores the user's place
   // when it re-mounts (e.g. after a child-record drawer closes over it).
   const tabStorageKey = clientId ? `smarthub.clientDetail.tab.${clientId}` : null;
@@ -2733,31 +2723,48 @@ export default function ClientDetailPage({
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-2">
-            {TAB_GROUPS.map((group) => {
-              const activeItem = group.items.find((i) => i.value === activeTab);
+          <div className="flex flex-wrap items-center gap-2">
+            <TabsList className="h-auto flex-wrap gap-1">
+              {PINNED_TABS.map((item) => (
+                <TabsTrigger
+                  key={item.value}
+                  value={item.value}
+                  data-testid={`tab-${item.value}`}
+                  className="h-9 gap-2 rounded-md px-3"
+                >
+                  <item.Icon className="w-4 h-4" />
+                  {item.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {(() => {
+              const moreActiveItem = MORE_TABS.find((i) => i.value === activeTab);
               return (
-                <DropdownMenu key={group.label}>
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={activeItem ? "default" : "ghost"}
+                      variant="ghost"
                       size="sm"
-                      className="h-9 gap-2"
-                      data-testid={`tab-group-${group.label.toLowerCase().replace(/[^a-z]+/g, "-").replace(/(^-|-$)/g, "")}`}
+                      data-testid="tab-group-more"
+                      className={`h-9 gap-2 rounded-md px-3 text-sm font-medium ${
+                        moreActiveItem
+                          ? "bg-background text-foreground shadow-sm hover:bg-background border"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
                     >
-                      <span className="text-xs font-semibold uppercase tracking-wide">{group.label}</span>
-                      {activeItem && (
-                        <span className="flex items-center gap-1 normal-case font-normal">
-                          <span className="opacity-50">·</span>
-                          <activeItem.Icon className="w-4 h-4" />
-                          {activeItem.label}
-                        </span>
+                      {moreActiveItem ? (
+                        <>
+                          <moreActiveItem.Icon className="w-4 h-4" />
+                          {moreActiveItem.label}
+                        </>
+                      ) : (
+                        <span>More</span>
                       )}
                       <ChevronDown className="w-4 h-4 opacity-70" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-52">
-                    {group.items.map((item) => (
+                    {MORE_TABS.map((item) => (
                       <DropdownMenuItem
                         key={item.value}
                         onSelect={() => setActiveTab(item.value)}
@@ -2771,7 +2778,7 @@ export default function ClientDetailPage({
                   </DropdownMenuContent>
                 </DropdownMenu>
               );
-            })}
+            })()}
           </div>
 
           {/* Overview Tab */}
