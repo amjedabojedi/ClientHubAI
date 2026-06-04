@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -447,6 +448,7 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const { toast } = useToast();
 
   const handleDownload = async () => {
@@ -472,6 +474,8 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
   useEffect(() => {
     const fetchDocxContent = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const response = await fetch(`/api/clients/${clientId}/documents/${document.id}/docx-viewer`);
         if (!response.ok) {
           throw new Error('Failed to load document');
@@ -486,7 +490,7 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
     };
 
     fetchDocxContent();
-  }, [clientId, document.id]);
+  }, [clientId, document.id, reloadKey]);
 
   if (loading) {
     return (
@@ -501,14 +505,21 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
     return (
       <div className="text-center text-red-600 p-4">
         <p>Error loading document: {error}</p>
-        <Button 
-          onClick={handleDownload}
-          disabled={downloading}
-          className="mt-2"
-        >
-          {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          {downloading ? "Downloading..." : "Download Document"}
-        </Button>
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            Try again
+          </Button>
+          <Button 
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            {downloading ? "Downloading..." : "Download Document"}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -550,6 +561,7 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const { toast } = useToast();
 
   const handleDownload = async () => {
@@ -595,7 +607,7 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
     };
 
     fetchTextContent();
-  }, [clientId, document.id]);
+  }, [clientId, document.id, reloadKey]);
 
   if (loading) {
     return (
@@ -611,19 +623,28 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
       <div className="flex flex-col items-center justify-center py-8">
         <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <p className="text-red-600 mb-4">{error}</p>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleDownload}
-          disabled={downloading}
-        >
-          {downloading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4 mr-2" />
-          )}
-          {downloading ? "Downloading..." : "Download File"}
-        </Button>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            Try again
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            {downloading ? "Downloading..." : "Download File"}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -2408,11 +2429,20 @@ export default function ClientDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading client details...</p>
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-16 w-16 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-24" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }

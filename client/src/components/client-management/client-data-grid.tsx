@@ -36,6 +36,7 @@ interface ClientDataGridProps {
   onViewClient: (client: Client) => void;
   onEditClient: (client: Client) => void;
   onDeleteClient?: (client: Client) => void;
+  onClearFilters?: () => void;
 }
 
 export default function ClientDataGrid({ 
@@ -44,7 +45,8 @@ export default function ClientDataGrid({
   filters, 
   onViewClient,
   onEditClient,
-  onDeleteClient
+  onDeleteClient,
+  onClearFilters
 }: ClientDataGridProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -87,6 +89,13 @@ export default function ClientDataGrid({
       default: return "";
     }
   }, [activeTab]);
+
+  // Reset to the first page whenever the search/tab/filters change, so users
+  // never get stranded on an out-of-range (empty) page after narrowing or
+  // clearing filters.
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, stageFromTab, filters]);
 
   const queryParams = useMemo(() => {
     const params = {
@@ -263,6 +272,16 @@ export default function ClientDataGrid({
                     <div className="text-slate-500">
                       <i className="fas fa-users text-2xl mb-2"></i>
                       <p>No clients found matching your criteria.</p>
+                      {onClearFilters && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={onClearFilters}
+                        >
+                          Clear filters
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

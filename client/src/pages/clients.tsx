@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
 // Icons
@@ -19,6 +19,28 @@ import DeleteClientDialog from "@/components/client-management/delete-client-dia
 import { Client } from "@/types/client";
 import { useAuth } from "@/hooks/useAuth";
 
+const CLIENTS_VIEW_STORAGE_KEY = "smarthub.clients.view";
+
+const defaultFilters = {
+  stage: "",
+  therapistId: "",
+  clientType: "",
+  hasPortalAccess: undefined as boolean | undefined,
+  hasPendingTasks: undefined as boolean | undefined,
+  hasNoSessions: undefined as boolean | undefined,
+  checklistTemplateId: "",
+  checklistItemIds: [] as string[],
+};
+
+function loadPersistedView(): { activeTab?: string; searchQuery?: string; filters?: Partial<typeof defaultFilters> } | null {
+  try {
+    const raw = sessionStorage.getItem(CLIENTS_VIEW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function ClientsPage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
@@ -27,18 +49,25 @@ export default function ClientsPage() {
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<string>(() => loadPersistedView()?.activeTab ?? "all");
+  const [searchQuery, setSearchQuery] = useState<string>(() => loadPersistedView()?.searchQuery ?? "");
   const [filters, setFilters] = useState({
-    stage: "",
-    therapistId: "",
-    clientType: "",
-    hasPortalAccess: undefined as boolean | undefined,
-    hasPendingTasks: undefined as boolean | undefined,
-    hasNoSessions: undefined as boolean | undefined,
-    checklistTemplateId: "",
-    checklistItemIds: [] as string[],
+    ...defaultFilters,
+    ...(loadPersistedView()?.filters ?? {}),
   });
+
+  // Remember the therapist's tab, search, and filters across navigation
+  // (cleared when the browser tab/session closes).
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CLIENTS_VIEW_STORAGE_KEY,
+        JSON.stringify({ activeTab, searchQuery, filters }),
+      );
+    } catch {
+      // Ignore storage failures (e.g. private mode quota)
+    }
+  }, [activeTab, searchQuery, filters]);
 
   const handleViewClient = (client: Client) => {
     setLocation(`/clients/${client.id}`);
@@ -214,6 +243,20 @@ export default function ClientsPage() {
               onViewClient={handleViewClient}
               onEditClient={handleEditClient}
               onDeleteClient={handleDeleteClient}
+              onClearFilters={() => {
+                setSearchQuery("");
+                setActiveTab("all");
+                setFilters({
+                  stage: "",
+                  therapistId: "",
+                  clientType: "",
+                  hasPortalAccess: undefined,
+                  hasPendingTasks: undefined,
+                  hasNoSessions: undefined,
+                  checklistTemplateId: "",
+                  checklistItemIds: [],
+                });
+              }}
             />
           </div>
         </main>
