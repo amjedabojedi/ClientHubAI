@@ -33,6 +33,15 @@ Patient portal (/portal/*) is excluded; standalone routes stay as deep-link entr
 points. Dead-code dialogs and close-guarded modals (Session Recorder, delete
 confirmations) were intentionally left as plain Dialogs.
 
+The two session editing modals are migrated too: "session-details" (Session
+Details & Actions) opens from the session card menu, and its "Edit This Session"
+button stacks "full-edit-session" on top (size "wide" → host blocks
+outside-click close, guarding the form). Save success calls closeAllDrawers();
+Cancel/Close call closeTopDrawer(). The full-page nav buttons (Schedule Another /
+removed View in Calendar) just set window.location.href — they intentionally do
+NOT call closeTopDrawer() because the reload wipes drawer state and history.back()
+would race the navigation.
+
 ## Browser-testing the inline drawers
 - The host's drawer header has `data-testid="record-drawer"` (SheetContent) and
   `data-testid="record-drawer-title"` (SheetTitle) — assert open + title via the

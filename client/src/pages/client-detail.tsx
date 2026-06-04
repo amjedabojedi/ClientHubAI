@@ -1123,7 +1123,7 @@ export default function ClientDetailPage({
   const { addRecentClient } = useRecentItems();
 
   // Stacked record drawers (child records open in slide-over drawers)
-  const { openDrawer, closeTopDrawer, stack: drawerStack, outletEl: drawerOutletEl } = useRecordDrawer();
+  const { openDrawer, closeTopDrawer, closeAllDrawers, stack: drawerStack, outletEl: drawerOutletEl } = useRecordDrawer();
   const topDrawer = drawerStack[drawerStack.length - 1];
   const topInlineKey =
     topDrawer?.type === INLINE_DRAWER_TYPE ? topDrawer.inlineKey : undefined;
@@ -1213,11 +1213,9 @@ export default function ClientDetailPage({
   });
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
-  const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [isDeleteSessionDialogOpen, setIsDeleteSessionDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [selectedSessionForModal, setSelectedSessionForModal] = useState<Session | null>(null);
-  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60);
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState(false);
@@ -2429,7 +2427,7 @@ export default function ClientDetailPage({
         title: "Success",
         description: "Session updated successfully",
       });
-      setIsFullEditModalOpen(false);
+      closeAllDrawers();
       setEditingSessionId(null);
       setUserConfirmedConflicts(false);
       sessionForm.reset();
@@ -3681,7 +3679,7 @@ export default function ClientDetailPage({
                                           <DropdownMenuItem
                                             onClick={() => {
                                               setSelectedSessionForModal(session);
-                                              setIsEditSessionModalOpen(true);
+                                              openInlineDrawer("session-details", { title: "Session Details & Actions", subtitle: client?.fullName ?? undefined });
                                             }}
                                           >
                                             <Edit className="w-4 h-4 mr-2" />
@@ -3766,14 +3764,8 @@ export default function ClientDetailPage({
               </CardContent>
             </Card>
 
-            {/* Edit Session Modal - Inside Session History Tab */}
-            {selectedSessionForModal && (
-              <Dialog open={isEditSessionModalOpen} onOpenChange={setIsEditSessionModalOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Session Details & Actions</DialogTitle>
-                    <DialogDescription>View session information and perform actions</DialogDescription>
-                  </DialogHeader>
+            {/* Session Details & Actions — rendered as a RecordDrawer slide-over */}
+            {drawerOutletEl && topInlineKey === "session-details" && selectedSessionForModal && createPortal(
                   <div className="space-y-6">
                     <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
                       <Avatar className="w-16 h-16">
@@ -3924,8 +3916,7 @@ export default function ClientDetailPage({
                             });
                             
                             setEditingSessionId(selectedSessionForModal.id);
-                            setIsEditSessionModalOpen(false);
-                            setIsFullEditModalOpen(true);
+                            openInlineDrawer("full-edit-session", { title: "Edit Session", subtitle: client?.fullName ?? undefined, size: "wide" });
                           }}
                           className="text-sm px-3 py-2 h-9 col-span-2"
                           data-testid="button-edit-session-inline"
@@ -3938,7 +3929,6 @@ export default function ClientDetailPage({
                         <Button 
                           variant="outline"
                           onClick={() => {
-                            setIsEditSessionModalOpen(false);
                             window.location.href = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
                           }}
                           className="text-sm px-3 py-2 h-9"
@@ -3960,7 +3950,7 @@ export default function ClientDetailPage({
                         ) : (
                           <Button 
                             variant="outline" 
-                            onClick={() => setIsEditSessionModalOpen(false)}
+                            onClick={() => closeTopDrawer()}
                             className="text-sm px-3 py-2 h-9"
                           >
                             Close
@@ -3968,9 +3958,8 @@ export default function ClientDetailPage({
                         )}
                       </div>
                     </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </div>,
+                  drawerOutletEl
             )}
           </TabsContent>
 
@@ -5799,16 +5788,8 @@ export default function ClientDetailPage({
         drawerOutletEl
       )}
 
-      {/* Full Edit Session Modal */}
-      <Dialog open={isFullEditModalOpen} onOpenChange={setIsFullEditModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Session</DialogTitle>
-            <DialogDescription>
-              Update session details and scheduling information
-            </DialogDescription>
-          </DialogHeader>
-          
+      {/* Full Edit Session — rendered as a RecordDrawer slide-over */}
+      {drawerOutletEl && topInlineKey === "full-edit-session" && createPortal(
           <Form {...sessionForm}>
             <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
               {/* Therapist Field - FULL WIDTH */}
@@ -6224,7 +6205,7 @@ export default function ClientDetailPage({
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setIsFullEditModalOpen(false);
+                    closeTopDrawer();
                     setEditingSessionId(null);
                     setUserConfirmedConflicts(false);
                     sessionForm.reset();
@@ -6242,9 +6223,9 @@ export default function ClientDetailPage({
                 </Button>
               </DialogFooter>
             </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+          </Form>,
+        drawerOutletEl
+      )}
 
       {/* Session Notes Manager - Handles its own dialog */}
       <SessionNotesManager 
