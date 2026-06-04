@@ -32,3 +32,16 @@ review → preview by calling openInlineDrawer from inside the first drawer's bo
 Patient portal (/portal/*) is excluded; standalone routes stay as deep-link entry
 points. Dead-code dialogs and close-guarded modals (Session Recorder, delete
 confirmations) were intentionally left as plain Dialogs.
+
+## Browser-testing the inline drawers
+- The host's drawer header has `data-testid="record-drawer"` (SheetContent) and
+  `data-testid="record-drawer-title"` (SheetTitle) — assert open + title via the
+  title text, which changes in place as the stack pushes/pops (the drawer element
+  stays mounted). Breadcrumb back-buttons are `data-testid="breadcrumb-drawer-<i>"`
+  (only present at depth ≥ 2).
+- Client-detail accepts a `?tab=<value>` URL param (documents/billing/checklist/…)
+  to land directly on a tab — far simpler in tests than driving the DropdownMenu
+  tab switcher. Valid values are the `TAB_GROUPS[].items[].value`s.
+- Escape (Sheet onOpenChange) routes through `closeTopDrawer` (history.back), so it
+  pops exactly one level — good enough to exercise the close path in puppeteer.
+- See test/client-detail-drawers-ui.test.ts (in test-privacy) for the pattern.

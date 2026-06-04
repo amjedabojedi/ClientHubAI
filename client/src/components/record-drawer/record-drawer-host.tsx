@@ -90,7 +90,7 @@ export function RecordDrawerHost() {
                 })}
               </nav>
             )}
-            <SheetTitle className="text-lg">{top.title}</SheetTitle>
+            <SheetTitle className="text-lg" data-testid="record-drawer-title">{top.title}</SheetTitle>
             {top.subtitle ? (
               <SheetDescription>{top.subtitle}</SheetDescription>
             ) : (
