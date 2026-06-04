@@ -18,6 +18,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { createPortal } from "react-dom";
+import { useRecordDrawer, INLINE_DRAWER_TYPE } from "@/contexts/RecordDrawerContext";
 import { 
   CreditCard, 
   DollarSign, 
@@ -123,6 +125,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { outletEl } = useRecordDrawer();
   const canVoid = ['administrator', 'admin', 'supervisor', 'accountant', 'billing']
     .includes((user?.role || '').toLowerCase());
 
@@ -300,17 +303,13 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   const isSubmitting = recordPaymentMutation.isPending;
 
-  if (!billingRecord) return null;
+  if (!isOpen || !outletEl || !billingRecord) return null;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Record Payment</DialogTitle>
-          <DialogDescription>
-            {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
-          </DialogDescription>
-        </DialogHeader>
+  return createPortal(
+    <>
+        <p className="text-sm text-muted-foreground -mt-1 mb-3">
+          {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount Summary Section */}
           <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
@@ -763,8 +762,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </DialogContent>
-    </Dialog>
+    </>,
+    outletEl
   );
 }
 
@@ -933,7 +932,9 @@ export default function BillingDashboard() {
   const [clientSearch, setClientSearch] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const { openDrawer, closeTopDrawer, stack: drawerStack } = useRecordDrawer();
+  const topDrawer = drawerStack[drawerStack.length - 1];
+  const topInlineKey = topDrawer?.type === INLINE_DRAWER_TYPE ? topDrawer.inlineKey : undefined;
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
@@ -1129,7 +1130,12 @@ export default function BillingDashboard() {
       session: record.session ? { ...record.session, client: record.client } : undefined,
     };
     setSelectedBillingRecord(billingRecord);
-    setPaymentDialogOpen(true);
+    openDrawer({
+      type: INLINE_DRAWER_TYPE,
+      inlineKey: 'payment-record',
+      title: 'Record Payment',
+      subtitle: billingRecord?.session?.client?.fullName ?? undefined,
+    });
   };
 
   // Invoice action handlers using apiRequest (includes CSRF tokens automatically)
@@ -1832,8 +1838,8 @@ export default function BillingDashboard() {
 
       {/* Payment Dialog */}
       <PaymentDialog
-        isOpen={paymentDialogOpen}
-        onClose={() => setPaymentDialogOpen(false)}
+        isOpen={topInlineKey === 'payment-record'}
+        onClose={closeTopDrawer}
         billingRecord={selectedBillingRecord}
         onPaymentRecorded={() => {
           setSelectedBillingRecord(null);
