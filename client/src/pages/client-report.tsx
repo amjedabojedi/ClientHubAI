@@ -57,13 +57,29 @@ const quillModules = {
 
 const quillFormats = ["header", "bold", "italic", "underline", "list", "bullet"];
 
-export default function ClientReportPage() {
+interface ClientReportPageProps {
+  /** When provided, the page renders embedded (e.g. inside a drawer) using
+   * these ids instead of the URL, and "Back" closes via onClose. */
+  clientId?: number;
+  reportId?: number;
+  onClose?: () => void;
+}
+
+export default function ClientReportPage(props: ClientReportPageProps = {}) {
   const [, params] = useRoute("/clients/:clientId/reports/:reportId");
   const [, setLocation] = useLocation();
-  const clientId = params?.clientId ? parseInt(params.clientId) : null;
-  const reportId = params?.reportId ? parseInt(params.reportId) : null;
+  const clientId =
+    props.clientId ?? (params?.clientId ? parseInt(params.clientId) : null);
+  const reportId =
+    props.reportId ?? (params?.reportId ? parseInt(params.reportId) : null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // When embedded in a drawer, "Back" closes the drawer instead of navigating.
+  const goBack = (fallbackUrl: string) => {
+    if (props.onClose) props.onClose();
+    else setLocation(fallbackUrl);
+  };
 
   const [editorContent, setEditorContent] = useState("");
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
@@ -236,7 +252,7 @@ export default function ClientReportPage() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Report Not Found</h2>
           <p className="text-slate-600 mb-4">The requested report could not be found.</p>
-          <Button onClick={() => setLocation(clientId ? `/clients/${clientId}?tab=reports` : "/clients")}>
+          <Button onClick={() => goBack(clientId ? `/clients/${clientId}?tab=reports` : "/clients")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -256,7 +272,7 @@ export default function ClientReportPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLocation(`/clients/${report.clientId}?tab=reports`)}
+            onClick={() => goBack(`/clients/${report.clientId}?tab=reports`)}
             data-testid="button-back-to-reports"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

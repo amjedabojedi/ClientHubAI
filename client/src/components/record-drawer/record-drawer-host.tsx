@@ -41,6 +41,12 @@ export function RecordDrawerHost() {
           side="right"
           className={cn(sizeClass[top.size ?? "normal"], "p-0 flex flex-col gap-0 h-full")}
           data-testid="record-drawer"
+          onPointerDownOutside={(e) => {
+            // Wide drawers host heavy editors (reports/assessments) where an
+            // accidental click outside could discard unsaved edits. Require an
+            // explicit close (X / Back) for those. Normal drawers close freely.
+            if ((top.size ?? "normal") === "wide") e.preventDefault();
+          }}
         >
           {/* Header + breadcrumb */}
           <div className="border-b px-6 py-4 pr-12">

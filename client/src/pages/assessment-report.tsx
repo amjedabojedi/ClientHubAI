@@ -64,10 +64,32 @@ const quillFormats = [
   'list', 'bullet'
 ];
 
-export default function AssessmentReportPage() {
+interface AssessmentReportPageProps {
+  /** When provided, the page renders embedded (e.g. inside a drawer): ids come
+   * from props instead of the URL, "Back" calls onClose, and switching to the
+   * completion form uses onOpenCompletion. */
+  assignmentId?: number;
+  onClose?: () => void;
+  onOpenCompletion?: (assignmentId: number) => void;
+}
+
+export default function AssessmentReportPage(props: AssessmentReportPageProps = {}) {
   const [match, params] = useRoute("/assessments/:assignmentId/report");
   const [, setLocation] = useLocation();
-  const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
+  const assignmentId =
+    props.assignmentId ?? (params?.assignmentId ? parseInt(params.assignmentId) : null);
+
+  // When embedded in a drawer, "Back" closes the drawer instead of navigating.
+  const closeOrNavigate = (fallbackUrl: string) => {
+    if (props.onClose) props.onClose();
+    else setLocation(fallbackUrl);
+  };
+  // Switching to the completion form swaps the drawer when embedded.
+  const goToCompletion = () => {
+    if (props.onOpenCompletion && assignmentId != null) props.onOpenCompletion(assignmentId);
+    else setLocation(`/assessments/${assignmentId}/complete`);
+  };
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -339,7 +361,7 @@ export default function AssessmentReportPage() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Not Found</h2>
           <p className="text-slate-600 mb-4">The requested assessment could not be found.</p>
-          <Button onClick={() => setLocation("/assessments")}>
+          <Button onClick={() => closeOrNavigate("/assessments")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Assessments
           </Button>
@@ -540,7 +562,7 @@ export default function AssessmentReportPage() {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setLocation(`/clients/${assignment.clientId}?from=assessments&tab=assessments`)}
+                onClick={() => closeOrNavigate(`/clients/${assignment.clientId}?from=assessments&tab=assessments`)}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -549,7 +571,7 @@ export default function AssessmentReportPage() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setLocation(`/assessments/${assignmentId}/complete`)}
+                  onClick={() => goToCompletion()}
                   className="border-purple-600 text-purple-600 hover:bg-purple-50"
                   data-testid="button-edit-assessment-responses"
                 >

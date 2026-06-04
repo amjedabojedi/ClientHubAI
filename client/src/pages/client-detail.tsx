@@ -1956,13 +1956,25 @@ export default function ClientDetailPage() {
       }
     }
     
-    // Navigate to assessment completion page
-    window.location.href = `/assessments/${assessmentId}/complete`;
+    // Open the assessment completion form in a wide drawer (keeps client context).
+    openDrawer({
+      type: "assessment-completion",
+      title: "Complete Assessment",
+      subtitle: client?.fullName ?? undefined,
+      size: "wide",
+      props: { assignmentId: assessmentId },
+    });
   };
 
   const handleViewAssessmentReport = (assessmentId: number) => {
-    // Navigate to assessment report page
-    window.location.href = `/assessments/${assessmentId}/report`;
+    // Open the assessment report in a wide drawer (keeps client context).
+    openDrawer({
+      type: "assessment-report",
+      title: "Assessment Report",
+      subtitle: client?.fullName ?? undefined,
+      size: "wide",
+      props: { assignmentId: assessmentId },
+    });
   };
 
   // Delete assessment mutation
@@ -2287,7 +2299,13 @@ export default function ClientDetailPage() {
       });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/reports`] });
       if (report?.id) {
-        setLocation(`/clients/${clientId}/reports/${report.id}`);
+        openDrawer({
+          type: "client-report",
+          title: "Client Report",
+          subtitle: client?.fullName ?? undefined,
+          size: "wide",
+          props: { clientId: clientId ?? undefined, reportId: report.id },
+        });
       }
     },
     onError: (error: any) => {
@@ -4444,7 +4462,15 @@ export default function ClientDetailPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setLocation(`/clients/${clientId}/reports/${report.id}`)}
+                            onClick={() =>
+                              openDrawer({
+                                type: "client-report",
+                                title: "Client Report",
+                                subtitle: client?.fullName ?? undefined,
+                                size: "wide",
+                                props: { clientId: clientId ?? undefined, reportId: report.id },
+                              })
+                            }
                             data-testid={`button-open-report-${report.id}`}
                           >
                             {report.isFinalized ? "View" : "Review & Edit"}

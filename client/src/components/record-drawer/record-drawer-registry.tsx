@@ -1,5 +1,10 @@
 import type { ComponentType } from "react";
 import { SessionDetailDrawer } from "./session-detail-drawer";
+import {
+  ClientReportDrawer,
+  AssessmentCompletionDrawer,
+  AssessmentReportDrawer,
+} from "./heavy-record-drawers";
 
 // Drawer body components receive the entry's `props` spread in, plus `entry`.
 // Each component declares its own concrete prop shape, so the registry uses a
@@ -12,4 +17,7 @@ export type DrawerComponent = ComponentType<any>;
  */
 export const recordDrawerRegistry: Record<string, DrawerComponent> = {
   session: SessionDetailDrawer,
+  "client-report": ClientReportDrawer,
+  "assessment-completion": AssessmentCompletionDrawer,
+  "assessment-report": AssessmentReportDrawer,
 };
