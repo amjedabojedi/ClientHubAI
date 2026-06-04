@@ -67,6 +67,20 @@ REGRESSION_THRESHOLD="0.5"
 # from 1s to 3s is 200% slower but almost always just scheduling noise.
 REGRESSION_MIN_SECONDS=5
 
+# Opt-in: when FAIL_ON_SLOWDOWN is set to a truthy value (1/true/yes), a
+# detected slow-down regression makes the overall run exit non-zero. Default
+# (unset/0) is warning-only — the run still passes. Useful in CI to catch
+# performance regressions automatically.
+FAIL_ON_SLOWDOWN="${FAIL_ON_SLOWDOWN:-0}"
+case "${FAIL_ON_SLOWDOWN}" in
+  1 | true | TRUE | yes | YES) FAIL_ON_SLOWDOWN=1 ;;
+  *) FAIL_ON_SLOWDOWN=0 ;;
+esac
+
+# Set when a slow-down regression is detected, so the final exit logic can
+# fail the run if FAIL_ON_SLOWDOWN is enabled.
+SLOWDOWN_DETECTED=0
+
 TOTAL=${#SUITES[@]}
 INDEX=0
 
@@ -165,6 +179,7 @@ if command -v jq >/dev/null 2>&1; then
   done
 
   if [ "${#REGRESSIONS[@]}" -gt 0 ]; then
+    SLOWDOWN_DETECTED=1
     echo "⚠️  Slow-down regressions (>$(awk -v t="${REGRESSION_THRESHOLD}" 'BEGIN { printf "%d", t * 100 }')% slower than last run):"
     for entry in "${REGRESSIONS[@]}"; do
       IFS='|' read -r suite prev now pct <<< "${entry}"
@@ -200,6 +215,12 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
   done
   echo ""
   echo "🚨 One or more suites failed."
+  exit 1
+fi
+
+if [ "${SLOWDOWN_DETECTED}" -eq 1 ] && [ "${FAIL_ON_SLOWDOWN}" -eq 1 ]; then
+  echo ""
+  echo "🚨 Slow-down regression detected and FAIL_ON_SLOWDOWN is enabled."
   exit 1
 fi
 
