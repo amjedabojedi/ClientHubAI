@@ -2074,6 +2074,7 @@ export default function SchedulingPage() {
                           )}
                           {bookingStep < 3 ? (
                             <Button
+                              key="wizard-next-btn"
                               type="button"
                               data-testid="booking-next"
                               onClick={async () => {
@@ -2089,7 +2090,13 @@ export default function SchedulingPage() {
                               Next <ChevronRight className="w-4 h-4 ml-1" />
                             </Button>
                           ) : (
-                            <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending}>
+                            <Button
+                              key="wizard-submit-btn"
+                              type="button"
+                              data-testid="booking-submit"
+                              onClick={() => { form.handleSubmit(onSubmit)(); }}
+                              disabled={createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending}
+                            >
                               {(createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending) ?
                                 (editingSessionId ? "Updating..." : "Scheduling...") :
                                 (editingSessionId
