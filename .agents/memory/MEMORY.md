@@ -14,3 +14,4 @@
 - [Session note content fields](session-note-content-fields.md) — session_notes has no single "content" column; read finalContent/draft/generated + structured fields, strip HTML before truthiness check.
 - [pdfjs-dist worker in Node](pdfjs-node-worker.md) — pdfjs v5 needs workerSrc set to a real worker file:// URL; empty string throws "fake worker failed" → 500 on PDF uploads.
 - [Supporting files blob exposure](supporting-files-blob-exposure.md) — Azure container is public at blob level; never return fileUrl/fileBlobName/extractedText in API responses for blob-backed rows.
+- [Session count classification](session-count-classification.md) — AI must NOT count sessions; counts/date-ranges computed server-side. session_type is unreliable, classify by service name, fail closed.
