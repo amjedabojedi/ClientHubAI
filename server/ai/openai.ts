@@ -1429,25 +1429,24 @@ Status: ${sanitize(client.status)}
 `.trim();
 
   // ---- Session statistics (computed server-side; the AI must not count) ----
-  // The session_type column is unreliable: many non-therapy appointments
-  // (e.g. "Admin", "Assessment 4 hours") are still tagged "psychotherapy". So
-  // we classify by the linked service catalogue entry and status instead.
-  // "Completed psychotherapy sessions" excludes assessment-only, administrative,
-  // consultation, cancelled, no-show and future appointments — matching the
-  // wording practices use in their report templates.
-  const EXCLUDED_SERVICE = /(admin|assessment|consult|document|planning|report|transport|prescreen|\btest\b)/i;
+  // The session_type column is unreliable (non-therapy appointments are still
+  // tagged "psychotherapy"), so we classify by the structured service CODE from
+  // the service catalogue. Psychotherapy code families: Psy*/Psyc* (e.g. Psy01),
+  // IFH-1H/2H/3H and "Psychotherapy - IFH" (all start "PSY"/"IFH-<digit>"),
+  // FAM* (family), COU* (couples), INK* (intake), and the standalone "MVA".
+  // Everything else (assessment ASS*/IFH-ASSESS/MVA01/LE*/TM*, admin ADM*,
+  // documentation DOC*, transport TP*, report WRI*/PR, prescreening) is excluded
+  // — matching the wording practices use in their report templates (excludes
+  // assessment-only, administrative, consultation, cancelled, no-show, future).
+  const PSYCHOTHERAPY_CODE = /^(psy|ifh-[0-9]|fam|cou|ink)/i;
   const isCompletedPsychotherapy = (s: any): boolean => {
-    if (String(s.status || '').toLowerCase() !== 'completed') return false;
+    if (String(s.status || '').trim().toLowerCase() !== 'completed') return false;
     const when = s.sessionDate || s.startTime || s.date;
     if (when && new Date(when).getTime() > Date.now()) return false; // future
-    const stype = String(s.sessionType || s.type || '').toLowerCase();
-    if (stype === 'assessment' || stype === 'consultation') return false;
-    const svcName = String(s.service?.serviceName || s.service?.name || '').toLowerCase().trim();
-    // session_type is unreliable, so fail closed when the service is unknown:
-    // an unclassifiable appointment must NOT inflate the psychotherapy count.
-    if (!svcName) return false;
-    if (EXCLUDED_SERVICE.test(svcName)) return false;
-    return true;
+    const code = String(s.service?.serviceCode || '').trim();
+    // Fail closed: an unknown/missing service code must NOT inflate the count.
+    if (!code) return false;
+    return PSYCHOTHERAPY_CODE.test(code) || code.toUpperCase() === 'MVA';
   };
   const sessionTime = (s: any): number =>
     new Date(s.sessionDate || s.startTime || s.date).getTime();
