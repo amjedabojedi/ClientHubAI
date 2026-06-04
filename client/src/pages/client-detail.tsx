@@ -5146,11 +5146,19 @@ export default function ClientDetailPage({
               </CardHeader>
               <CardContent className="p-6">
                 <Tabs defaultValue="notes" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="notes" data-testid="tab-client-notes">
+                  <TabsList className="h-auto flex-wrap gap-1 mb-6">
+                    <TabsTrigger
+                      value="notes"
+                      data-testid="tab-client-notes"
+                      className="h-9 gap-2 rounded-md px-3"
+                    >
                       Communications
                     </TabsTrigger>
-                    <TabsTrigger value="emails" data-testid="tab-email-history">
+                    <TabsTrigger
+                      value="emails"
+                      data-testid="tab-email-history"
+                      className="h-9 gap-2 rounded-md px-3"
+                    >
                       Email History
                     </TabsTrigger>
                   </TabsList>
