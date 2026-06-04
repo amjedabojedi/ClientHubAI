@@ -3568,7 +3568,7 @@ export default function ClientDetailPage({
                             {/* Single Menu - All other actions organized by category */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                                <Button variant="ghost" size="sm" className="h-9 w-9 p-0" data-testid={`session-menu-trigger-${session.id}`}>
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -3688,6 +3688,7 @@ export default function ClientDetailPage({
                                               setSelectedSessionForModal(session);
                                               openInlineDrawer("session-details", { title: "Session Details & Actions", subtitle: client?.fullName ?? undefined });
                                             }}
+                                            data-testid={`menu-edit-session-details-${session.id}`}
                                           >
                                             <Edit className="w-4 h-4 mr-2" />
                                             Edit Session Details
