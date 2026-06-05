@@ -6,9 +6,24 @@ description: Why the top-level record drawer must stay modeless and how editor l
 # Top record-drawer level is non-modal; deeper levels are modal
 
 The staff record-drawer (a shadcn `Sheet` / Radix Dialog) is **non-modal at stack
-depth 1** (no dimming overlay, background page stays clickable) and **modal at
-depth 2+** (overlay returns). The toggle is `isModal = stack.length > 1`, driving
-both `<Sheet modal>` and `<SheetContent overlay>`.
+depth 1** (no dimming overlay, background page stays clickable) and **modal-feeling
+at depth 2+** (overlay returns + outside-close guards). `isModal = stack.length > 1`
+drives `<SheetContent overlay>` and the outside-close guards.
+
+**CRITICAL: never bind `isModal` to the Sheet's `modal` prop.** The `Sheet` must
+stay `modal={false}` for the WHOLE stack. Radix Dialog renders two *different*
+component types depending on `modal` (`DialogContentModal` vs
+`DialogContentNonModal`), so flipping `modal` as the stack grows (false→true when
+the first child opens) **remounts the entire drawer body**. That tears down the
+page mounted in the body (e.g. `ClientDetailPage` rendered by `ClientDetailDrawer`),
+resetting its `useState`. The symptom is a child inline-drawer that opens with the
+right title/breadcrumb but a **completely EMPTY body, no console error**. It only
+bites inline bodies gated on local state set *right before* opening — the
+`session-details` portal (gated on `selectedSessionForModal`) broke this way while
+payment/document inline drawers (no such state guard) silently survived, which is
+why the depth-2 UI tests didn't catch it. The depth-2 "modal" feel is reproduced
+without Radix modality: the rendered overlay (pointer-events on) blocks background
+clicks, and the outside-close guards stop dismissal.
 
 **Why:** users browse the client list with a profile open and want to click another
 list row to switch records without closing anything (in-place swap via

@@ -41,11 +41,21 @@ export function RecordDrawerHost() {
 
   const top = stack[stack.length - 1];
   const open = stack.length > 0;
-  // Depth 1 is the top-level browsing panel (e.g. a client profile slid over the
-  // client list): keep it NON-MODAL so the list behind stays visible and
-  // clickable and the user can jump straight to another record. Deeper levels
-  // (child records / heavy report & assessment editors) stay MODAL so the dimmed
-  // backdrop protects in-progress edits from an accidental outside click.
+  // `isModal` describes the INTENT for the current depth: depth 1 is a top-level
+  // browsing panel (e.g. a client profile slid over the client list) that should
+  // feel non-modal (list behind stays visible/clickable), while deeper levels
+  // (child records / heavy editors) should feel modal so a dimmed backdrop
+  // protects in-progress edits. We DERIVE the overlay + outside-close guards from
+  // it below — but we deliberately do NOT pass it to the Sheet's `modal` prop.
+  //
+  // Why: Radix Dialog renders two different components depending on `modal`
+  // (DialogContentModal vs DialogContentNonModal). Flipping `modal` as the stack
+  // grows therefore REMOUNTS the entire drawer body, tearing down the page that
+  // owns a child level's inline body (its local state is reset to defaults), which
+  // makes the child drawer open EMPTY. So the Sheet stays permanently non-modal
+  // (`modal={false}`) and we reproduce the depth-2 "modal" feel ourselves: the
+  // overlay (rendered when isModal) covers the screen and blocks background
+  // clicks, and the outside-close guards below keep editors from being dismissed.
   const isModal = stack.length > 1;
   // Keep ONE consistent width across the whole open stack so the panel never
   // shrinks/grows as the user drills into a child record and back. The drawer
@@ -58,7 +68,7 @@ export function RecordDrawerHost() {
   return (
     <Sheet
       open={open}
-      modal={isModal}
+      modal={false}
       onOpenChange={(next) => {
         if (!next) closeTopDrawer();
       }}
@@ -79,8 +89,13 @@ export function RecordDrawerHost() {
             if ((top.size ?? "normal") === "wide") e.preventDefault();
           }}
           onInteractOutside={(e) => {
-            // Same guard for non-pointer outside interactions (focus, etc.).
-            if (!isModal) e.preventDefault();
+            // Same guards for non-pointer outside interactions (focus, etc.).
+            // Because the Sheet is permanently non-modal (see note above), Radix
+            // no longer traps focus at depth 2+, so we must reproduce the heavy-
+            // editor protection here too: never let the depth-1 browsing panel or
+            // a wide editor be dismissed by an outside interaction.
+            if (!isModal) { e.preventDefault(); return; }
+            if ((top.size ?? "normal") === "wide") e.preventDefault();
           }}
         >
           {/* Header + breadcrumb */}
