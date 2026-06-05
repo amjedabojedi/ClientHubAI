@@ -1114,11 +1114,11 @@ const ALL_TABS = [...PINNED_TABS, ...MORE_TABS];
 function PanelHeader({ icon: Icon, title, subtitle, className = "" }: { icon: LucideIcon; title: string; subtitle?: string; className?: string }) {
   return (
     <div className={`flex items-center gap-4 p-4 bg-muted rounded-lg ${className}`}>
-      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center shrink-0">
         <Icon className="w-6 h-6" />
       </div>
       <div className="min-w-0">
-        <h3 className="text-lg font-semibold text-blue-600 truncate">{title}</h3>
+        <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 truncate">{title}</h3>
         {subtitle ? <p className="text-sm text-muted-foreground truncate">{subtitle}</p> : null}
       </div>
     </div>
@@ -3800,7 +3800,7 @@ export default function ClientDetailPage({
                   <div className="space-y-6">
                     <div className="flex items-center space-x-4 p-4 bg-muted rounded-lg">
                       <Avatar className="w-16 h-16">
-                        <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
+                        <AvatarFallback className="bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 text-lg">
                           {(() => {
                             const name = client?.fullName || 'UC';
                             return name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
@@ -3808,7 +3808,7 @@ export default function ClientDetailPage({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-blue-600">
+                        <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                           {client?.fullName || 'Unknown Client'}
                         </h3>
                         <p className="text-muted-foreground">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
