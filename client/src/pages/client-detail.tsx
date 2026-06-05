@@ -3455,10 +3455,10 @@ export default function ClientDetailPage({
                                 })()}
                               </div>
                               <div className="space-y-1 text-sm text-slate-600">
-                                {(session as any).therapistName && (
+                                {((session as any).therapist?.fullName || (session as any).therapistName) && (
                                   <div className="flex items-center space-x-2">
                                     <UserIcon className="w-4 h-4" />
-                                    <span>Therapist: {(session as any).therapistName}</span>
+                                    <span>Therapist: {(session as any).therapist?.fullName || (session as any).therapistName}</span>
                                   </div>
                                 )}
                                 {(session as any).room?.roomName && (
@@ -3811,7 +3811,7 @@ export default function ClientDetailPage({
                         <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                           {client?.fullName || 'Unknown Client'}
                         </h3>
-                        <p className="text-muted-foreground">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
+                        <p className="text-muted-foreground">with {(selectedSessionForModal as any).therapist?.fullName || (selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
                         <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                           <span>
                             {formatDateTimeDisplay(selectedSessionForModal.sessionDate)} EST
