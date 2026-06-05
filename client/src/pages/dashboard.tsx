@@ -824,7 +824,7 @@ export default function DashboardPage() {
                                 Cancel Session
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => setLocation("/scheduling")}
+                                onClick={() => setLocation(`/scheduling?editSessionId=${session.id}&editDate=${encodeURIComponent(session.sessionDate)}`)}
                                 data-testid={`button-reschedule-session-${session.id}`}
                                 className="cursor-pointer"
                               >

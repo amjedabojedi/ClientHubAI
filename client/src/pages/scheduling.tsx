@@ -232,6 +232,7 @@ export default function SchedulingPage() {
   const therapistIdFromUrl = urlParams.get('therapistId');
   const therapistNameFromUrl = urlParams.get('therapistName');
   const editSessionIdFromUrl = urlParams.get('editSessionId');
+  const editDateFromUrl = urlParams.get('editDate');
   
   // Determine which month to fetch based on selected date and view mode
   const getMonthToFetch = () => {
@@ -472,6 +473,19 @@ export default function SchedulingPage() {
     }
   }, [clientIdFromUrl, clientNameFromUrl, therapistIdFromUrl, form]);
 
+  // When rescheduling a session that may live in another month, jump the calendar
+  // to its month so the month query loads it and the editSessionId effect below can
+  // find and prefill it. Only runs for the reschedule deep-link (both params present).
+  React.useEffect(() => {
+    if (editSessionIdFromUrl && editDateFromUrl) {
+      const d = new Date(editDateFromUrl);
+      if (!isNaN(d.getTime())) {
+        setSelectedDate(d);
+        setCurrentMonth(d);
+      }
+    }
+  }, [editSessionIdFromUrl, editDateFromUrl]);
+
   // Auto-load session for editing when editSessionId is in URL
   React.useEffect(() => {
     if (editSessionIdFromUrl && sessions.length > 0) {
@@ -511,6 +525,32 @@ export default function SchedulingPage() {
       }
     }
   }, [editSessionIdFromUrl, sessions, form, toast]);
+
+  // Reschedule deep-link safety net: if a session was requested for editing but is
+  // not in the loaded month (deleted, moved, or out of the user's access scope),
+  // tell the user instead of silently doing nothing. Only judged once the session's
+  // own month is the one actually loaded, so a mid-switch refetch can't false-trigger.
+  const rescheduleNotifiedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!editSessionIdFromUrl || sessions.length === 0) return;
+    if (editDateFromUrl) {
+      const d = new Date(editDateFromUrl);
+      if (!isNaN(d.getTime()) &&
+          (monthToFetch.getFullYear() !== d.getFullYear() || monthToFetch.getMonth() !== d.getMonth())) {
+        return; // still loading the target month; don't judge "not found" yet
+      }
+    }
+    const found = sessions.some(s => s.id === parseInt(editSessionIdFromUrl));
+    if (!found && rescheduleNotifiedRef.current !== editSessionIdFromUrl) {
+      rescheduleNotifiedRef.current = editSessionIdFromUrl;
+      toast({
+        title: "Session not available",
+        description: "This session couldn't be opened for rescheduling. It may have been deleted, moved, or you may not have access to it.",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, '', '/scheduling');
+    }
+  }, [editSessionIdFromUrl, editDateFromUrl, sessions, monthToFetch, toast]);
 
   // Watch for date/time changes to update room availability
   const watchedDate = form.watch('sessionDate');

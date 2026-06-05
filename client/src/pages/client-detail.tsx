@@ -3960,7 +3960,10 @@ export default function ClientDetailPage({
                         <Button 
                           variant="outline"
                           onClick={() => {
-                            const schedulingUrl = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
+                            const sess = selectedSessionForModal as any;
+                            const therapistId = sess.therapist?.id ?? sess.therapistId ?? '';
+                            const therapistName = sess.therapist?.fullName ?? sess.therapistName ?? '';
+                            const schedulingUrl = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${therapistId}&therapistName=${encodeURIComponent(therapistName)}`;
                             resetDrawers();
                             setLocation(schedulingUrl);
                           }}
