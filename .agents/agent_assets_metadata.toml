@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "NF1saIwUEln6-LqBuhWsA"
+uri = "file://docs/record-session-handoff.md"
+type = "text"
+title = "Record Session — Technical Handoff"
