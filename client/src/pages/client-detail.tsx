@@ -696,8 +696,16 @@ const sessionFormSchema = z.object({
   sessionDate: z.string().min(1, "Date is required"),
   sessionTime: z.string().min(1, "Time is required"),
   serviceId: z.coerce.number().int().min(1, "Service is required"),
-  roomId: z.coerce.number().int().min(1, "Room is required"),
-  sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
+  // Room is optional: some sessions (e.g. online/telehealth) legitimately have
+  // no room. Requiring it made editing those sessions fail validation silently.
+  roomId: z.preprocess(
+    (v) => (v === undefined || v === null || v === "" ? undefined : v),
+    z.coerce.number().int().min(1).optional(),
+  ),
+  // Accept any stored session type. A strict enum silently rejected real legacy
+  // values ("online", "in-person", "individual"), so those sessions could not
+  // be saved at all (and would have been force-changed if they had).
+  sessionType: z.string().min(1, "Session type is required"),
   notes: z.string().optional(),
   zoomEnabled: z.boolean().optional().default(false),
 });
@@ -5809,7 +5817,16 @@ export default function ClientDetailPage({
       {/* Full Edit Session — rendered as a RecordDrawer slide-over */}
       {drawerOutletEl && topInlineKey === "full-edit-session" && createPortal(
           <Form {...sessionForm}>
-            <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
+            <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit, (errors) => {
+              // Never fail silently: if validation blocks the save, tell the user
+              // exactly which field is the problem instead of doing nothing.
+              const firstMessage = Object.values(errors)[0]?.message as string | undefined;
+              toast({
+                title: "Can't save yet",
+                description: firstMessage || "Please check the highlighted fields and try again.",
+                variant: "destructive",
+              });
+            })} className="space-y-4">
               {/* Therapist Field - FULL WIDTH */}
               <FormField
                 control={sessionForm.control}
@@ -5897,7 +5914,7 @@ export default function ClientDetailPage({
                   name="roomId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Room *</FormLabel>
+                      <FormLabel>Room</FormLabel>
                       <Select
                         onValueChange={(value) => field.onChange(parseInt(value))}
                         value={field.value?.toString()}

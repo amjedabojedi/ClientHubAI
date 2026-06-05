@@ -23,3 +23,4 @@
 - [Non-modal depth-1 drawer](non-modal-depth1-drawer.md) — top record-drawer level is non-modal (list stays clickable, swap via replaceTopDrawer); depth 2+ stays modal to protect editor edits.
 - [Wizard button type morph](wizard-button-type-morph.md) — never share one JSX slot for a wizard's Next(type=button) and Submit(type=submit); React mutates type in place and the advance-click submits.
 - [Slow-down detector baseline](slowdown-detection-baseline.md) — privacy-suite regression baseline must EXCLUDE the latest run (else a slow sample masks itself) and only fail on a SUSTAINED 2-run slow-down.
+- [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.
