@@ -3783,7 +3783,7 @@ export default function ClientDetailPage({
             {/* Session Details & Actions — rendered as a RecordDrawer slide-over */}
             {drawerOutletEl && topInlineKey === "session-details" && selectedSessionForModal && createPortal(
                   <div className="space-y-6">
-                    <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
+                    <div className="flex items-center space-x-4 p-4 bg-muted rounded-lg">
                       <Avatar className="w-16 h-16">
                         <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
                           {(() => {
@@ -3796,8 +3796,8 @@ export default function ClientDetailPage({
                         <h3 className="text-lg font-semibold text-blue-600">
                           {client?.fullName || 'Unknown Client'}
                         </h3>
-                        <p className="text-slate-600">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
+                        <p className="text-muted-foreground">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
+                        <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                           <span>
                             {formatDateTimeDisplay(selectedSessionForModal.sessionDate)} EST
                           </span>
@@ -3819,12 +3819,12 @@ export default function ClientDetailPage({
                     <div className="grid grid-cols-2 gap-4">
                       {(selectedSessionForModal as any).serviceName && (
                         <div>
-                          <label className="text-sm font-medium text-slate-700">Service</label>
-                          <p className="text-sm text-slate-600">
+                          <label className="text-sm font-medium text-foreground">Service</label>
+                          <p className="text-sm text-muted-foreground">
                             {(selectedSessionForModal as any).serviceName} ({(selectedSessionForModal as any).serviceCode})
                           </p>
                           {(selectedSessionForModal as any).serviceDuration && (selectedSessionForModal as any).serviceRate && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted-foreground">
                               {(selectedSessionForModal as any).serviceDuration} min - ${(selectedSessionForModal as any).serviceRate}
                             </p>
                           )}
@@ -3832,8 +3832,8 @@ export default function ClientDetailPage({
                       )}
                       {(selectedSessionForModal as any).roomName && (
                         <div>
-                          <label className="text-sm font-medium text-slate-700">Room</label>
-                          <p className="text-sm text-slate-600">
+                          <label className="text-sm font-medium text-foreground">Room</label>
+                          <p className="text-sm text-muted-foreground">
                             {(selectedSessionForModal as any).roomName}{(selectedSessionForModal as any).roomNumber && ` (${(selectedSessionForModal as any).roomNumber})`}
                           </p>
                         </div>
@@ -3842,16 +3842,16 @@ export default function ClientDetailPage({
 
                     {selectedSessionForModal.notes && (
                       <div>
-                        <label className="text-sm font-medium text-slate-700">Session Notes</label>
-                        <div className="mt-1 p-3 bg-slate-50 rounded-md">
-                          <p className="text-sm text-slate-600">{selectedSessionForModal.notes}</p>
+                        <label className="text-sm font-medium text-foreground">Session Notes</label>
+                        <div className="mt-1 p-3 bg-muted rounded-md">
+                          <p className="text-sm text-muted-foreground">{selectedSessionForModal.notes}</p>
                         </div>
                       </div>
                     )}
 
                     {/* Status Change Section */}
                     <div className="pt-4 border-t">
-                      <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
+                      <label className="text-sm font-medium text-foreground mb-3 block">Change Session Status</label>
                       <Select 
                         value={selectedSessionForModal.status} 
                         onValueChange={(value) => {
@@ -5269,7 +5269,7 @@ export default function ClientDetailPage({
       {/* Upload Document Drawer */}
       {drawerOutletEl && topInlineKey === "upload-document" && createPortal(
         <>
-          <p className="text-sm text-muted-foreground -mt-1 mb-2">
+          <p className="text-sm text-muted-foreground mb-4">
             Upload a document for {client?.fullName}. Supports PDFs, Word docs, images, and text files.
           </p>
           <div className="grid gap-6 py-4">
@@ -5409,7 +5409,7 @@ export default function ClientDetailPage({
             
             {/* File Preview */}
             {selectedFile && (
-              <div className="border rounded-lg p-4 bg-slate-50">
+              <div className="border rounded-lg p-4 bg-muted">
                 <div className="flex items-center space-x-3">
                   {previewUrl ? (
                     <img 
@@ -5418,13 +5418,13 @@ export default function ClientDetailPage({
                       className="w-16 h-16 object-cover rounded-lg"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-6 h-6 text-slate-400" />
+                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-muted-foreground" />
                     </div>
                   )}
                   <div className="flex-1">
-                    <p className="font-medium text-slate-900">{selectedFile.name}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="font-medium text-foreground">{selectedFile.name}</p>
+                    <p className="text-sm text-muted-foreground">
                       {Math.round(selectedFile.size / 1024)} KB • {selectedFile.type}
                     </p>
                   </div>
@@ -5432,7 +5432,7 @@ export default function ClientDetailPage({
               </div>
             )}
           </div>
-          <DialogFooter>
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button 
               variant="outline" 
               onClick={handleUploadCancel}
@@ -5443,11 +5443,11 @@ export default function ClientDetailPage({
             <Button 
               onClick={handleUploadSubmit}
               disabled={!selectedFile || !documentForm.name.trim() || uploadDocumentMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
+
             >
               {uploadDocumentMutation.isPending ? "Uploading..." : "Upload Document"}
             </Button>
-          </DialogFooter>
+          </div>
         </>,
         drawerOutletEl
       )}
@@ -5456,12 +5456,12 @@ export default function ClientDetailPage({
       {drawerOutletEl && topInlineKey === "document-review" && createPortal(
         <>
           {/* Document info */}
-          <div className="bg-slate-50 border rounded-lg p-3 space-y-1">
-            <p className="font-semibold text-slate-900 text-sm">{reviewDialogDoc?.originalName || reviewDialogDoc?.fileName}</p>
-            <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-              <span>Category: <span className="font-medium text-slate-700">{reviewDialogDoc?.category || 'Uncategorized'}</span></span>
-              <span>Size: <span className="font-medium text-slate-700">{reviewDialogDoc?.fileSize ? `${Math.round(reviewDialogDoc.fileSize / 1024)} KB` : '—'}</span></span>
-              <span>Uploaded: <span className="font-medium text-slate-700">{reviewDialogDoc?.createdAt ? formatDateDisplay(reviewDialogDoc.createdAt) : '—'}</span></span>
+          <div className="bg-muted border rounded-lg p-3 space-y-1">
+            <p className="font-semibold text-foreground text-sm">{reviewDialogDoc?.originalName || reviewDialogDoc?.fileName}</p>
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              <span>Category: <span className="font-medium text-foreground">{reviewDialogDoc?.category || 'Uncategorized'}</span></span>
+              <span>Size: <span className="font-medium text-foreground">{reviewDialogDoc?.fileSize ? `${Math.round(reviewDialogDoc.fileSize / 1024)} KB` : '—'}</span></span>
+              <span>Uploaded: <span className="font-medium text-foreground">{reviewDialogDoc?.createdAt ? formatDateDisplay(reviewDialogDoc.createdAt) : '—'}</span></span>
             </div>
             <div className="flex gap-2 pt-1">
               <Button size="sm" variant="outline" className="text-xs h-7" disabled={!reviewDialogDoc || downloadingDocumentId === reviewDialogDoc?.id} onClick={() => reviewDialogDoc && handleDownloadDocument(reviewDialogDoc)}>
@@ -5479,7 +5479,7 @@ export default function ClientDetailPage({
 
           {/* Notes */}
           <div className="space-y-1">
-            <Label className="text-sm font-medium">Notes <span className="text-slate-400 font-normal">(optional)</span></Label>
+            <Label className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Textarea
               placeholder="Add any notes about this review..."
               value={reviewNotes}
@@ -5488,7 +5488,7 @@ export default function ClientDetailPage({
             />
           </div>
 
-          <DialogFooter className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex justify-end gap-2 pt-4 border-t flex-wrap sm:flex-nowrap">
             <Button variant="outline" onClick={() => { closeTopDrawer(); setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); }}>
               Cancel
             </Button>
@@ -5512,7 +5512,7 @@ export default function ClientDetailPage({
                 </>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </>,
         drawerOutletEl
       )}
@@ -5520,8 +5520,8 @@ export default function ClientDetailPage({
       {/* Assign Checklist Drawer */}
       {drawerOutletEl && topInlineKey === "assign-checklist" && createPortal(
         <>
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground">
               Select a checklist template to assign to {client?.fullName}. This will create a workflow with all required items.
             </p>
             <div>
@@ -5540,7 +5540,7 @@ export default function ClientDetailPage({
                         <CheckSquare className="w-4 h-4" />
                         <div className="text-left">
                           <div className="font-medium">{template.name}</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-muted-foreground">
                             {template.category} • {template.items?.length || 0} items
                           </div>
                         </div>
@@ -5548,11 +5548,11 @@ export default function ClientDetailPage({
                     </Button>
                   ))
                 ) : (
-                  <p className="text-sm text-slate-500">No checklist templates available. Create templates in the Checklist Management page first.</p>
+                  <p className="text-sm text-muted-foreground">No checklist templates available. Create templates in the Checklist Management page first.</p>
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button 
                 variant="outline" 
                 onClick={() => closeTopDrawer()}
@@ -5560,7 +5560,7 @@ export default function ClientDetailPage({
               >
                 Cancel
               </Button>
-            </DialogFooter>
+            </div>
           </div>
         </>,
         drawerOutletEl
@@ -5572,7 +5572,7 @@ export default function ClientDetailPage({
           <div className="max-h-[60vh] overflow-auto">
             {previewDocument && renderDocumentPreview(previewDocument)}
           </div>
-          <DialogFooter>
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button 
               variant="outline" 
               onClick={() => closeTopDrawer()}
@@ -5592,7 +5592,7 @@ export default function ClientDetailPage({
                 {downloadingDocumentId === previewDocument.id ? "Downloading..." : "Download"}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </>,
         drawerOutletEl
       )}
@@ -5725,7 +5725,7 @@ export default function ClientDetailPage({
       {/* Payment Recording Drawer - Matches Billing Dashboard */}
       {drawerOutletEl && topInlineKey === "payment-record" && createPortal(
         <>
-          <p className="text-sm text-muted-foreground -mt-1 mb-2">
+          <p className="text-sm text-muted-foreground mb-4">
             Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
           </p>
           <form onSubmit={(e) => {
@@ -5791,7 +5791,7 @@ export default function ClientDetailPage({
                 onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
               />
             </div>
-            <DialogFooter>
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button 
                 type="button" 
                 variant="outline" 
@@ -5808,7 +5808,7 @@ export default function ClientDetailPage({
               >
                 {updatePaymentStatusMutation.isPending ? "Recording..." : "Record Payment"}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </>,
         drawerOutletEl
@@ -5963,7 +5963,7 @@ export default function ClientDetailPage({
                       
                       {/* Quick Duration Tags */}
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Duration (minutes)</label>
+                        <label className="text-sm font-medium text-foreground">Duration (minutes)</label>
                         <div className="flex flex-wrap gap-2">
                           {[30, 45, 60, 90, 120].map((minutes) => (
                             <Button
@@ -5990,7 +5990,7 @@ export default function ClientDetailPage({
                         // Service + Day + Room workflow
                         if (!selectedService) {
                           return (
-                            <div className="text-xs text-slate-500 italic">
+                            <div className="text-xs text-muted-foreground italic">
                               📋 Select service first to see available times
                             </div>
                           );
@@ -5998,7 +5998,7 @@ export default function ClientDetailPage({
                         
                         if (!selectedDate) {
                           return (
-                            <div className="text-xs text-slate-500 italic">
+                            <div className="text-xs text-muted-foreground italic">
                               📅 Select date to continue
                             </div>
                           );
@@ -6006,7 +6006,7 @@ export default function ClientDetailPage({
                         
                         if (!selectedRoom) {
                           return (
-                            <div className="text-xs text-slate-500 italic">
+                            <div className="text-xs text-muted-foreground italic">
                               🏠 Select a room to see available times
                             </div>
                           );
@@ -6014,7 +6014,7 @@ export default function ClientDetailPage({
                         
                         if (!selectedTherapist) {
                           return (
-                            <div className="text-xs text-slate-500 italic">
+                            <div className="text-xs text-muted-foreground italic">
                               👩‍⚕️ Select therapist to continue
                             </div>
                           );
@@ -6040,7 +6040,7 @@ export default function ClientDetailPage({
 
                         return (
                           <div className="mt-2 space-y-1">
-                            <span className="text-xs text-slate-600">
+                            <span className="text-xs text-muted-foreground">
                               Available times for {roomName}:
                             </span>
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -6235,7 +6235,7 @@ export default function ClientDetailPage({
                 </div>
               )}
 
-              <DialogFooter>
+              <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -6256,7 +6256,7 @@ export default function ClientDetailPage({
                 >
                   {updateFullSessionMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
-              </DialogFooter>
+              </div>
             </form>
           </Form>,
         drawerOutletEl

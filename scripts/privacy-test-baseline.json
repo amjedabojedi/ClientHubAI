@@ -1,52 +1,82 @@
 {
-  "updated": "2026-06-04T22:58:08Z",
+  "updated": "2026-06-05T04:35:49Z",
   "suites": {
     "test/communications-transcribe-privacy.test.ts": [
       6,
       6,
+      5,
+      5,
+      11,
       5
     ],
     "test/communications-transcribe-recovery.test.ts": [
       7,
       7,
+      7,
+      7,
+      6,
       7
     ],
     "test/session-transcribe-privacy.test.ts": [
       6,
       6,
-      7
+      7,
+      6,
+      7,
+      6
     ],
     "test/assessment-report-privacy.test.ts": [
       6,
       6,
-      5
+      5,
+      6,
+      5,
+      6
     ],
     "test/client-report-privacy.test.ts": [
       17,
       17,
+      17,
+      17,
+      38,
       17
     ],
     "test/client-report-source-selection.test.ts": [
       8,
       9,
-      9
+      9,
+      9,
+      8,
+      8
     ],
     "test/client-report-template-defaults.test.ts": [
       5,
       5,
-      5
+      5,
+      5,
+      6,
+      6
     ],
     "test/supporting-files-authz.test.ts": [
       9,
       8,
-      9
+      9,
+      8,
+      8,
+      8
     ],
     "test/supporting-files-download-authz.test.ts": [
       6,
       7,
+      6,
+      7,
+      6,
       6
     ],
     "test/supporting-files-download-audit.test.ts": [
+      5,
+      5,
+      5,
       5,
       5,
       5
@@ -54,9 +84,15 @@
     "test/supporting-files-delete-denial-audit.test.ts": [
       5,
       5,
+      5,
+      5,
+      5,
       5
     ],
     "test/supporting-files-upload-validation.test.ts": [
+      5,
+      5,
+      5,
       5,
       5,
       5
@@ -64,69 +100,111 @@
     "test/daily-schedule-email-privacy.test.ts": [
       1,
       1,
-      2
+      2,
+      1,
+      1,
+      1
     ],
     "test/daily-schedule-email-idempotency.test.ts": [
       4,
+      5,
+      4,
+      5,
       5,
       4
     ],
     "test/daily-schedule-email-preference.test.ts": [
       173,
       183,
-      190
+      190,
+      183,
+      181,
+      196
     ],
     "test/daily-schedule-email-preference-api.test.ts": [
       118,
       122,
-      123
+      123,
+      122,
+      126,
+      131
     ],
     "test/notification-preferences-ui.test.ts": [
       15,
       17,
-      16
+      16,
+      16,
+      17,
+      15
     ],
     "test/notification-preferences-mute.test.ts": [
       3,
       3,
-      3
+      3,
+      4,
+      3,
+      4
     ],
     "test/notification-specific-users.test.ts": [
       3,
       3,
-      3
+      3,
+      3,
+      3,
+      2
     ],
     "test/deferred-summary-email.test.ts": [
       5,
       4,
-      4
+      4,
+      4,
+      5,
+      5
     ],
     "test/quiet-hours-suppression.test.ts": [
       5,
       6,
-      6
+      6,
+      5,
+      5,
+      5
     ],
     "test/quiet-hours-settings-save.test.ts": [
       4,
       4,
-      3
+      3,
+      4,
+      4,
+      4
     ],
     "test/defer-summary-settings-save.test.ts": [
       3,
       3,
-      4
+      4,
+      3,
+      3,
+      3
     ],
     "test/quiet-hours-summary-toggle-ui.test.ts": [
       5,
       7,
-      6
+      6,
+      5,
+      8,
+      7
     ],
     "test/quiet-hours-window-inputs-ui.test.ts": [
       4,
       4,
-      5
+      5,
+      5,
+      4,
+      4
     ],
     "test/quiet-hours-summary-toggle-save-ui.test.ts": [
+      5,
+      6,
+      5,
       5,
       6,
       5
@@ -134,32 +212,50 @@
     "test/portal-document-download-ui.test.ts": [
       13,
       14,
-      12
+      12,
+      13,
+      12,
+      13
     ],
     "test/client-detail-drawers-ui.test.ts": [
       22,
       21,
+      21,
+      23,
+      22,
       21
     ],
     "test/client-detail-drawers-submit.test.ts": [
       16,
       24,
-      23
+      23,
+      16,
+      16,
+      22
     ],
     "test/record-drawer-back-button-ui.test.ts": [
       16,
       17,
-      16
+      16,
+      17,
+      15,
+      17
     ],
     "test/record-drawer-real-ui.test.ts": [
       17,
       19,
+      17,
+      19,
+      20,
       17
     ],
     "test/session-edit-drawers-ui.test.ts": [
       16,
       17,
-      17
+      17,
+      16,
+      16,
+      15
     ]
   }
 }
