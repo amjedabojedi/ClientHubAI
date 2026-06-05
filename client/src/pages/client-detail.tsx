@@ -81,6 +81,7 @@ import {
   Unlock,
   Loader2
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // Utils and Hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1109,6 +1110,20 @@ const MORE_TABS = [
   { value: "history", label: "History", Icon: Clock },
 ];
 const ALL_TABS = [...PINNED_TABS, ...MORE_TABS];
+
+function PanelHeader({ icon: Icon, title, subtitle, className = "" }: { icon: LucideIcon; title: string; subtitle?: string; className?: string }) {
+  return (
+    <div className={`flex items-center gap-4 p-4 bg-muted rounded-lg ${className}`}>
+      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-lg font-semibold text-blue-600 truncate">{title}</h3>
+        {subtitle ? <p className="text-sm text-muted-foreground truncate">{subtitle}</p> : null}
+      </div>
+    </div>
+  );
+}
 
 export default function ClientDetailPage({
   clientId: clientIdProp,
@@ -5269,6 +5284,7 @@ export default function ClientDetailPage({
       {/* Upload Document Drawer */}
       {drawerOutletEl && topInlineKey === "upload-document" && createPortal(
         <>
+          <PanelHeader icon={Upload} title="Upload Document" subtitle={client?.fullName ?? undefined} className="mb-4" />
           <p className="text-sm text-muted-foreground mb-4">
             Upload a document for {client?.fullName}. Supports PDFs, Word docs, images, and text files.
           </p>
@@ -5455,6 +5471,7 @@ export default function ClientDetailPage({
       {/* Document Review Drawer */}
       {drawerOutletEl && topInlineKey === "document-review" && createPortal(
         <>
+          <PanelHeader icon={ClipboardCheck} title="Review Document" subtitle={reviewDialogDoc?.originalName || reviewDialogDoc?.fileName || (client?.fullName ?? undefined)} className="mb-4" />
           {/* Document info */}
           <div className="bg-muted border rounded-lg p-3 space-y-1">
             <p className="font-semibold text-foreground text-sm">{reviewDialogDoc?.originalName || reviewDialogDoc?.fileName}</p>
@@ -5521,6 +5538,7 @@ export default function ClientDetailPage({
       {drawerOutletEl && topInlineKey === "assign-checklist" && createPortal(
         <>
           <div className="space-y-6">
+            <PanelHeader icon={CheckSquare} title="Assign Checklist" subtitle={client?.fullName ?? undefined} />
             <p className="text-sm text-muted-foreground">
               Select a checklist template to assign to {client?.fullName}. This will create a workflow with all required items.
             </p>
@@ -5569,6 +5587,7 @@ export default function ClientDetailPage({
       {/* Document Preview Drawer */}
       {drawerOutletEl && topInlineKey === "document-preview" && createPortal(
         <>
+          <PanelHeader icon={Eye} title="Document Preview" subtitle={previewDocument?.fileName ?? undefined} className="mb-4" />
           <div className="max-h-[60vh] overflow-auto">
             {previewDocument && renderDocumentPreview(previewDocument)}
           </div>
@@ -5725,6 +5744,7 @@ export default function ClientDetailPage({
       {/* Payment Recording Drawer - Matches Billing Dashboard */}
       {drawerOutletEl && topInlineKey === "payment-record" && createPortal(
         <>
+          <PanelHeader icon={CreditCard} title="Record Payment" subtitle={client?.fullName ?? undefined} className="mb-4" />
           <p className="text-sm text-muted-foreground mb-4">
             Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
           </p>
@@ -5827,6 +5847,7 @@ export default function ClientDetailPage({
                 variant: "destructive",
               });
             })} className="space-y-4">
+              <PanelHeader icon={Edit} title="Edit Session" subtitle={client?.fullName ?? undefined} />
               {/* Therapist Field - FULL WIDTH */}
               <FormField
                 control={sessionForm.control}
