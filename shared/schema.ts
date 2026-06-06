@@ -1407,6 +1407,11 @@ export const AUDIT_ACTIONS = [
   'consent_withdrawn',
   'ai_processing_blocked',
 
+  // SMS appointment notifications
+  'sms_notification_sent',
+  'sms_notification_failed',
+  'sms_notification_blocked',
+
   // Report templates & AI client reports
   'report_template_created',
   'report_template_updated',

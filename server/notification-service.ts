@@ -15,6 +15,9 @@ import {
 import SparkPost from "sparkpost";
 import { format, toZonedTime, fromZonedTime } from "date-fns-tz";
 import { clientInitials } from "@shared/privacy";
+import { checkSmsConsent } from "./routes-helpers";
+import { isSmsConfigured, normalizePhoneE164, sendSms } from "./sms-service";
+import { AuditLogger } from "./audit-logger";
 import type {
   InsertNotification,
   NotificationTrigger,
@@ -858,9 +861,253 @@ export class NotificationService {
         template,
         entityData,
       );
+
+      // Send SMS as an additional, opt-in channel. This is deliberately
+      // independent of the email recipient list above: a client only becomes an
+      // email recipient when emailNotifications is on, but SMS must reach a
+      // consenting client even if they declined email. sendSmsNotifications
+      // re-derives the session client from entityData and enforces consent.
+      await this.sendSmsNotifications(allRecipients, trigger, entityData);
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Sends SMS notifications via Twilio. Two distinct, independently-gated paths:
+   *
+   *   1. Session client (consent-gated). When the trigger targets the session
+   *      client (recipientRules.sessionClient) we re-derive the client from
+   *      entityData.clientId — NOT from the email recipient list — so a client
+   *      who opted out of email but approved SMS is still reached. A text is
+   *      only sent when checkSmsConsent() passes (FAIL-CLOSED) AND the client's
+   *      phone normalizes to E.164. Every attempt (sent / blocked / failed) is
+   *      audit-logged for HIPAA traceability. Message bodies never contain PHI.
+   *
+   *   2. Staff users (preference-gated). Real users in `recipients` receive SMS
+   *      only when they have enableSms=true for this trigger type (default OFF)
+   *      and a valid phone. This is what finally makes the enableSms preference
+   *      effective.
+   */
+  private async sendSmsNotifications(
+    recipients: User[],
+    trigger: NotificationTrigger,
+    entityData: any,
+  ): Promise<void> {
+    if (!isSmsConfigured()) {
+      console.log("[SMS] Twilio not configured - SMS notifications disabled");
+      return;
+    }
+
+    const body = this.generateSmsBody(trigger, entityData);
+    if (!body) {
+      // No SMS template for this event type — SMS only covers appointment
+      // booking/reschedule confirmations and reminders.
+      return;
+    }
+
+    // --- Path 1: session client, consent-gated --------------------------------
+    try {
+      let targetsClient = false;
+      if (trigger.recipientRules) {
+        try {
+          const rules = JSON.parse(trigger.recipientRules);
+          targetsClient = !!rules.sessionClient;
+        } catch {
+          targetsClient = false;
+        }
+      }
+
+      if (targetsClient && entityData?.clientId) {
+        const clientId = Number(entityData.clientId);
+        const client = await storage.getClient(clientId);
+        const phone = normalizePhoneE164(client?.phone);
+
+        const consent = await checkSmsConsent(clientId);
+        if (!consent.hasConsent) {
+          // Blocked by missing/withdrawn consent (or a verification error).
+          await this.auditSms(
+            clientId,
+            "sms_notification_blocked",
+            "blocked",
+            trigger.eventType,
+            { reason: consent.message || "no SMS consent", hasPhone: !!phone },
+          );
+        } else if (!phone) {
+          // Consent present but we have no usable number — skip and record.
+          await this.auditSms(
+            clientId,
+            "sms_notification_blocked",
+            "blocked",
+            trigger.eventType,
+            { reason: "missing or invalid phone number" },
+          );
+        } else {
+          const result = await sendSms(phone, body);
+          if (result.success) {
+            await this.auditSms(
+              clientId,
+              "sms_notification_sent",
+              "success",
+              trigger.eventType,
+              { messageSid: result.sid },
+            );
+            console.log(
+              `[SMS] ✓ Sent ${trigger.eventType} text to client ${clientId}`,
+            );
+          } else {
+            await this.auditSms(
+              clientId,
+              "sms_notification_failed",
+              "failure",
+              trigger.eventType,
+              { error: result.error },
+            );
+            console.error(
+              `[SMS] ✗ Failed to text client ${clientId}: ${result.error}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[SMS] Error in client SMS path:", error);
+      // Fail-closed AND fully audited: an unexpected error must never both skip
+      // the text silently and leave no record. Record a blocked attempt so the
+      // "every attempt is audit-logged" guarantee holds even on the error path.
+      const clientId = Number(entityData?.clientId);
+      if (Number.isFinite(clientId)) {
+        await this.auditSms(
+          clientId,
+          "sms_notification_blocked",
+          "blocked",
+          trigger.eventType,
+          {
+            reason: "unexpected error while processing SMS (fail-closed)",
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+      }
+    }
+
+    // --- Path 2: staff users, preference-gated --------------------------------
+    try {
+      const staff = recipients.filter((r) => r.role !== "client" && r.phone);
+      if (staff.length > 0) {
+        const prefs = await db
+          .select()
+          .from(notificationPreferences)
+          .where(
+            and(
+              inArray(
+                notificationPreferences.userId,
+                staff.map((u) => u.id),
+              ),
+              eq(notificationPreferences.triggerType, trigger.eventType),
+            ),
+          );
+        // enableSms is OFF by default: a staff user only gets SMS when they have
+        // an explicit preference row with enableSms=true for this trigger.
+        const smsEnabledUserIds = new Set(
+          prefs.filter((p) => p.enableSms === true).map((p) => p.userId),
+        );
+
+        for (const user of staff) {
+          if (!smsEnabledUserIds.has(user.id)) continue;
+          const phone = normalizePhoneE164(user.phone);
+          if (!phone) continue;
+          const result = await sendSms(phone, body);
+          if (!result.success) {
+            console.error(
+              `[SMS] ✗ Failed to text staff user ${user.id}: ${result.error}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[SMS] Error in staff SMS path:", error);
+    }
+  }
+
+  /**
+   * Audit a single SMS attempt. Never throws — an audit failure must not abort
+   * the surrounding notification flow (AuditLogger has its own durable fallback).
+   */
+  private async auditSms(
+    clientId: number,
+    action:
+      | "sms_notification_sent"
+      | "sms_notification_failed"
+      | "sms_notification_blocked",
+    result: "success" | "failure" | "blocked",
+    eventType: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await AuditLogger.logAction({
+        userId: null,
+        username: "system",
+        action,
+        result,
+        resourceType: "sms_notification",
+        resourceId: String(clientId),
+        clientId,
+        ipAddress: "system",
+        userAgent: "notification-service",
+        hipaaRelevant: true,
+        riskLevel: "medium",
+        details: JSON.stringify({ eventType, ...details }),
+        accessReason: "Appointment SMS notification (consent-gated)",
+      });
+    } catch (error) {
+      console.error("[SMS] Failed to audit SMS attempt:", error);
+    }
+  }
+
+  /**
+   * Build the SMS body for a trigger. Returns null for event types that SMS
+   * does not cover. Bodies are intentionally PHI-free: no client name, no
+   * clinical detail — only the practice name, date/time and a STOP notice.
+   */
+  private generateSmsBody(
+    trigger: NotificationTrigger,
+    entityData: any,
+  ): string | null {
+    const when = this.formatSmsDateTime(entityData?.sessionDate);
+    const practice = "SmartHub";
+    const stop = "Reply STOP to opt out.";
+
+    // A scheduled trigger is the advance reminder regardless of its eventType:
+    // the 24hr reminders are modeled as scheduled `session_scheduled` triggers,
+    // so branch on isScheduled first to use reminder wording (not "confirmed").
+    if (trigger.isScheduled) {
+      return `${practice} reminder: You have an appointment on ${when}. ${stop}`;
+    }
+
+    switch (trigger.eventType) {
+      case "session_scheduled":
+        return `${practice}: Your appointment is confirmed for ${when}. ${stop}`;
+      case "session_rescheduled":
+        return `${practice}: Your appointment has been rescheduled to ${when}. ${stop}`;
+      case "session_reminder":
+      case "appointment_reminder":
+        return `${practice} reminder: You have an appointment on ${when}. ${stop}`;
+      default:
+        return null;
+    }
+  }
+
+  /** Format a session timestamp in the practice timezone for SMS. */
+  private formatSmsDateTime(value: any): string {
+    if (!value) return "your scheduled time";
+    try {
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return "your scheduled time";
+      return format(toZonedTime(date, PRACTICE_TZ), "EEE, MMM d 'at' h:mm a", {
+        timeZone: PRACTICE_TZ,
+      });
+    } catch {
+      return "your scheduled time";
     }
   }
 

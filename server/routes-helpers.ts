@@ -151,6 +151,48 @@ export async function checkAIProcessingConsent(clientId: number): Promise<{ hasC
   }
 }
 
+// SMS Consent Validation: Check if a client has granted consent to receive SMS
+// appointment notifications. Mirrors checkAIProcessingConsent and is FAIL-CLOSED:
+// any error (or missing/withdrawn consent) returns hasConsent=false so a bug or
+// outage can never cause an unsolicited text. SMS is OFF by default for every
+// client until a staff member records the client's explicit approval.
+export async function checkSmsConsent(clientId: number): Promise<{ hasConsent: boolean; message?: string; error?: string }> {
+  try {
+    const consents = await storage.getClientConsents(clientId);
+
+    const smsConsents = consents.filter(c => c.consentType === 'sms_notifications');
+
+    if (smsConsents.length === 0) {
+      return {
+        hasConsent: false,
+        message: 'SMS notification consent has not been recorded for this client.'
+      };
+    }
+
+    // Get the most recent SMS consent record
+    const latestConsent = smsConsents.sort((a, b) =>
+      new Date(b.grantedAt || 0).getTime() - new Date(a.grantedAt || 0).getTime()
+    )[0];
+
+    if (!latestConsent.granted || latestConsent.withdrawnAt) {
+      return {
+        hasConsent: false,
+        message: 'SMS notification consent has been withdrawn for this client.'
+      };
+    }
+
+    return { hasConsent: true };
+  } catch (error) {
+    console.error('[SMS CONSENT] Error checking SMS consent:', error);
+    // FAIL-CLOSED: never send a text when consent can't be verified.
+    return {
+      hasConsent: false,
+      message: 'Unable to verify SMS consent due to a system error.',
+      error: (error as Error).message
+    };
+  }
+}
+
 // Helper function to send portal activation email
 export async function sendActivationEmail(clientEmail: string, clientName: string, activationToken: string, baseUrl?: string) {
   if (!process.env.SPARKPOST_API_KEY) {
