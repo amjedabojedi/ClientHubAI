@@ -41,6 +41,7 @@ SUITES=(
   "test/sms-notification-privacy.test.ts"
   "test/sms-notification-staff-privacy.test.ts"
   "test/sms-series-notification-privacy.test.ts"
+  "test/email-series-notification-privacy.test.ts"
   "test/sms-inbound-optout.test.ts"
   "test/sms-log-privacy.test.ts"
   "test/sms-log-search-privacy.test.ts"
