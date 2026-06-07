@@ -432,7 +432,7 @@ export default function HIPAAAuditPage() {
                           <TableCell>
                             <div className="flex items-center">
                               <UserCheck className="w-4 h-4 mr-2 text-gray-500" />
-                              <span className="font-medium">{log.username}</span>
+                              <span className="font-medium">{log.username || 'System'}</span>
                             </div>
                           </TableCell>
                           <TableCell>

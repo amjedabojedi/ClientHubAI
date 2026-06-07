@@ -14695,7 +14695,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       let query = db.select({
         id: auditLogs.id,
         userId: auditLogs.userId,
-        username: auditLogs.username,
+        username: sql<string>`coalesce(nullif(${auditLogs.username}, ''), ${users.fullName}, ${users.username})`,
         action: auditLogs.action,
         result: auditLogs.result,
         resourceType: auditLogs.resourceType,
@@ -14710,7 +14710,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         timestamp: auditLogs.timestamp,
       })
       .from(auditLogs)
-      .leftJoin(clients, eq(auditLogs.clientId, clients.id));
+      .leftJoin(clients, eq(auditLogs.clientId, clients.id))
+      .leftJoin(users, eq(auditLogs.userId, users.id));
 
       // Apply filters
       const whereConditions = [];
@@ -14736,7 +14737,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       if (userId && userId !== '') {
-        whereConditions.push(ilike(auditLogs.username, `%${userId}%`));
+        whereConditions.push(
+          or(
+            ilike(auditLogs.username, `%${userId}%`),
+            ilike(users.fullName, `%${userId}%`),
+            ilike(users.username, `%${userId}%`),
+          )
+        );
       }
       
       if (hipaaOnly === 'true') {
@@ -14770,14 +14777,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const highRiskEvents = await db.select({ count: sql`count(*)` }).from(auditLogs).where(sql`${auditLogs.riskLevel} IN ('high', 'critical')`);
       const failedAttempts = await db.select({ count: sql`count(*)` }).from(loginAttempts).where(eq(loginAttempts.success, false));
 
-      // Get top active users
+      // Get top active users (resolve display name from the users table when the
+      // stored username is empty, mirroring the audit logs listing)
+      const resolvedUsername = sql<string>`coalesce(nullif(${auditLogs.username}, ''), ${users.fullName}, ${users.username})`;
       const userActivity = await db.select({
-        username: auditLogs.username,
+        username: resolvedUsername,
         activityCount: sql`count(*)`,
         lastActivity: sql`max(${auditLogs.timestamp})`,
       })
       .from(auditLogs)
-      .groupBy(auditLogs.username)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
+      .groupBy(resolvedUsername)
       .orderBy(desc(sql`count(*)`))
       .limit(10);
 
