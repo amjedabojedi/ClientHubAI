@@ -45,9 +45,9 @@ delete process.env.TWILIO_FROM_NUMBER;
 
 import SparkPost from "sparkpost";
 import { db } from "../server/db";
-import { clients, notifications } from "../shared/schema";
+import { clients, notifications, auditLogs } from "../shared/schema";
 import { notificationService } from "../server/notification-service";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const svc = notificationService as any;
 
@@ -107,6 +107,19 @@ function emailsTo(address: string): SentEmail[] {
   return sentEmails.filter((e) => e.to.includes(address));
 }
 
+// Every email-notification audit row written for a given client, newest first.
+async function emailAuditsFor(clientId: number) {
+  return db
+    .select()
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.clientId, clientId),
+        eq(auditLogs.resourceType, "email_notification"),
+      ),
+    );
+}
+
 async function makeClient(label: string, emailNotifications: boolean) {
   const unique = `${process.pid}${Date.now() % 100000}`.slice(-13);
   const email = `${label}-${SUFFIX}@example.test`;
@@ -133,6 +146,12 @@ async function cleanup() {
     await db
       .delete(notifications)
       .where(inArray(notifications.relatedEntityId, createdClientIds));
+    // Remove the email-notification audit rows this run wrote. Must happen
+    // BEFORE deleting the clients: audit_logs.client_id is ON DELETE SET NULL,
+    // so once the client is gone the rows can no longer be found by clientId.
+    await db
+      .delete(auditLogs)
+      .where(inArray(auditLogs.clientId, createdClientIds));
     await db.delete(clients).where(inArray(clients.id, createdClientIds));
   }
 }
@@ -183,6 +202,22 @@ async function main() {
     "email subject reports the booked count",
   );
 
+  // AUDIT: a successful send writes exactly one 'email_notification_sent'
+  // (success) row mirroring the SMS audit shape (series: true, count).
+  const onAudits = await emailAuditsFor(on.id);
+  const onSent = onAudits.filter((a) => a.action === "email_notification_sent");
+  assertEqual(onSent.length, 1, "sent email writes ONE email_notification_sent audit row");
+  assertEqual(onSent[0]?.result, "success", "sent email audit row has result 'success'");
+  assertEqual(onSent[0]?.resourceType, "email_notification", "sent audit row resourceType is email_notification");
+  assertTrue(!!onSent[0]?.hipaaRelevant, "sent email audit row is flagged HIPAA-relevant");
+  const onDetails = JSON.parse(onSent[0]?.details || "{}");
+  assertEqual(onDetails.series, true, "sent email audit details carry series: true (mirrors SMS)");
+  assertEqual(onDetails.count, 3, "sent email audit details carry the booked count");
+  assertTrue(
+    !/On Client/.test(onSent[0]?.details || ""),
+    "sent email audit details are PHI-free (no client name)",
+  );
+
   // (a2) emailNotifications ON + skippedCount = 0 -> email sent, NO skip note. -
   const onNoSkip = await makeClient("onnoskip", true);
   sentEmails.length = 0;
@@ -201,11 +236,38 @@ async function main() {
     "no-skip email omits the skipped-conflict note",
   );
 
+  // AUDIT: the no-skip send is also recorded as a single success row.
+  const noSkipAudits = await emailAuditsFor(onNoSkip.id);
+  const noSkipSent = noSkipAudits.filter((a) => a.action === "email_notification_sent");
+  assertEqual(noSkipSent.length, 1, "no-skip sent email writes ONE email_notification_sent audit row");
+  assertEqual(noSkipSent[0]?.result, "success", "no-skip sent email audit row has result 'success'");
+
   // (b) emailNotifications OFF -> NO email sent (fail-closed on preference). ---
   const off = await makeClient("off", false);
   sentEmails.length = 0;
   await svc.sendSeriesScheduledConfirmation(seriesData(off.id, "Off Client", 2));
   assertEqual(emailsTo(off.email).length, 0, "emailNotifications off: NO series email sent");
+
+  // AUDIT: opting out is still durably recorded as a 'blocked' attempt — the
+  // whole point of this task: a skipped email leaves an auditable trail too.
+  const offAudits = await emailAuditsFor(off.id);
+  assertEqual(offAudits.length, 1, "opted-out client writes exactly ONE email audit row");
+  assertEqual(
+    offAudits[0]?.action,
+    "email_notification_blocked",
+    "opted-out client audit row uses email_notification_blocked",
+  );
+  assertEqual(offAudits[0]?.result, "blocked", "opted-out client audit row has result 'blocked'");
+  const offDetails = JSON.parse(offAudits[0]?.details || "{}");
+  assertEqual(offDetails.series, true, "blocked email audit details carry series: true");
+  assertTrue(
+    typeof offDetails.reason === "string" && offDetails.reason.length > 0,
+    "blocked email audit details record a skip reason",
+  );
+  assertTrue(
+    !/Off Client/.test(offAudits[0]?.details || ""),
+    "blocked email audit details are PHI-free (no client name)",
+  );
 }
 
 main()

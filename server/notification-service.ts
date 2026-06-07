@@ -1175,6 +1175,45 @@ export class NotificationService {
   }
 
   /**
+   * Audit a single client EMAIL notification attempt. Mirrors `auditSms` so
+   * both channels are queryable consistently: the same outcome shape (sent /
+   * skipped / failed), HIPAA-relevant, PHI-free details (event type, counts,
+   * the `series` flag — never the client's name or clinical content). Never
+   * throws: an audit failure must not abort the notification flow.
+   */
+  private async auditEmail(
+    clientId: number,
+    action:
+      | "email_notification_sent"
+      | "email_notification_failed"
+      | "email_notification_blocked"
+      | "email_notification_skipped",
+    result: "success" | "failure" | "blocked",
+    eventType: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await AuditLogger.logAction({
+        userId: null,
+        username: "system",
+        action,
+        result,
+        resourceType: "email_notification",
+        resourceId: String(clientId),
+        clientId,
+        ipAddress: "system",
+        userAgent: "notification-service",
+        hipaaRelevant: true,
+        riskLevel: "medium",
+        details: JSON.stringify({ eventType, ...details }),
+        accessReason: "Appointment email notification (preference-gated)",
+      });
+    } catch (error) {
+      console.error("[EMAIL] Failed to audit email attempt:", error);
+    }
+  }
+
+  /**
    * Build the SMS body for a trigger. Returns null for event types that SMS
    * does not cover. Bodies are intentionally PHI-free: no client name, no
    * clinical detail — only the practice name, date/time and a STOP notice.
@@ -2249,6 +2288,21 @@ If you have any questions about joining the virtual session, please contact your
         console.log(
           "[SERIES] Client has no email or notifications disabled - skipping series email",
         );
+        await this.auditEmail(
+          seriesData.clientId,
+          "email_notification_blocked",
+          "blocked",
+          "session_scheduled",
+          {
+            reason: !clientRow
+              ? "client not found"
+              : !clientRow.email
+                ? "client has no email on file"
+                : "client opted out of email notifications",
+            series: true,
+            count,
+          },
+        );
         return;
       }
 
@@ -2290,23 +2344,58 @@ If you have any questions about joining the virtual session, please contact your
 
       if (!process.env.SPARKPOST_API_KEY) {
         console.log("[SERIES] SparkPost not configured - series email disabled");
+        await this.auditEmail(
+          clientRow.id,
+          "email_notification_skipped",
+          "blocked",
+          "session_scheduled",
+          { reason: "email provider not configured", series: true, count },
+        );
         return;
       }
 
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = getEmailFromAddress();
-      const result = await sp.transmissions.send({
-        content: {
-          from: fromEmail,
-          subject,
-          html: this.formatEmailAsHtml(body, {}),
-          text: body,
-        },
-        recipients: [{ address: clientRow.email }],
-      });
-      console.log(
-        `[SERIES] ✓ Sent series confirmation to ${clientRow.email} (ID: ${result.results.id})`,
-      );
+      try {
+        const result = await sp.transmissions.send({
+          content: {
+            from: fromEmail,
+            subject,
+            html: this.formatEmailAsHtml(body, {}),
+            text: body,
+          },
+          recipients: [{ address: clientRow.email }],
+        });
+        await this.auditEmail(
+          clientRow.id,
+          "email_notification_sent",
+          "success",
+          "session_scheduled",
+          { messageId: result?.results?.id, series: true, count },
+        );
+        console.log(
+          `[SERIES] ✓ Sent series confirmation to ${clientRow.email} (ID: ${result.results.id})`,
+        );
+      } catch (sendError) {
+        await this.auditEmail(
+          clientRow.id,
+          "email_notification_failed",
+          "failure",
+          "session_scheduled",
+          {
+            error:
+              sendError instanceof Error
+                ? sendError.message
+                : String(sendError),
+            series: true,
+            count,
+          },
+        );
+        console.error(
+          `[SERIES] ✗ Failed to send series confirmation to ${clientRow.email}:`,
+          sendError,
+        );
+      }
     } catch (error) {
       console.error("[SERIES] Error sending series confirmation:", error);
     }

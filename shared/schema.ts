@@ -1423,6 +1423,12 @@ export const AUDIT_ACTIONS = [
   'sms_notification_blocked',
   'sms_notification_skipped',
 
+  // Email appointment notifications
+  'email_notification_sent',
+  'email_notification_failed',
+  'email_notification_blocked',
+  'email_notification_skipped',
+
   // Report templates & AI client reports
   'report_template_created',
   'report_template_updated',
