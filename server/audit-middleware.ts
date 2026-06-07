@@ -126,6 +126,7 @@ export const auditDataExport = (exportType: string) => {
     hipaaRelevant: true,
     riskLevel: 'critical',
     extractResourceId: (req) => `${exportType}_${Date.now()}`,
+    extractClientId: (req) => parseInt(req.params.id || req.params.clientId) || null,
   });
 };
 

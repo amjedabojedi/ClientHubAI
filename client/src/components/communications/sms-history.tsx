@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   XCircle,
   Ban,
+  Download,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,9 +72,11 @@ function OutcomeBadge({ result }: { result: string }) {
 }
 
 export default function SmsHistory({ clientId }: SmsHistoryProps) {
+  const { toast } = useToast();
   const [outcome, setOutcome] = useState<Outcome>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -105,6 +109,37 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
     setOutcome("all");
     setStartDate("");
     setEndDate("");
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch(
+        `/api/clients/${clientId}/sms-log/export${queryString}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) {
+        throw new Error(`Export failed: ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sms-log-client-${clientId}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description:
+          "Could not export the text-message log. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const filterControls = (
@@ -170,6 +205,17 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
           Clear filters
         </Button>
       )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleExport}
+        disabled={isExporting || entries.length === 0}
+        className="gap-1.5"
+        data-testid="button-export-sms-log"
+      >
+        <Download className="h-4 w-4" />
+        {isExporting ? "Exporting..." : "Export"}
+      </Button>
     </div>
   );
 

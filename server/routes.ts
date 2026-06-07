@@ -54,7 +54,7 @@ import {
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings, AUDIT_ACTIONS, type AuditAction } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
-import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
+import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess, auditDataExport } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
 import { zoomService } from "./zoom-service";
 import type { AuthenticatedRequest } from "./auth-middleware";
@@ -12735,6 +12735,151 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error) {
       console.error("Error fetching client SMS log:", error);
       res.status(500).json({ message: "Failed to fetch SMS log" });
+    }
+  });
+
+  // Export the currently filtered SMS log as CSV. This honors the same
+  // outcome/date-range filters as GET /api/clients/:id/sms-log and emits only
+  // the non-PHI fields already shown in the UI (outcome, event type, timestamp,
+  // reason) — never the message body or phone number. The export is audit
+  // logged via auditDataExport so client-data exports are tracked like other
+  // sensitive access.
+  app.get("/api/clients/:id/sms-log/export", requireAuth, blockAccountant, auditDataExport('client_sms_log'), async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const clientId = parseInt(req.params.id);
+      if (!Number.isFinite(clientId)) {
+        return res.status(400).json({ message: "Invalid client id" });
+      }
+
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      const conditions = [
+        eq(auditLogs.resourceType, "sms_notification"),
+        eq(auditLogs.clientId, clientId),
+      ];
+
+      const outcomeParam =
+        typeof req.query.outcome === "string"
+          ? req.query.outcome.toLowerCase()
+          : null;
+      const outcomeToResult: Record<string, string> = {
+        sent: "success",
+        blocked: "blocked",
+        failed: "failure",
+      };
+      if (outcomeParam && outcomeParam !== "all") {
+        const mappedResult = outcomeToResult[outcomeParam];
+        if (!mappedResult) {
+          return res.status(400).json({ message: "Invalid outcome filter" });
+        }
+        conditions.push(eq(auditLogs.result, mappedResult as any));
+      }
+
+      const parseDateParam = (value: unknown): Date | null => {
+        if (typeof value !== "string" || !value.trim()) return null;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      if (req.query.startDate !== undefined) {
+        const startDate = parseDateParam(req.query.startDate);
+        if (!startDate) {
+          return res.status(400).json({ message: "Invalid startDate" });
+        }
+        conditions.push(gte(auditLogs.timestamp, startDate));
+      }
+
+      if (req.query.endDate !== undefined) {
+        const endDate = parseDateParam(req.query.endDate);
+        if (!endDate) {
+          return res.status(400).json({ message: "Invalid endDate" });
+        }
+        if (!/[T:]/.test(String(req.query.endDate))) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+        conditions.push(lte(auditLogs.timestamp, endDate));
+      }
+
+      const rows = await db
+        .select({
+          result: auditLogs.result,
+          details: auditLogs.details,
+          timestamp: auditLogs.timestamp,
+        })
+        .from(auditLogs)
+        .where(and(...conditions))
+        .orderBy(desc(auditLogs.timestamp))
+        .limit(100);
+
+      const resultToOutcome: Record<string, string> = {
+        success: "Sent",
+        blocked: "Blocked",
+        failure: "Failed",
+      };
+
+      const formatEventType = (eventType: string | null): string => {
+        if (!eventType) return "Appointment text";
+        return eventType
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+      };
+
+      // RFC-4180 style escaping: wrap in quotes and double any embedded quotes.
+      const csvCell = (value: string): string => {
+        const needsQuoting = /[",\n\r]/.test(value);
+        const escaped = value.replace(/"/g, '""');
+        return needsQuoting ? `"${escaped}"` : escaped;
+      };
+
+      const header = ["Outcome", "Event Type", "Timestamp", "Reason"];
+      const lines = [header.map(csvCell).join(",")];
+
+      for (const row of rows) {
+        let eventType: string | null = null;
+        let reason: string | null = null;
+        try {
+          const parsed = row.details ? JSON.parse(row.details) : {};
+          eventType = typeof parsed.eventType === "string" ? parsed.eventType : null;
+          reason =
+            (typeof parsed.reason === "string" && parsed.reason) ||
+            (typeof parsed.error === "string" && parsed.error) ||
+            null;
+        } catch {
+          // Malformed details JSON — leave eventType/reason null.
+        }
+        const outcome = resultToOutcome[row.result as string] || String(row.result);
+        const timestamp = row.timestamp ? new Date(row.timestamp).toISOString() : "";
+        lines.push(
+          [
+            csvCell(outcome),
+            csvCell(formatEventType(eventType)),
+            csvCell(timestamp),
+            csvCell(reason || ""),
+          ].join(","),
+        );
+      }
+
+      // Prepend a UTF-8 BOM so Excel opens the file with correct encoding.
+      const csv = "\uFEFF" + lines.join("\r\n") + "\r\n";
+      const filename = `sms-log-client-${clientId}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting client SMS log:", error);
+      res.status(500).json({ message: "Failed to export SMS log" });
     }
   });
 
