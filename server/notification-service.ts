@@ -1214,6 +1214,44 @@ export class NotificationService {
   }
 
   /**
+   * Audit a client EMAIL that never sent because the client was filtered out of
+   * the recipient list before any send was attempted (opted out of email, no
+   * email on file, or the client row could not be found). Re-derives the reason
+   * from the client row (PHI-free — only the reason string) and records it as a
+   * blocked attempt, mirroring the series email blocked path so single + series
+   * skips are queryable together. Never throws.
+   */
+  private async auditClientEmailSkip(
+    clientId: number,
+    eventType: string,
+  ): Promise<void> {
+    let reason = "client opted out of email notifications";
+    try {
+      const [clientRow] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, clientId));
+      reason = !clientRow
+        ? "client not found"
+        : !clientRow.email
+          ? "client has no email on file"
+          : "client opted out of email notifications";
+    } catch (error) {
+      console.error(
+        "[EMAIL] Failed to derive client email skip reason:",
+        error,
+      );
+    }
+    await this.auditEmail(
+      clientId,
+      "email_notification_blocked",
+      "blocked",
+      eventType,
+      { reason },
+    );
+  }
+
+  /**
    * Build the SMS body for a trigger. Returns null for event types that SMS
    * does not cover. Bodies are intentionally PHI-free: no client name, no
    * clinical detail — only the practice name, date/time and a STOP notice.
@@ -1269,9 +1307,48 @@ export class NotificationService {
     template: NotificationTemplate | null,
     entityData: any,
   ): Promise<void> {
+    // Identify the session client (if any) so every client-email OUTCOME is
+    // auditable for HIPAA, mirroring the SMS client path. getRecipients only
+    // adds the client to `recipients` when they are opted in WITH an email on
+    // file, so a targeted client who is ABSENT from the list was filtered out
+    // (opted out / no email / not found) — re-derive and record that skip.
+    let targetsClient = false;
+    if (trigger.recipientRules) {
+      try {
+        targetsClient = !!JSON.parse(trigger.recipientRules).sessionClient;
+      } catch {
+        targetsClient = false;
+      }
+    }
+    const sessionClientId = Number(entityData?.clientId);
+    const clientTargeted = targetsClient && Number.isFinite(sessionClientId);
+    const clientIsRecipient =
+      clientTargeted &&
+      recipients.some(
+        (r) => r.role === "client" && Number(r.id) === sessionClientId,
+      );
+
+    // Pre-filter skip: a targeted client who never made it into the recipient
+    // list (opted out / no email / not found). Record a blocked attempt so the
+    // skip leaves an auditable trail too. Don't return — staff may still email.
+    if (clientTargeted && !clientIsRecipient) {
+      await this.auditClientEmailSkip(sessionClientId, trigger.eventType);
+    }
+
     // Check if SparkPost is configured
     if (!process.env.SPARKPOST_API_KEY) {
       console.log("[EMAIL] SparkPost API key not configured - emails disabled");
+      // An opted-in client would have been emailed here — record the skip so the
+      // provider-down outcome is auditable too (mirrors the series email path).
+      if (clientTargeted && clientIsRecipient) {
+        await this.auditEmail(
+          sessionClientId,
+          "email_notification_skipped",
+          "blocked",
+          trigger.eventType,
+          { reason: "email provider not configured" },
+        );
+      }
       return;
     }
 
@@ -1389,11 +1466,40 @@ export class NotificationService {
           console.log(
             `[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results.id})`,
           );
+
+          // Audit a successful CLIENT email send (HIPAA trail). Staff emails are
+          // preference-gated and tracked elsewhere; the compliance gap this
+          // closes is the single-appointment client confirmation/reminder email.
+          if (recipient.role === "client") {
+            await this.auditEmail(
+              recipient.id,
+              "email_notification_sent",
+              "success",
+              trigger.eventType,
+              { messageId: result?.results?.id },
+            );
+          }
         } catch (emailError) {
           console.error(
             `[EMAIL] ✗ Failed to send email to ${recipient.email}:`,
             emailError,
           );
+          // Record the failed provider send for a client so the failure is
+          // auditable, not just console-logged.
+          if (recipient.role === "client") {
+            await this.auditEmail(
+              recipient.id,
+              "email_notification_failed",
+              "failure",
+              trigger.eventType,
+              {
+                error:
+                  emailError instanceof Error
+                    ? emailError.message
+                    : String(emailError),
+              },
+            );
+          }
           // Continue with other recipients even if one fails
         }
       }
