@@ -12813,7 +12813,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 100); // Limit to 100 most recent
 
-      res.json(allNotifications);
+      // PHI safety: surface ONLY the safe display fields the communications log
+      // needs. The raw `data` JSON payload can carry private detail (client
+      // email, transmission ids, internal ids) and is never used by the client,
+      // so it — along with other internal columns (userId, actionUrl, etc.) —
+      // must never be echoed back. See test/communications-log-privacy.test.ts.
+      const safeNotifications = allNotifications.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        priority: n.priority,
+        isRead: n.isRead,
+        createdAt: n.createdAt,
+        relatedEntityType: n.relatedEntityType,
+        relatedEntityId: n.relatedEntityId,
+      }));
+
+      res.json(safeNotifications);
     } catch (error) {
       console.error("Error fetching client communications:", error);
       res.status(500).json({ message: "Internal server error" });
