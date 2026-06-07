@@ -43,6 +43,7 @@ SUITES=(
   "test/sms-log-privacy.test.ts"
   "test/sms-log-search-privacy.test.ts"
   "test/sms-log-export-privacy.test.ts"
+  "test/sms-log-export-audit.test.ts"
   "test/sms-log-export-count.test.ts"
   "test/communications-log-privacy.test.ts"
   "test/deferred-summary-email.test.ts"
