@@ -12907,6 +12907,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         "Content-Disposition",
         `attachment; filename="${filename}"`,
       );
+      res.setHeader("X-Export-Row-Count", String(rows.length));
+      res.setHeader(
+        "Access-Control-Expose-Headers",
+        "X-Export-Row-Count",
+      );
       res.send(csv);
     } catch (error) {
       console.error("Error exporting client SMS log:", error);

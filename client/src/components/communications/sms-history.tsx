@@ -128,6 +128,7 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
       if (!res.ok) {
         throw new Error(`Export failed: ${res.status}`);
       }
+      const rowCountHeader = res.headers.get("X-Export-Row-Count");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -137,6 +138,15 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+
+      const rowCount = rowCountHeader ? Number(rowCountHeader) : NaN;
+      const description = Number.isFinite(rowCount)
+        ? `Exported ${rowCount} ${rowCount === 1 ? "entry" : "entries"}.`
+        : "The text-message log was exported.";
+      toast({
+        title: "Export complete",
+        description,
+      });
     } catch (error) {
       toast({
         title: "Export failed",
