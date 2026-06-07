@@ -21,6 +21,7 @@
  *   2. Hits the real endpoint over HTTP and asserts:
  *        - the CSV header is EXACTLY: Outcome, Event Type, Timestamp, Reason
  *        - NO phone number or message-body substring appears anywhere
+ *        - none of the raw detail keys (phone/body/to/message/...) are echoed
  *        - the outcome filter (?outcome=sent|blocked|failed) narrows the rows
  *        - the date-range filter (?startDate/?endDate) narrows the rows
  *        - a `data_exported` audit row is written, attributed to the client
@@ -30,6 +31,11 @@
  * Run with: npx tsx test/sms-log-export-privacy.test.ts
  * (Run serially, like the other privacy tests — see
  *  .agents/memory/privacy-test-concurrency.md.)
+ *
+ * NOTES:
+ * - Spins up the real Express app (registerRoutes) on an ephemeral port and
+ *   makes real HTTP requests, exercising the full middleware + handler chain.
+ * - Seeds audit rows directly and removes everything it created at the end.
  */
 
 import express from "express";
@@ -350,6 +356,8 @@ async function run() {
     const reasons = dataRows.map((r) => r[3]).join(" | ");
     assert(/consent/i.test(reasons), "Reason column surfaces the blocked reason");
     assert(/twilio|unsubscribed/i.test(reasons), "Reason column surfaces the failure error");
+    // Event type column carries the friendly title-cased label.
+    assert(/Session Scheduled/.test(full.raw), "CSV surfaces the friendly event type label");
 
     // =====================================================================
     // 3. NEVER leaks the phone number or the message body
@@ -359,6 +367,11 @@ async function run() {
     assert(!full.raw.includes("5195550199"), "CSV does NOT contain the bare phone digits");
     assert(!full.raw.includes(SECRET_BODY), "CSV does NOT contain the SMS message body");
     assert(!full.raw.includes("Reply STOP"), "CSV does NOT contain any rendered SMS body text");
+    assert(!/appointment is confirmed/i.test(full.raw), "CSV does NOT contain message body fragments");
+    // Defense in depth: none of the raw detail keys that carried PHI are echoed.
+    for (const leakedKey of ["phone", "body", '"to"', "message", "messageSid", "hasPhone"]) {
+      assert(!full.raw.includes(leakedKey), `CSV does NOT echo the raw detail key ${leakedKey}`);
+    }
 
     // =====================================================================
     // 4. Client-scoped: an unrelated client's rows never appear
@@ -366,6 +379,14 @@ async function run() {
     console.log("\nTest 4: Unrelated client's data is never exported");
     assert(!full.raw.includes("SM_other"), "Target client's export excludes the unrelated client's row");
     assert(!full.raw.includes(OTHER_PHONE), "Target client's export excludes the unrelated client's phone");
+
+    // The unrelated client's OWN export returns only its single row and still
+    // strips its phone number and message body.
+    const otherRaw = (await req("GET", `/api/clients/${otherClient.id}/sms-log/export`, therapistToken)).raw;
+    const otherDataRows = parseCsv(otherRaw).slice(1);
+    assertEqual(otherDataRows.length, 1, "Unrelated client's export returns only its own single row");
+    assert(!otherRaw.includes(OTHER_PHONE), "Unrelated client's export also strips its phone number");
+    assert(!otherRaw.includes(OTHER_BODY), "Unrelated client's export also strips its message body");
 
     // =====================================================================
     // 5. Outcome filter narrows the exported rows
