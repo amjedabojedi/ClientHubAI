@@ -42,6 +42,7 @@ SUITES=(
   "test/sms-inbound-optout.test.ts"
   "test/sms-log-privacy.test.ts"
   "test/sms-log-search-privacy.test.ts"
+  "test/sms-log-export-privacy.test.ts"
   "test/communications-log-privacy.test.ts"
   "test/deferred-summary-email.test.ts"
   "test/quiet-hours-suppression.test.ts"
