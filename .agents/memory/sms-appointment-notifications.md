@@ -25,6 +25,18 @@ through the existing notification engine (not a new scheduler).
 - Every attempt is audited (`sent`/`failed`/`blocked`, resourceType `sms_notification`),
   including the catch-all error path — "every attempt audit-logged" must hold even on throw.
 
+## Staff path (Path 2, preference-gated) audit
+- Staff SMS is also fully audited via `auditStaffSms`, mirroring the client `auditSms`
+  but the SUBJECT is the staff user: `resourceId = String(userId)`, `clientId = null`
+  (no client in scope, stays PHI-free), `userId = null`/`username "system"` (system is the actor).
+- Actions: `sms_notification_sent` (success) / `sms_notification_skipped` (blocked —
+  opted out, no preference row, or unusable phone) / `sms_notification_failed` (failure).
+  `sms_notification_skipped` is a pg ENUM value reconciled by `scripts/ensure-audit-enums.ts`.
+- The staff loop iterates ALL non-client recipients (filter is `role !== "client"`, NOT
+  also `&& r.phone`) so opted-out / no-pref / bad-phone staffers each get a `skipped` row —
+  the whole point is a durable record of who was *not* texted and why.
+- Staff test keys audit lookups on `resourceId = String(staffUserId)` (vs client test on clientId).
+
 ## Gotchas
 - 24h reminders are **scheduled `session_scheduled` triggers** (`isScheduled=true`),
   not a distinct eventType. `generateSmsBody` branches on `trigger.isScheduled`

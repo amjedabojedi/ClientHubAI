@@ -991,8 +991,12 @@ export class NotificationService {
     }
 
     // --- Path 2: staff users, preference-gated --------------------------------
+    // Every staff attempt is audit-logged (sent / skipped / failed) for HIPAA
+    // traceability, mirroring the consent-gated client path above. Bodies/details
+    // stay PHI-free (no client name/clinical detail — only the staff identity,
+    // event type, and a skip/failure reason).
     try {
-      const staff = recipients.filter((r) => r.role !== "client" && r.phone);
+      const staff = recipients.filter((r) => r.role !== "client");
       if (staff.length > 0) {
         const prefs = await db
           .select()
@@ -1013,11 +1017,49 @@ export class NotificationService {
         );
 
         for (const user of staff) {
-          if (!smsEnabledUserIds.has(user.id)) continue;
+          // Gate 1: not opted in (opted out or no preference row) — skip + record.
+          if (!smsEnabledUserIds.has(user.id)) {
+            await this.auditStaffSms(
+              user.id,
+              "sms_notification_skipped",
+              "blocked",
+              trigger.eventType,
+              { reason: "staff not opted in to SMS for this event (default off)" },
+            );
+            continue;
+          }
+          // Gate 2: opted in but no usable number — skip + record.
           const phone = normalizePhoneE164(user.phone);
-          if (!phone) continue;
+          if (!phone) {
+            await this.auditStaffSms(
+              user.id,
+              "sms_notification_skipped",
+              "blocked",
+              trigger.eventType,
+              { reason: "missing or invalid phone number" },
+            );
+            continue;
+          }
           const result = await sendSms(phone, body);
-          if (!result.success) {
+          if (result.success) {
+            await this.auditStaffSms(
+              user.id,
+              "sms_notification_sent",
+              "success",
+              trigger.eventType,
+              { messageSid: result.sid },
+            );
+            console.log(
+              `[SMS] ✓ Sent ${trigger.eventType} text to staff user ${user.id}`,
+            );
+          } else {
+            await this.auditStaffSms(
+              user.id,
+              "sms_notification_failed",
+              "failure",
+              trigger.eventType,
+              { error: result.error },
+            );
             console.error(
               `[SMS] ✗ Failed to text staff user ${user.id}: ${result.error}`,
             );
@@ -1061,6 +1103,44 @@ export class NotificationService {
       });
     } catch (error) {
       console.error("[SMS] Failed to audit SMS attempt:", error);
+    }
+  }
+
+  /**
+   * Audit a single STAFF SMS attempt (preference-gated path). Mirrors
+   * `auditSms` but the subject is a staff user, not a client: the staff user id
+   * is recorded as the resource (and `clientId` stays null, since no client is
+   * involved). Details are PHI-free — only the event type and a skip/failure
+   * reason. Never throws: an audit failure must not abort the notification flow.
+   */
+  private async auditStaffSms(
+    staffUserId: number,
+    action:
+      | "sms_notification_sent"
+      | "sms_notification_failed"
+      | "sms_notification_skipped",
+    result: "success" | "failure" | "blocked",
+    eventType: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await AuditLogger.logAction({
+        userId: null,
+        username: "system",
+        action,
+        result,
+        resourceType: "sms_notification",
+        resourceId: String(staffUserId),
+        clientId: null,
+        ipAddress: "system",
+        userAgent: "notification-service",
+        hipaaRelevant: true,
+        riskLevel: "low",
+        details: JSON.stringify({ eventType, staffUserId, ...details }),
+        accessReason: "Appointment SMS notification (staff preference)",
+      });
+    } catch (error) {
+      console.error("[SMS] Failed to audit staff SMS attempt:", error);
     }
   }
 

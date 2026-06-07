@@ -38,11 +38,11 @@ process.env.TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "test_token";
 process.env.TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "+15005550006";
 
 import { db } from "../server/db";
-import { users, notificationPreferences } from "../shared/schema";
+import { users, notificationPreferences, auditLogs } from "../shared/schema";
 import { storage } from "../server/storage";
 import { notificationService } from "../server/notification-service";
 import { __setSmsClientForTests } from "../server/sms-service";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const svc = notificationService as any;
 
@@ -125,9 +125,36 @@ const entity = {
   sessionDate: new Date("2026-07-01T15:00:00Z"),
 };
 
+// The staff SMS path audits each attempt with resourceType 'sms_notification'
+// and resourceId = String(staffUserId). Mirrors smsAuditActions in
+// test/sms-notification-privacy.test.ts (which keys on clientId instead).
+async function staffSmsAuditActions(userId: number): Promise<string[]> {
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.resourceType, "sms_notification"),
+        eq(auditLogs.resourceId, String(userId)),
+      ),
+    );
+  return rows.map((r) => r.action as string);
+}
+
 async function cleanup() {
   __setSmsClientForTests(null);
   if (createdUserIds.length > 0) {
+    await db
+      .delete(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceType, "sms_notification"),
+          inArray(
+            auditLogs.resourceId,
+            createdUserIds.map((id) => String(id)),
+          ),
+        ),
+      );
     await db
       .delete(notificationPreferences)
       .where(inArray(notificationPreferences.userId, createdUserIds));
@@ -191,12 +218,67 @@ async function main() {
   assertTrue(sentMessages.length === 1, "(e) staffer opted-in for a different trigger NOT texted");
   assertTrue(sentMessages.length === 1, "(f) client-role recipient NOT texted via the staff path");
 
+  // --- Audit trail: every staff attempt is recorded (sent / skipped / failed),
+  // mirroring how test/sms-notification-privacy.test.ts checks smsAuditActions.
+  // Bodies/details stay PHI-free; we only assert the disposition per staffer.
+  assertTrue(
+    (await staffSmsAuditActions(optedIn.id)).includes("sms_notification_sent"),
+    "(a) audit: opted-in staffer logged sms_notification_sent",
+  );
+  assertTrue(
+    (await staffSmsAuditActions(optedOut.id)).includes("sms_notification_skipped"),
+    "(b) audit: opted-out staffer logged sms_notification_skipped",
+  );
+  assertTrue(
+    (await staffSmsAuditActions(noPref.id)).includes("sms_notification_skipped"),
+    "(c) audit: no-preference staffer logged sms_notification_skipped",
+  );
+  assertTrue(
+    (await staffSmsAuditActions(badPhone.id)).includes("sms_notification_skipped"),
+    "(d) audit: opted-in-but-bad-phone staffer logged sms_notification_skipped",
+  );
+  assertTrue(
+    (await staffSmsAuditActions(wrongTrigger.id)).includes("sms_notification_skipped"),
+    "(e) audit: opted-in-for-other-trigger staffer logged sms_notification_skipped for THIS trigger",
+  );
+  // (f) The client-role recipient is handled by the consent path, never the
+  // staff path, so the staff path must write NO audit row for them here (this
+  // trigger does not target the session client, so the client path is skipped).
+  assertEqual(
+    (await staffSmsAuditActions(clientRole.id)).length,
+    0,
+    "(f) audit: client-role recipient has NO staff-path audit row",
+  );
+
+  // Audit details/body never carry PHI — there is no client name in scope here,
+  // but assert the persisted detail JSON doesn't leak the raw entity id either.
+  const optedInRows = await db
+    .select()
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.resourceType, "sms_notification"),
+        eq(auditLogs.resourceId, String(optedIn.id)),
+      ),
+    );
+  assertTrue(
+    optedInRows.every((r) => !String(r.details ?? "").includes("4242")),
+    "audit details do not leak raw entity id (PHI-free)",
+  );
+
   // Sanity: re-firing for the OTHER trigger reaches ONLY the wrong-trigger
   // staffer (who is opted in there), proving the gate is genuinely per-trigger.
   sentMessages.length = 0;
   await svc.sendSmsNotifications(recipients, trigger(OTHER_EVENT_TYPE), entity);
   assertEqual(sentMessages.length, 1, "per-trigger gate: OTHER trigger texts exactly the staffer opted in for it");
   assertEqual(sentMessages[0]?.to, "+15195552468", "per-trigger gate: that text went to the (same number) opted-in-for-OTHER staffer");
+
+  // The wrong-trigger staffer is opted in for OTHER_EVENT_TYPE, so firing it now
+  // records a SENT for them — proving the audit trail tracks per-trigger sends.
+  assertTrue(
+    (await staffSmsAuditActions(wrongTrigger.id)).includes("sms_notification_sent"),
+    "audit: staffer opted in for OTHER trigger logged sms_notification_sent when it fired",
+  );
 }
 
 main()

@@ -1411,6 +1411,7 @@ export const AUDIT_ACTIONS = [
   'sms_notification_sent',
   'sms_notification_failed',
   'sms_notification_blocked',
+  'sms_notification_skipped',
 
   // Report templates & AI client reports
   'report_template_created',
