@@ -37,6 +37,23 @@ through the existing notification engine (not a new scheduler).
   the whole point is a durable record of who was *not* texted and why.
 - Staff test keys audit lookups on `resourceId = String(staffUserId)` (vs client test on clientId).
 
+## Recurring (multi-date) series path — separate from single bookings
+- Single bookings call `processEvent('session_scheduled', ...)` (full path → immediate
+  confirmation SMS via `sendSmsNotifications`). Recurring bookings instead call each
+  session's `processEvent` with `{ scheduledOnly: true }`, which SKIPS every
+  non-scheduled (immediate) trigger — so the per-session path schedules only the 24h
+  reminders and sends NO immediate confirmation. The one combined confirmation is sent
+  separately by `sendSeriesScheduledConfirmation`.
+- **Therefore `sendSeriesScheduledConfirmation` must send its OWN confirmation SMS** (it
+  used to send only in-app + email → multi-date bookings silently texted nothing). Its
+  SMS block reuses the single-path rules (isSmsConfigured, checkSmsConsent fail-closed,
+  phoneE164||normalize, auditSms every outcome, PHI-free body listing dates/times only)
+  and MUST run BEFORE the email early-returns (`!emailNotifications`/no email/no SparkPost)
+  so a client who declined email still gets the text.
+- **Why:** the immediate-confirmation suppression for series is deliberate (avoid N
+  texts), so the combined confirmation is the ONLY immediate notice — if it skips SMS,
+  recurring bookings get no confirmation text at all.
+
 ## Gotchas
 - 24h reminders are **scheduled `session_scheduled` triggers** (`isScheduled=true`),
   not a distinct eventType. `generateSmsBody` branches on `trigger.isScheduled`

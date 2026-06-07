@@ -2160,6 +2160,84 @@ If you have any questions about joining the virtual session, please contact your
         console.error("[SERIES] Failed to create therapist in-app notification:", err);
       }
 
+      // ===== SMS to client (consent-gated, independent of the email path) =====
+      // Single bookings send an immediate confirmation text; a recurring series
+      // must too. This runs BEFORE the email section's early-returns so a client
+      // who declined email still gets the text. Same rules as the normal SMS
+      // path: fail-closed on consent, prefer the stored E.164 copy, audit every
+      // attempt, and keep the body PHI-free (dates/times only — no name).
+      if (isSmsConfigured()) {
+        const clientId = seriesData.clientId;
+        try {
+          const clientRecord = await storage.getClient(clientId);
+          const phone =
+            clientRecord?.phoneE164 || normalizePhoneE164(clientRecord?.phone);
+          const consent = await checkSmsConsent(clientId);
+          if (!consent.hasConsent) {
+            await this.auditSms(
+              clientId,
+              "sms_notification_blocked",
+              "blocked",
+              "session_scheduled",
+              { reason: consent.message || "no SMS consent", hasPhone: !!phone, series: true },
+            );
+          } else if (!phone) {
+            await this.auditSms(
+              clientId,
+              "sms_notification_blocked",
+              "blocked",
+              "session_scheduled",
+              { reason: "missing or invalid phone number", series: true },
+            );
+          } else {
+            const smsLines = dates
+              .map((d, i) => `${i + 1}. ${this.formatSmsDateTime(d)}`)
+              .join("\n");
+            const smsBody =
+              `SmartHub: Your ${count} recurring appointment(s) are confirmed:\n` +
+              `${smsLines}\n` +
+              `Reply STOP to opt out.`;
+            const result = await sendSms(phone, smsBody);
+            if (result.success) {
+              await this.auditSms(
+                clientId,
+                "sms_notification_sent",
+                "success",
+                "session_scheduled",
+                { messageSid: result.sid, series: true, count },
+              );
+              console.log(
+                `[SERIES] ✓ Sent recurring confirmation text to client ${clientId} (${count} sessions)`,
+              );
+            } else {
+              await this.auditSms(
+                clientId,
+                "sms_notification_failed",
+                "failure",
+                "session_scheduled",
+                { error: result.error, series: true },
+              );
+              console.error(
+                `[SERIES] ✗ Failed to text client ${clientId}: ${result.error}`,
+              );
+            }
+          }
+        } catch (error) {
+          // Fail-closed AND audited, mirroring the single-booking SMS path.
+          await this.auditSms(
+            clientId,
+            "sms_notification_blocked",
+            "blocked",
+            "session_scheduled",
+            {
+              reason: "unexpected error while processing series SMS (fail-closed)",
+              error: error instanceof Error ? error.message : String(error),
+              series: true,
+            },
+          );
+        }
+      }
+
       // ===== Email to client (respecting their email-notification preference) =====
       const client = await db
         .select()
