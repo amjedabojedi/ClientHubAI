@@ -75,8 +75,8 @@
    cd /var/www/clienthubai
    tar -xzf ~/clienthubai-production.tar.gz
    
-   # Install dependencies
-   npm install --production
+   # Install dependencies, including build tooling
+   npm ci --include=dev
    
    # Copy environment file
    cp .env.production .env
@@ -250,7 +250,8 @@ sudo chmod -R 755 /var/www/clienthubai/uploads
 # Update application
 cd /var/www/clienthubai
 git pull origin main
-npm install --production
+npm ci --include=dev
+npm run check
 npm run build
 pm2 restart clienthubai
 ```

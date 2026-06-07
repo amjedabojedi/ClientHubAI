@@ -10,11 +10,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - name: Install Dependencies
         run: npm ci
+      - name: Type Check
+        run: npm run check
       - name: Build Project
         run: npm run build
       - name: Send email if build failed
@@ -42,29 +45,107 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main'
+    env:
+      APP_DIR: ${{ vars.APP_DIR || '/var/www/clienthubai-client/ClientHubAI' }}
+      PM2_APP_NAME: ${{ vars.PM2_APP_NAME || 'ResilienceCRM' }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL || 'http://127.0.0.1:5004/health' }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: '${{ secrets.SSH_KEY }}'
       - name: Deploy to Server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            set -e
-            cd /var/www/clienthubai-client/ClientHubAI
+          set -euo pipefail
+
+          : "${SSH_USER:?SSH_USER secret is required}"
+          : "${SSH_HOST:?SSH_HOST secret is required}"
+
+          remote_env=$(printf "APP_DIR=%q PM2_APP_NAME=%q HEALTHCHECK_URL=%q" "$APP_DIR" "$PM2_APP_NAME" "$HEALTHCHECK_URL")
+
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "$remote_env bash -se" << 'EOF'
+            set -euo pipefail
+
+            echo "Deploying from $APP_DIR"
+
+            if [ ! -d "$APP_DIR" ]; then
+              echo "ERROR: APP_DIR '$APP_DIR' does not exist on the server."
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            if [ ! -d .git ]; then
+              echo "ERROR: APP_DIR '$APP_DIR' is not a git checkout."
+              exit 1
+            fi
+
+            current_branch="$(git rev-parse --abbrev-ref HEAD)"
+            if [ "$current_branch" != "main" ]; then
+              echo "ERROR: APP_DIR is on branch '$current_branch', expected 'main'."
+              exit 1
+            fi
+
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "ERROR: APP_DIR has uncommitted changes; refusing to deploy over them."
+              git status --short
+              exit 1
+            fi
+
             echo "Pulling latest code..."
-            git pull origin main
-            echo "Installing dependencies..."
-            npm install
+            git pull --ff-only origin main
+
+            echo "Installing dependencies from lockfile..."
+            npm ci --include=dev
+
+            echo "Type checking..."
+            npm run check
+
             echo "Building project..."
             npm run build
+
+            if [ -f .env ] && grep -Eq '^DATABASE_URL=' .env; then
+              echo "Reconciling deployment database adjuncts..."
+              npx tsx scripts/ensure-audit-enums.ts
+              npx tsx scripts/verify-audit-enums.ts
+              npx tsx scripts/ensure-report-tables.ts
+            else
+              echo "Skipping database adjunct reconciliation: .env is missing or DATABASE_URL is not set."
+            fi
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              echo "ERROR: pm2 is not installed on the server."
+              exit 1
+            fi
+
+            if ! pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
+              echo "ERROR: PM2 process '$PM2_APP_NAME' was not found."
+              pm2 list
+              exit 1
+            fi
+
             echo "Restarting backend..."
-            pm2 restart ResilienceCRM
+            pm2 restart "$PM2_APP_NAME" --update-env
+
             echo "Reloading Nginx..."
-            sudo systemctl reload nginx
-            echo "Deployment complete!"
+            sudo -n systemctl reload nginx
+
+            echo "Checking application health..."
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS "$HEALTHCHECK_URL" >/dev/null; then
+                echo "Health check passed."
+                echo "Deployment complete!"
+                exit 0
+              fi
+              echo "Health check attempt $attempt failed; retrying..."
+              sleep 3
+            done
+
+            echo "ERROR: Health check failed after deployment: $HEALTHCHECK_URL"
+            exit 1
           EOF
       - name: Send email if deployment successful
         if: success()
