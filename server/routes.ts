@@ -12640,6 +12640,58 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ message: "Client not found" });
       }
 
+      // Optional filters: outcome (sent/blocked/failed) and a date range.
+      // These only narrow which audit rows are returned — they never expose
+      // anything beyond the outcome/timestamp/reason already shown in the log.
+      const conditions = [
+        eq(auditLogs.resourceType, "sms_notification"),
+        eq(auditLogs.clientId, clientId),
+      ];
+
+      const outcomeParam =
+        typeof req.query.outcome === "string"
+          ? req.query.outcome.toLowerCase()
+          : null;
+      // Map the staff-facing outcome label to the stored audit result value.
+      const outcomeToResult: Record<string, string> = {
+        sent: "success",
+        blocked: "blocked",
+        failed: "failure",
+      };
+      if (outcomeParam && outcomeParam !== "all") {
+        const mappedResult = outcomeToResult[outcomeParam];
+        if (!mappedResult) {
+          return res.status(400).json({ message: "Invalid outcome filter" });
+        }
+        conditions.push(eq(auditLogs.result, mappedResult as any));
+      }
+
+      const parseDateParam = (value: unknown): Date | null => {
+        if (typeof value !== "string" || !value.trim()) return null;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      if (req.query.startDate !== undefined) {
+        const startDate = parseDateParam(req.query.startDate);
+        if (!startDate) {
+          return res.status(400).json({ message: "Invalid startDate" });
+        }
+        conditions.push(gte(auditLogs.timestamp, startDate));
+      }
+
+      if (req.query.endDate !== undefined) {
+        const endDate = parseDateParam(req.query.endDate);
+        if (!endDate) {
+          return res.status(400).json({ message: "Invalid endDate" });
+        }
+        // Treat endDate as inclusive of the whole day when no time is given.
+        if (!/[T:]/.test(String(req.query.endDate))) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+        conditions.push(lte(auditLogs.timestamp, endDate));
+      }
+
       const rows = await db
         .select({
           id: auditLogs.id,
@@ -12649,12 +12701,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           timestamp: auditLogs.timestamp,
         })
         .from(auditLogs)
-        .where(
-          and(
-            eq(auditLogs.resourceType, "sms_notification"),
-            eq(auditLogs.clientId, clientId),
-          ),
-        )
+        .where(and(...conditions))
         .orderBy(desc(auditLogs.timestamp))
         .limit(100);
 
