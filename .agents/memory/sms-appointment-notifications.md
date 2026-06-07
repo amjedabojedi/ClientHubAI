@@ -47,3 +47,12 @@ through the existing notification engine (not a new scheduler).
   Twilio client for hermetic tests; it throws if `NODE_ENV==='production'`.
 - New `sms_notification_*` audit actions are pg ENUM values — added via
   `scripts/ensure-audit-enums.ts` (db:push never syncs enum labels).
+- Both paths fail-closed audit on a *thrown* exception (not just gated skips): client
+  catch writes a `blocked` row; staff catch writes a `skipped` row for every staffer
+  not yet audited this run (tracked via an `auditedStaffIds` Set), reason
+  "unexpected error, fail-closed". Don't let either catch only console.error.
+- **Testing the throw path:** `sms-service.sendSms` SWALLOWS Twilio errors into
+  `{success:false}` (audited as `failed`), so injecting a rejecting fake Twilio client
+  does NOT exercise the catch-all — it just yields a `failed` row. To force a real throw
+  in a hermetic test, make the staff path's `db.select()` (the preference query) throw
+  once, then restore it so the catch-block's audit writes still work.

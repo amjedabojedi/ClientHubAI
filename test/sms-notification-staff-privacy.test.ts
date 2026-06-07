@@ -279,6 +279,67 @@ async function main() {
     (await staffSmsAuditActions(wrongTrigger.id)).includes("sms_notification_sent"),
     "audit: staffer opted in for OTHER trigger logged sms_notification_sent when it fired",
   );
+
+  // --- (g) Fail-closed when the staff path crashes mid-run ------------------
+  // If the staff path throws partway through (the task's example: the preference
+  // DB query fails), every staffer we never reached must STILL get a skipped
+  // audit row — exactly the "I got no text and there's no record why" gap this
+  // work closes. Mirrors the consent-gated client path's audit-on-throw.
+  //
+  // We force the throw by making the very first DB read inside the staff path —
+  // the notificationPreferences query — reject once. That happens before ANY
+  // staffer is processed, so both seeded staffers are un-reached and must be
+  // fail-closed audited by the catch-all. (A Twilio send that rejects does NOT
+  // exercise this: sms-service catches it and returns {success:false}, which is
+  // audited as 'failed' — a record still exists, so there's no gap there.)
+  const crashA = await makeStaff("crash-a", goodPhone);
+  await setSmsPref(crashA.id, EVENT_TYPE, true);
+  const crashB = await makeStaff("crash-b", goodPhone);
+  await setSmsPref(crashB.id, EVENT_TYPE, true);
+
+  // One-shot: make the next db.select() throw, then restore the real one so the
+  // catch-block's audit writes (and the assertions below) work normally.
+  const realSelect = (db as any).select.bind(db);
+  (db as any).select = (...args: any[]) => {
+    (db as any).select = realSelect;
+    throw new Error("simulated preference query failure");
+  };
+
+  sentMessages.length = 0;
+  await svc.sendSmsNotifications([crashA, crashB] as any[], trigger(EVENT_TYPE), entity);
+
+  // Restore defensively in case the patched select was never hit.
+  (db as any).select = realSelect;
+
+  // No text went out (we crashed before sending), but BOTH staffers are audited.
+  assertEqual(sentMessages.length, 0, "(g) no staff text recorded when the staff path crashes mid-run");
+  assertTrue(
+    (await staffSmsAuditActions(crashA.id)).includes("sms_notification_skipped"),
+    "(g) audit: un-reached staffer #1 still logged sms_notification_skipped (fail-closed)",
+  );
+  assertTrue(
+    (await staffSmsAuditActions(crashB.id)).includes("sms_notification_skipped"),
+    "(g) audit: un-reached staffer #2 still logged sms_notification_skipped (fail-closed)",
+  );
+
+  // The fail-closed audit detail carries the fail-closed reason and stays PHI-free.
+  const crashRows = await db
+    .select()
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.resourceType, "sms_notification"),
+        inArray(auditLogs.resourceId, [String(crashA.id), String(crashB.id)]),
+      ),
+    );
+  assertTrue(
+    crashRows.some((r) => String(r.details ?? "").includes("fail-closed")),
+    "(g) audit: fail-closed skip records the 'unexpected error, fail-closed' reason",
+  );
+  assertTrue(
+    crashRows.every((r) => !String(r.details ?? "").includes("4242")),
+    "(g) audit: fail-closed skip details do not leak the raw entity id (PHI-free)",
+  );
 }
 
 main()

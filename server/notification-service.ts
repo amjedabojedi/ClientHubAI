@@ -995,8 +995,11 @@ export class NotificationService {
     // traceability, mirroring the consent-gated client path above. Bodies/details
     // stay PHI-free (no client name/clinical detail — only the staff identity,
     // event type, and a skip/failure reason).
+    // Track which staff have already had an attempt audited this run so the
+    // catch-all below can fail-closed audit only the ones we never reached.
+    const staff = recipients.filter((r) => r.role !== "client");
+    const auditedStaffIds = new Set<number>();
     try {
-      const staff = recipients.filter((r) => r.role !== "client");
       if (staff.length > 0) {
         const prefs = await db
           .select()
@@ -1026,6 +1029,7 @@ export class NotificationService {
               trigger.eventType,
               { reason: "staff not opted in to SMS for this event (default off)" },
             );
+            auditedStaffIds.add(user.id);
             continue;
           }
           // Gate 2: opted in but no usable number — skip + record.
@@ -1038,6 +1042,7 @@ export class NotificationService {
               trigger.eventType,
               { reason: "missing or invalid phone number" },
             );
+            auditedStaffIds.add(user.id);
             continue;
           }
           const result = await sendSms(phone, body);
@@ -1064,10 +1069,30 @@ export class NotificationService {
               `[SMS] ✗ Failed to text staff user ${user.id}: ${result.error}`,
             );
           }
+          auditedStaffIds.add(user.id);
         }
       }
     } catch (error) {
       console.error("[SMS] Error in staff SMS path:", error);
+      // Fail-closed AND fully audited, mirroring the client path above: an
+      // unexpected error (e.g. the preference query or sendSms throwing) must
+      // never leave the not-yet-processed staffers with no record of why they
+      // were skipped. Record a PHI-free blocked attempt for each staffer we
+      // never reached this run.
+      const message = error instanceof Error ? error.message : String(error);
+      for (const user of staff) {
+        if (auditedStaffIds.has(user.id)) continue;
+        await this.auditStaffSms(
+          user.id,
+          "sms_notification_skipped",
+          "blocked",
+          trigger.eventType,
+          {
+            reason: "unexpected error, fail-closed",
+            error: message,
+          },
+        );
+      }
     }
   }
 
