@@ -404,6 +404,16 @@ async function run() {
     assertEqual(failedOnly.length, 1, "outcome=failed exports exactly one row");
     assertEqual(failedOnly[0]?.[0], "Failed", "outcome=failed exports only the Failed row");
 
+    // outcome=all is the explicit "no narrowing" value and must behave exactly
+    // like the unfiltered export — every seeded outcome comes back.
+    const allRows = parseCsv((await req("GET", `${exportPath}?outcome=all`, therapistToken)).raw).slice(1);
+    assertEqual(allRows.length, 3, "outcome=all exports every row (no narrowing)");
+    assertEqual(
+      JSON.stringify(allRows.map((r) => r[0]).sort()),
+      JSON.stringify(["Blocked", "Failed", "Sent"]),
+      "outcome=all returns all three outcomes",
+    );
+
     const invalidOutcome = await req("GET", `${exportPath}?outcome=bogus`, therapistToken);
     assertEqual(invalidOutcome.status, 400, "An invalid outcome filter is rejected (400)");
 
@@ -428,6 +438,29 @@ async function run() {
       "The Jan–Feb window does not include the March (Failed) row",
     );
 
+    // Inclusive end-of-day: a date-only endDate must cover the WHOLE of that
+    // calendar day, not just its midnight instant. TS_FAILED is at 18:45 on
+    // 2026-03-20, so endDate=2026-03-20 (date only) must still include it — the
+    // route bumps a bare date to 23:59:59.999. Contrast with an explicit
+    // midnight (2026-03-20T00:00:00), which carries a time and is NOT bumped, so
+    // the same-day-but-later row falls outside the window.
+    const endOfDayRows = parseCsv(
+      (await req("GET", `${exportPath}?endDate=2026-03-20`, therapistToken)).raw,
+    ).slice(1);
+    assertEqual(endOfDayRows.length, 3, "A date-only endDate includes rows later that same day (end-of-day inclusive)");
+    assert(
+      endOfDayRows.some((r) => r[0] === "Failed"),
+      "endDate=2026-03-20 (date only) includes the 18:45 March (Failed) row",
+    );
+
+    const midnightRows = parseCsv(
+      (await req("GET", `${exportPath}?endDate=2026-03-20T00:00:00`, therapistToken)).raw,
+    ).slice(1);
+    assert(
+      !midnightRows.some((r) => r[0] === "Failed"),
+      "endDate with an explicit midnight time is NOT bumped, so the later same-day row is excluded",
+    );
+
     // startDate after every row => empty (header only).
     const emptyRows = parseCsv(
       (await req("GET", `${exportPath}?startDate=2026-06-01`, therapistToken)).raw,
@@ -436,6 +469,9 @@ async function run() {
 
     const invalidDate = await req("GET", `${exportPath}?startDate=not-a-date`, therapistToken);
     assertEqual(invalidDate.status, 400, "An invalid startDate is rejected (400)");
+
+    const invalidEndDate = await req("GET", `${exportPath}?endDate=also-not-a-date`, therapistToken);
+    assertEqual(invalidEndDate.status, 400, "An invalid endDate is rejected (400)");
 
     // Combined filter still cannot leak PHI.
     const combined = await req("GET", `${exportPath}?outcome=blocked&startDate=2026-02-01&endDate=2026-02-28`, therapistToken);
