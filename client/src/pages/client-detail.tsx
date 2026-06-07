@@ -174,6 +174,7 @@ import { SessionRecorder } from "@/components/session-recorder";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 import EmailHistory from "@/components/communications/email-history";
+import SmsHistory from "@/components/communications/sms-history";
 import ClientNotes from "@/components/client-management/client-notes";
 import { ClientFormsDisplay } from "@/components/forms/client-forms-display";
 
@@ -5187,6 +5188,13 @@ export default function ClientDetailPage({
                     >
                       Email History
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="texts"
+                      data-testid="tab-sms-history"
+                      className="h-9 gap-2 rounded-md px-3"
+                    >
+                      Text Messages
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="notes" data-testid="content-client-notes">
@@ -5195,6 +5203,10 @@ export default function ClientDetailPage({
                   
                   <TabsContent value="emails" data-testid="content-email-history">
                     <EmailHistory clientId={clientId!} />
+                  </TabsContent>
+
+                  <TabsContent value="texts" data-testid="content-sms-history">
+                    <SmsHistory clientId={clientId!} />
                   </TabsContent>
                 </Tabs>
               </CardContent>

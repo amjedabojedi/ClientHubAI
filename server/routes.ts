@@ -12619,6 +12619,77 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Per-client SMS activity log. Reads the audit_logs rows that auditSms()
+  // writes for every appointment text attempt (sent / failed / blocked) so
+  // staff can confirm a reminder went out or see why it didn't. PHI-safe:
+  // returns only outcome + reason, no message body or phone number.
+  app.get("/api/clients/:id/sms-log", requireAuth, blockAccountant, auditClientAccess('client_viewed'), async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const clientId = parseInt(req.params.id);
+      if (!Number.isFinite(clientId)) {
+        return res.status(400).json({ message: "Invalid client id" });
+      }
+
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      const rows = await db
+        .select({
+          id: auditLogs.id,
+          action: auditLogs.action,
+          result: auditLogs.result,
+          details: auditLogs.details,
+          timestamp: auditLogs.timestamp,
+        })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.resourceType, "sms_notification"),
+            eq(auditLogs.clientId, clientId),
+          ),
+        )
+        .orderBy(desc(auditLogs.timestamp))
+        .limit(100);
+
+      const entries = rows.map((row) => {
+        let eventType: string | null = null;
+        let reason: string | null = null;
+        try {
+          const parsed = row.details ? JSON.parse(row.details) : {};
+          eventType = typeof parsed.eventType === "string" ? parsed.eventType : null;
+          // Surface a human-readable explanation depending on outcome. We never
+          // expose the message body or phone number — only the reason a text was
+          // blocked or the error that made a send fail.
+          reason =
+            (typeof parsed.reason === "string" && parsed.reason) ||
+            (typeof parsed.error === "string" && parsed.error) ||
+            null;
+        } catch {
+          // Malformed details JSON — leave eventType/reason null rather than fail.
+        }
+        return {
+          id: row.id,
+          action: row.action,
+          result: row.result,
+          eventType,
+          reason,
+          timestamp: row.timestamp,
+        };
+      });
+
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching client SMS log:", error);
+      res.status(500).json({ message: "Failed to fetch SMS log" });
+    }
+  });
+
   app.get("/api/clients/:clientId/communications", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
