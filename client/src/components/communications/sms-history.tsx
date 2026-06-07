@@ -7,6 +7,7 @@ import {
   XCircle,
   Ban,
   Download,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,23 +77,28 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
   const [outcome, setOutcome] = useState<Outcome>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [search, setSearch] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+
+  const trimmedSearch = search.trim();
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (outcome !== "all") params.set("outcome", outcome);
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
+    if (trimmedSearch) params.set("search", trimmedSearch);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [outcome, startDate, endDate]);
+  }, [outcome, startDate, endDate, trimmedSearch]);
 
-  const hasActiveFilters = outcome !== "all" || !!startDate || !!endDate;
+  const hasActiveFilters =
+    outcome !== "all" || !!startDate || !!endDate || !!trimmedSearch;
 
   const { data: entries = [], isLoading } = useQuery<SmsLogEntry[]>({
     queryKey: [
       `/api/clients/${clientId}/sms-log`,
-      { outcome, startDate, endDate },
+      { outcome, startDate, endDate, search: trimmedSearch },
     ],
     queryFn: async () => {
       const res = await fetch(`/api/clients/${clientId}/sms-log${queryString}`, {
@@ -109,6 +115,7 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
     setOutcome("all");
     setStartDate("");
     setEndDate("");
+    setSearch("");
   };
 
   const handleExport = async () => {
@@ -144,6 +151,23 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
 
   const filterControls = (
     <div className="flex flex-wrap items-end gap-3" data-testid="sms-filters">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="sms-search" className="text-xs text-slate-600">
+          Search
+        </Label>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            id="sms-search"
+            type="search"
+            placeholder="Search event or reason"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-[220px] pl-8"
+            data-testid="input-sms-search"
+          />
+        </div>
+      </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="sms-outcome" className="text-xs text-slate-600">
           Outcome
@@ -256,7 +280,7 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
             </h3>
             <p className="text-slate-500 text-center max-w-md">
               {hasActiveFilters
-                ? "No text messages match the selected filters. Try widening the date range or choosing a different outcome."
+                ? "No text messages match your search and filters. Try a different keyword, widening the date range, or choosing a different outcome."
                 : "Appointment text messages sent to this client — along with any that were blocked or failed — will appear here."}
             </p>
             {hasActiveFilters && (

@@ -12692,6 +12692,21 @@ You can download a copy if you have it saved locally and re-upload it.`;
         conditions.push(lte(auditLogs.timestamp, endDate));
       }
 
+      // Optional free-text search. It only matches the same non-PHI fields the
+      // UI already renders — the event type and the blocked/failed reason. We
+      // deliberately match in JS against the parsed values (never the raw
+      // details JSON) so the message body and phone number can never be matched.
+      const searchTerm =
+        typeof req.query.search === "string"
+          ? req.query.search.trim().toLowerCase()
+          : "";
+
+      // The visible log shows the most recent 100 attempts. When a search is
+      // active we scan a larger window so busy clients can still find older
+      // matches, then cap the returned results back to 100.
+      const RESULT_LIMIT = 100;
+      const fetchLimit = searchTerm ? 1000 : RESULT_LIMIT;
+
       const rows = await db
         .select({
           id: auditLogs.id,
@@ -12703,9 +12718,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .from(auditLogs)
         .where(and(...conditions))
         .orderBy(desc(auditLogs.timestamp))
-        .limit(100);
+        .limit(fetchLimit);
 
-      const entries = rows.map((row) => {
+      const mapped = rows.map((row) => {
         let eventType: string | null = null;
         let reason: string | null = null;
         try {
@@ -12730,6 +12745,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
           timestamp: row.timestamp,
         };
       });
+
+      let entries = mapped;
+      if (searchTerm) {
+        entries = mapped.filter((entry) => {
+          // Mirror the UI: a null eventType is shown as "Appointment text".
+          const eventTypeText = (entry.eventType ?? "appointment text")
+            .replace(/_/g, " ")
+            .toLowerCase();
+          const reasonText = (entry.reason ?? "").toLowerCase();
+          return (
+            eventTypeText.includes(searchTerm) ||
+            reasonText.includes(searchTerm)
+          );
+        });
+      }
+      entries = entries.slice(0, RESULT_LIMIT);
 
       res.json(entries);
     } catch (error) {
