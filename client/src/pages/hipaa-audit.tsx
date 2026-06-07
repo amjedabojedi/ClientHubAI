@@ -81,9 +81,9 @@ export default function HIPAAAuditPage() {
   }) as { data: AuditLog[]; isLoading: boolean };
 
   // Fetch audit statistics
-  const { data: auditStats } = useQuery({
+  const { data: auditStats = { totalActivities: 0, phiAccess: 0, highRiskEvents: 0, failedAttempts: 0, userActivity: [] } } = useQuery({
     queryKey: ['/api/audit/stats', filters],
-  }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number; userActivity: UserActivity[] } };
+  }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number; userActivity: UserActivity[] } | undefined };
 
   const getRiskLevelColor = (level: string) => {
     switch (level) {
