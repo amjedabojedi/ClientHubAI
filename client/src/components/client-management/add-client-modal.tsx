@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { insertClientSchema } from "@shared/schema";
+import { normalizePhoneE164 } from "@shared/phone";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -846,6 +847,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormControl>
                           <Input {...field} value={field.value ?? ""} placeholder="555-0123" />
                         </FormControl>
+                        {field.value && !normalizePhoneE164(field.value) && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            This number can't receive texts as written. It will still be saved.
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

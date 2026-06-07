@@ -1,6 +1,7 @@
 // Database Connection and Operators
 import { db } from "./db";
 import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
+import { normalizePhoneE164 } from "@shared/phone";
 
 // Database Schema - Tables
 import { 
@@ -692,15 +693,24 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db
       .insert(users)
-      .values(insertUser)
+      // Derive the standardized SMS copy from the typed `phone` (never modifies
+      // the typed value); null when it can't be standardized.
+      .values({ ...insertUser, phoneE164: normalizePhoneE164(insertUser.phone) })
       .returning();
     return (result as User[])[0];
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User> {
+    // Only recompute the standardized copy when the typed phone is actually
+    // part of this update. We require a concrete value (not `undefined`) because
+    // Drizzle ignores `undefined` for the typed `phone` column, so treating a
+    // `phone: undefined` payload as a change would clear phoneE164 and drift the
+    // two columns. An explicit null/empty (a real clear) still recomputes.
+    const phoneE164Patch =
+      userData.phone !== undefined ? { phoneE164: normalizePhoneE164(userData.phone) } : {};
     const [user] = await db
       .update(users)
-      .set({ ...userData, updatedAt: new Date() })
+      .set({ ...userData, ...phoneE164Patch, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user;
@@ -1489,15 +1499,24 @@ export class DatabaseStorage implements IStorage {
 
     const [client] = await db
       .insert(clients)
-      .values({ ...insertClient, clientId })
+      // Derive the standardized SMS copy from the typed `phone` (never modifies
+      // the typed value); null when it can't be standardized.
+      .values({ ...insertClient, clientId, phoneE164: normalizePhoneE164(insertClient.phone) })
       .returning();
     return client;
   }
 
   async updateClient(id: number, clientData: Partial<InsertClient>): Promise<Client> {
+    // Only recompute the standardized copy when the typed phone is actually
+    // part of this update. We require a concrete value (not `undefined`) because
+    // Drizzle ignores `undefined` for the typed `phone` column, so treating a
+    // `phone: undefined` payload as a change would clear phoneE164 and drift the
+    // two columns. An explicit null/empty (a real clear) still recomputes.
+    const phoneE164Patch =
+      clientData.phone !== undefined ? { phoneE164: normalizePhoneE164(clientData.phone) } : {};
     const [client] = await db
       .update(clients)
-      .set({ ...clientData, updatedAt: new Date() })
+      .set({ ...clientData, ...phoneE164Patch, updatedAt: new Date() })
       .where(eq(clients.id, id))
       .returning();
     return client;

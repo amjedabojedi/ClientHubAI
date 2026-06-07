@@ -37,6 +37,7 @@ SUITES=(
   "test/notification-preferences-ui.test.ts"
   "test/notification-preferences-mute.test.ts"
   "test/notification-specific-users.test.ts"
+  "test/phone-e164-derive-privacy.test.ts"
   "test/sms-notification-privacy.test.ts"
   "test/sms-notification-staff-privacy.test.ts"
   "test/sms-inbound-optout.test.ts"

@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { insertClientSchema } from "@shared/schema";
+import { normalizePhoneE164 } from "@shared/phone";
 import { Client } from "@/types/client";
 
 // Simplified form schema to avoid type inference issues
@@ -610,6 +611,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormControl>
                           <Input {...field} placeholder="555-0123" value={field.value || ""} />
                         </FormControl>
+                        {field.value && !normalizePhoneE164(field.value) && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            This number can't receive texts as written. It will still be saved.
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

@@ -26,4 +26,5 @@
 - [SMS appointment notifications](sms-appointment-notifications.md) — consent-gated Twilio SMS; body MAY include appointment date/time (owner-approved) but never name/clinical; fail-closed + always audited; reminders are scheduled session_scheduled triggers.
 - [Client sessions payload + reschedule](client-sessions-payload-shape.md) — /api/clients/:id/sessions returns nested therapist obj (no flat therapistName); reschedule has no get-by-id, needs editSessionId+editDate to load the session's month.
 - [audit userId FK](audit-userid-fk.md) — audit_logs.user_id is FK to users; system/webhook audits must use SYSTEM_USER_ID (6) not a client id, else write silently hits fallback file. Client goes in clientId.
+- [phoneE164 derived SMS copy](phone-e164-derived-copy.md) — separate auto-derived E.164 copy for texting; recompute only when patch.phone !== undefined (Drizzle ignores undefined → would drift columns).
 - [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.

@@ -85,6 +85,11 @@ export const users = pgTable("users", {
   
   // Profile Information
   phone: varchar("phone", { length: 20 }),
+  // Standardized (E.164, e.g. "+15195551234") copy of `phone`, derived
+  // automatically on save and used only for sending SMS. The free-text
+  // `phone` above is never modified; this is null when `phone` can't be
+  // standardized.
+  phoneE164: varchar("phone_e164", { length: 20 }),
   title: varchar("title", { length: 100 }), // Dr., Ms., Mr., etc.
   department: varchar("department", { length: 100 }),
   bio: text("bio"),
@@ -289,6 +294,11 @@ export const clients = pgTable("clients", {
   
   // Contact & Address Information (Tab 2)
   phone: varchar("phone", { length: 20 }), // Primary contact number
+  // Standardized (E.164, e.g. "+15195551234") copy of `phone`, derived
+  // automatically on save and used only for sending SMS. The free-text
+  // `phone` above is never modified; this is null when `phone` can't be
+  // standardized.
+  phoneE164: varchar("phone_e164", { length: 20 }),
   emergencyPhone: varchar("emergency_phone", { length: 20 }), // Backup contact number
   email: text("email"), // Email address (optional)
   streetAddress1: text("street_address_1"), // Primary address line
@@ -2053,6 +2063,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  phoneE164: true, // Server-derived from `phone`; never set by the client.
 });
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
@@ -2088,6 +2099,7 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   clientId: true, // Auto-generated
   createdAt: true,
   updatedAt: true,
+  phoneE164: true, // Server-derived from `phone`; never set by the client.
 }).extend({
   // Make all fields optional except fullName which remains required
   emailNotifications: z.boolean().optional(),

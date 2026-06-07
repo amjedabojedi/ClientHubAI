@@ -689,6 +689,7 @@ export class NotificationService {
             emailVerified: false,
             emailVerificationToken: null,
             phone: client[0].phone || null,
+            phoneE164: client[0].phoneE164 || null,
             title: null,
             department: null,
             bio: null,
@@ -922,7 +923,9 @@ export class NotificationService {
       if (targetsClient && entityData?.clientId) {
         const clientId = Number(entityData.clientId);
         const client = await storage.getClient(clientId);
-        const phone = normalizePhoneE164(client?.phone);
+        // Prefer the stored standardized copy; fall back to deriving it on the
+        // fly for rows saved before the backfill.
+        const phone = client?.phoneE164 || normalizePhoneE164(client?.phone);
 
         const consent = await checkSmsConsent(clientId);
         if (!consent.hasConsent) {
@@ -1033,7 +1036,9 @@ export class NotificationService {
             continue;
           }
           // Gate 2: opted in but no usable number — skip + record.
-          const phone = normalizePhoneE164(user.phone);
+          // Prefer the stored standardized copy; fall back to deriving it on the
+          // fly for rows saved before the backfill.
+          const phone = user.phoneE164 || normalizePhoneE164(user.phone);
           if (!phone) {
             await this.auditStaffSms(
               user.id,
