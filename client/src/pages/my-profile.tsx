@@ -56,6 +56,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
+import { normalizePhoneE164 } from "@shared/phone";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -64,6 +65,7 @@ const profileFormSchema = z.object({
   // Basic Information
   fullName: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email address"),
+  phone: z.string().optional(),
 
   // License Information
   licenseNumber: z.string().optional(),
@@ -292,6 +294,7 @@ export default function MyProfilePage() {
     defaultValues: {
       fullName: "",
       email: "",
+      phone: "",
       licenseNumber: "",
       licenseType: "",
       licenseState: "",
@@ -359,6 +362,7 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
       const formData = {
         fullName: user.fullName || "",
         email: user.email || "",
+        phone: user.phone || "",
         licenseNumber: profile?.licenseNumber || "",
         licenseType: profile?.licenseType || "",
         licenseState: profile?.licenseState || "",
@@ -422,7 +426,7 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: async (data: { fullName: string; email: string }) => {
+    mutationFn: async (data: { fullName: string; email: string; phone?: string }) => {
       return await apiRequest("/api/users/me", "PUT", data);
     },
     onSuccess: () => {
@@ -635,10 +639,11 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
       await updateUserMutation.mutateAsync({
         fullName: data.fullName,
         email: data.email,
+        phone: data.phone,
       });
 
       // Prepare profile data (exclude user fields)
-      const { fullName, email, ...profileData } = data;
+      const { fullName, email, phone, ...profileData } = data;
 
       // Update or create profile
       if (profile) {
@@ -893,6 +898,29 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
                                   {...field}
                                 />
                               </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="tel"
+                                  placeholder="(555) 123-4567"
+                                  {...field}
+                                  value={field.value || ""}
+                                />
+                              </FormControl>
+                              {field.value && !normalizePhoneE164(field.value) && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  This number can't receive texts as written. It will still be saved.
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}

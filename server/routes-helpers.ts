@@ -62,6 +62,9 @@ export function sanitizeUser(user: any) {
     // serialization — it is only ever returned to its owner via the dedicated
     // GET /api/calendar/feed endpoint.
     calendarFeedToken: _____,
+    // Internal SMS-only derived copy of the typed phone — never surface it
+    // through generic serialization; clients only ever see the verbatim `phone`.
+    phoneE164: ______,
     ...safeUser
   } = user;
   return safeUser;

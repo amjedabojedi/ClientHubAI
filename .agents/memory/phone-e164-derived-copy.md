@@ -17,7 +17,15 @@ empty strings to undefined) as a change, we'd run `normalize(undefined) -> null`
 clear phoneE164 while the typed phone stays — drifting the two columns. An explicit
 `null`/`""` is a real clear and DOES recompute (to null).
 
-**How to apply:** any new write path that touches phone must go through
-storage.createX/updateX (don't write phoneE164 directly). SMS send sites should read
+**How to apply:** new write paths that touch phone should go through
+storage.createX/updateX (don't write phoneE164 directly). The one deliberate
+exception is the `PUT /api/users/me` self-edit route, which does a direct
+`db.update(users)` for fullName/email and derives phoneE164 inline — it MUST
+replicate the exact `req.body.phone !== undefined` guard so it keeps the same
+no-drift semantics. SMS send sites should read
 `row.phoneE164 || normalizePhoneE164(row.phone)` (fallback covers pre-backfill rows).
 Backfill is `scripts/backfill-phone-e164.ts` (idempotent; fills null phoneE164 only).
+
+**Privacy:** phoneE164 is INTERNAL. It is stripped in `sanitizeUser`
+(server/routes-helpers.ts) so it never leaks through generic user serialization;
+clients only ever see the verbatim typed `phone`. Don't add it to any API response.

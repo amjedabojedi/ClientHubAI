@@ -175,12 +175,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updateData = {
+      const updateData: any = {
         fullName: req.body.fullName,
         email: req.body.email,
         updatedAt: new Date()
       };
-      
+
+      // Keep the typed phone verbatim and derive the SMS-only E.164 copy alongside it.
+      if (req.body.phone !== undefined) {
+        updateData.phone = req.body.phone;
+        updateData.phoneE164 = normalizePhoneE164(req.body.phone);
+      }
+
       const [updatedUser] = await db.update(users)
         .set(updateData)
         .where(eq(users.id, currentUserId))
