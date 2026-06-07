@@ -10,6 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { normalizePhoneE164 } from "@shared/phone";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -132,6 +133,7 @@ export default function UserProfilesPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       role: "therapist",
+      phone: "",
     },
   });
 
@@ -434,6 +436,25 @@ export default function UserProfilesPage() {
                           <SelectItem value="admin">Administrator</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createUserForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="555-0123" />
+                      </FormControl>
+                      {field.value && !normalizePhoneE164(field.value) && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          This number can't receive texts as written. It will still be saved.
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
