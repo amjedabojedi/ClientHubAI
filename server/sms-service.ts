@@ -75,6 +75,50 @@ export function normalizePhoneE164(raw: string | null | undefined): string | nul
   return null;
 }
 
+// --- Inbound replies (opt-out / opt-in) --------------------------------------
+//
+// Carriers and TCPA require honoring standard SMS keywords a recipient can text
+// back. We classify a raw inbound body into an opt-out, an opt-in, or neither.
+// Matching is case-insensitive and ignores surrounding whitespace/punctuation so
+// "Stop.", " STOP ", and "stop" all count. Only a message whose meaningful text
+// IS the keyword counts — a sentence that merely contains the word "stop" does
+// not silently unsubscribe someone.
+const OPT_OUT_KEYWORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]);
+const OPT_IN_KEYWORDS = new Set(["start", "unstop", "yes"]);
+
+export type InboundSmsIntent = "opt-out" | "opt-in" | null;
+
+export function classifyInboundSms(body: string | null | undefined): InboundSmsIntent {
+  if (!body) return null;
+  // Reduce to the core token: trim, lowercase, drop trailing punctuation.
+  const normalized = String(body).trim().toLowerCase().replace(/[^a-z]/g, "");
+  if (!normalized) return null;
+  if (OPT_OUT_KEYWORDS.has(normalized)) return "opt-out";
+  if (OPT_IN_KEYWORDS.has(normalized)) return "opt-in";
+  return null;
+}
+
+/**
+ * Validate that an inbound request really came from Twilio by checking the
+ * `X-Twilio-Signature` header against the request URL + POST params using the
+ * account auth token. Returns false (reject) when SMS isn't configured or the
+ * signature is missing/invalid, so an unsigned/forged request can never mutate
+ * a client's consent.
+ */
+export function validateTwilioSignature(
+  signature: string | undefined,
+  url: string,
+  params: Record<string, unknown>,
+): boolean {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken || !signature) return false;
+  try {
+    return twilio.validateRequest(authToken, signature, url, params as any);
+  } catch {
+    return false;
+  }
+}
+
 export interface SmsSendResult {
   success: boolean;
   sid?: string;

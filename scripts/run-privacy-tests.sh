@@ -39,6 +39,7 @@ SUITES=(
   "test/notification-specific-users.test.ts"
   "test/sms-notification-privacy.test.ts"
   "test/sms-notification-staff-privacy.test.ts"
+  "test/sms-inbound-optout.test.ts"
   "test/deferred-summary-email.test.ts"
   "test/quiet-hours-suppression.test.ts"
   "test/quiet-hours-settings-save.test.ts"

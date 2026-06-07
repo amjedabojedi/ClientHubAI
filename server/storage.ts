@@ -354,6 +354,7 @@ export interface IStorage {
   cleanupExpiredPortalSessions(): Promise<void>;
 
   // ===== PATIENT CONSENT MANAGEMENT (GDPR) =====
+  getClientsByPhone(e164: string): Promise<Client[]>;
   getClientConsents(clientId: number): Promise<PatientConsent[]>;
   getClientConsent(clientId: number, consentType: string): Promise<PatientConsent | undefined>;
   createClientConsent(consent: InsertPatientConsent): Promise<PatientConsent>;
@@ -1455,6 +1456,24 @@ export class DatabaseStorage implements IStorage {
   async getClientByClientId(clientId: string): Promise<Client | undefined> {
     const [client] = await db.select().from(clients).where(eq(clients.clientId, clientId));
     return client || undefined;
+  }
+
+  // Find every client whose stored phone matches a given E.164 number. Stored
+  // numbers are free-form ("(519) 555-7777", "519-555-7777", etc.), so we
+  // compare on the trailing 10 digits (the NANP subscriber+area portion) after
+  // stripping non-digits from both sides. Returns all matches because a single
+  // phone can belong to more than one client (e.g. a family) — an inbound STOP
+  // must opt every one of them out.
+  async getClientsByPhone(e164: string): Promise<Client[]> {
+    const digits = (e164 || "").replace(/\D/g, "");
+    const last10 = digits.slice(-10);
+    if (last10.length < 10) return [];
+    return db
+      .select()
+      .from(clients)
+      .where(
+        sql`right(regexp_replace(coalesce(${clients.phone}, ''), '\\D', '', 'g'), 10) = ${last10}`,
+      );
   }
 
   async createClient(insertClient: InsertClient): Promise<Client> {

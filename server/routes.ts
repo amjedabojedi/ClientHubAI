@@ -25,6 +25,7 @@ import { clientInitials } from "@shared/privacy";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
+import { classifyInboundSms, validateTwilioSignature, normalizePhoneE164 } from "./sms-service";
 import { db } from "./db";
 
 // Shared, module-level helper functions (email senders, privacy redaction, GDPR
@@ -14830,6 +14831,121 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error) {
       console.error("Error fetching consents:", error);
       res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  // Twilio inbound-SMS webhook: honor STOP / START replies as consent changes.
+  //
+  // Twilio POSTs (application/x-www-form-urlencoded) here whenever a client texts
+  // our number back. We treat the standard carrier keywords as a consent action:
+  //   STOP / STOPALL / UNSUBSCRIBE / CANCEL / END / QUIT  -> withdraw SMS consent
+  //   START / UNSTOP / YES                                 -> re-grant SMS consent
+  // The request signature is validated against the Twilio auth token so a forged
+  // request can never mutate consent. Every change is audit-logged exactly like
+  // the portal consent endpoints (resourceType 'patient_consent'). We always
+  // answer 200 with empty TwiML so Twilio doesn't retry; only a bad signature is
+  // rejected (403). One phone may map to several clients (a family) — every
+  // matching client is updated.
+  const SMS_CONSENT_VERSION = "1.0.0";
+  app.post("/api/sms/inbound", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    const twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+
+    try {
+      const signature = req.header("X-Twilio-Signature") || undefined;
+      const url = `${getBaseUrl(req)}${req.originalUrl}`;
+      if (!validateTwilioSignature(signature, url, req.body || {})) {
+        console.warn("[SMS INBOUND] Rejected request with invalid Twilio signature");
+        return res.status(403).type("text/xml").send(twiml);
+      }
+
+      const fromRaw = (req.body?.From as string | undefined) || "";
+      const bodyRaw = (req.body?.Body as string | undefined) || "";
+      const intent = classifyInboundSms(bodyRaw);
+
+      // Not an opt-in/opt-out keyword — acknowledge and ignore.
+      if (!intent) {
+        return res.status(200).type("text/xml").send(twiml);
+      }
+
+      const fromE164 = normalizePhoneE164(fromRaw);
+      if (!fromE164) {
+        console.warn("[SMS INBOUND] Could not normalize inbound 'From' number; ignoring");
+        return res.status(200).type("text/xml").send(twiml);
+      }
+
+      const matchingClients = await storage.getClientsByPhone(fromE164);
+      if (matchingClients.length === 0) {
+        console.warn(`[SMS INBOUND] No client matched inbound number; ${intent} ignored`);
+        return res.status(200).type("text/xml").send(twiml);
+      }
+
+      const granted = intent === "opt-in";
+
+      for (const client of matchingClients) {
+        let consent;
+        if (granted) {
+          // Re-grant: record a fresh granted consent (mirrors portal grant path).
+          consent = await storage.createClientConsent({
+            clientId: client.id,
+            consentType: "sms_notifications",
+            granted: true,
+            consentVersion: SMS_CONSENT_VERSION,
+            ipAddress: ipAddress || "",
+            userAgent: userAgent || "",
+            notes: "SMS consent re-granted via inbound text reply (START/UNSTOP)",
+          } as any);
+        } else {
+          // Withdraw any active granted consent; if none exists, record an
+          // explicit opt-out row so the withdrawal is captured + audited.
+          consent = await storage.withdrawClientConsent(client.id, "sms_notifications");
+          if (!consent) {
+            consent = await storage.createClientConsent({
+              clientId: client.id,
+              consentType: "sms_notifications",
+              granted: false,
+              consentVersion: SMS_CONSENT_VERSION,
+              ipAddress: ipAddress || "",
+              userAgent: userAgent || "",
+              notes: "SMS opt-out recorded via inbound text reply (STOP)",
+            } as any);
+            await storage.updateClientConsent(consent.id, { withdrawnAt: new Date() } as any);
+          }
+        }
+
+        await AuditLogger.logAction({
+          // System user: the change is initiated by Twilio's webhook, not a
+          // logged-in user. audit_logs.user_id is FK-constrained to users, so a
+          // client id can't go here — the client is recorded via clientId below.
+          userId: 6,
+          username: "SMS Inbound (Twilio)",
+          action: granted ? "consent_granted" : "consent_withdrawn",
+          result: "success",
+          resourceType: "patient_consent",
+          resourceId: consent.id.toString(),
+          clientId: client.id,
+          ipAddress: ipAddress || "",
+          userAgent: userAgent || "",
+          hipaaRelevant: true,
+          riskLevel: "high",
+          details: JSON.stringify({
+            consentType: "sms_notifications",
+            granted,
+            withdrawn: !granted,
+            consentVersion: SMS_CONSENT_VERSION,
+            consentId: consent.id,
+            source: "sms_inbound_webhook",
+            keyword: bodyRaw.trim().toUpperCase().slice(0, 32),
+          }),
+          accessReason: "SMS opt-out/opt-in via inbound text reply",
+        });
+      }
+
+      return res.status(200).type("text/xml").send(twiml);
+    } catch (error) {
+      console.error("[SMS INBOUND] Error processing inbound SMS:", error);
+      // Still answer 200 so Twilio doesn't retry a request we can't process.
+      return res.status(200).type("text/xml").send(twiml);
     }
   });
 
