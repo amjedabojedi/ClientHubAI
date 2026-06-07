@@ -53,6 +53,7 @@ import {
 } from "./routes-helpers";
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings, AUDIT_ACTIONS, type AuditAction } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess, auditDataExport } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -14691,6 +14692,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { startDate, endDate, riskLevel, hipaaOnly, action, userId } = req.query;
       
+      // Some audit rows (e.g. notes_viewed / client_viewed) store the client in
+      // resource_id instead of client_id. Resolve the client name from there too,
+      // but only when resource_type points at a client and resource_id is numeric.
+      const resourceClients = alias(clients, "resourceClients");
+      const resourceClientId = sql<number>`case when ${auditLogs.resourceType} in ('client', 'client_notes') and ${auditLogs.resourceId} ~ '^[0-9]+$' and length(${auditLogs.resourceId}) <= 18 then ${auditLogs.resourceId}::bigint else null end`;
+
       // Build query with filters
       let query = db.select({
         id: auditLogs.id,
@@ -14701,7 +14708,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         resourceType: auditLogs.resourceType,
         resourceId: auditLogs.resourceId,
         clientId: auditLogs.clientId,
-        clientName: clients.fullName,
+        clientName: sql<string>`coalesce(${clients.fullName}, ${resourceClients.fullName})`,
         ipAddress: auditLogs.ipAddress,
         userAgent: auditLogs.userAgent,
         riskLevel: auditLogs.riskLevel,
@@ -14711,6 +14718,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       })
       .from(auditLogs)
       .leftJoin(clients, eq(auditLogs.clientId, clients.id))
+      .leftJoin(resourceClients, eq(resourceClients.id, resourceClientId))
       .leftJoin(users, eq(auditLogs.userId, users.id));
 
       // Apply filters
