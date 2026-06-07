@@ -47,6 +47,43 @@ function formatEventType(eventType: string | null): string {
     .join(" ");
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightedText({
+  text,
+  query,
+}: {
+  text: string;
+  query: string;
+}) {
+  const trimmed = query.trim();
+  if (!trimmed) return <>{text}</>;
+
+  const regex = new RegExp(`(${escapeRegExp(trimmed)})`, "gi");
+  const parts = text.split(regex);
+  const lowerQuery = trimmed.toLowerCase();
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part && part.toLowerCase() === lowerQuery ? (
+          <mark
+            key={index}
+            className="bg-yellow-200 text-inherit rounded-sm px-0.5"
+            data-testid="sms-search-highlight"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function OutcomeBadge({ result }: { result: string }) {
   if (result === "success") {
     return (
@@ -320,7 +357,10 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <MessageSquare className="h-4 w-4 text-slate-500 shrink-0" />
                       <span className="text-sm font-medium text-slate-900">
-                        {formatEventType(entry.eventType)}
+                        <HighlightedText
+                          text={formatEventType(entry.eventType)}
+                          query={trimmedSearch}
+                        />
                       </span>
                       <OutcomeBadge result={entry.result} />
                     </div>
@@ -332,7 +372,10 @@ export default function SmsHistory({ clientId }: SmsHistoryProps) {
                     </p>
                     {entry.reason && (
                       <p className="text-sm text-slate-600 mt-2">
-                        {entry.reason}
+                        <HighlightedText
+                          text={entry.reason}
+                          query={trimmedSearch}
+                        />
                       </p>
                     )}
                   </div>
