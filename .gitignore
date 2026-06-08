@@ -103,6 +103,7 @@ uploads/
 
 # Database backups and exports
 *.sql
+*.dump
 *.db
 *.sqlite
 *.sqlite3
