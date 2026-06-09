@@ -12,3 +12,9 @@ id = "vne1zIIPB2on5fQds9bi8"
 uri = "file://docs/recurring-sessions-rebuild.md"
 type = "text"
 title = "Recurring Sessions — Technical Handoff & Rebuild Document"
+
+[[outputs]]
+id = "Y_6wy6AU3pAf7V_mEhxRj"
+uri = "file://docs/twilio-sms-rebuild.md"
+type = "text"
+title = "Twilio SMS — Technical Handoff & Rebuild Document"
