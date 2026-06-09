@@ -6,3 +6,9 @@ id = "NF1saIwUEln6-LqBuhWsA"
 uri = "file://docs/record-session-handoff.md"
 type = "text"
 title = "Record Session — Technical Handoff"
+
+[[outputs]]
+id = "vne1zIIPB2on5fQds9bi8"
+uri = "file://docs/recurring-sessions-rebuild.md"
+type = "text"
+title = "Recurring Sessions — Technical Handoff & Rebuild Document"
