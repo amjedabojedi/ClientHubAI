@@ -18,3 +18,9 @@ id = "Y_6wy6AU3pAf7V_mEhxRj"
 uri = "file://docs/twilio-sms-rebuild.md"
 type = "text"
 title = "Twilio SMS — Technical Handoff & Rebuild Document"
+
+[[outputs]]
+id = "BnZSiVvAjhU0cJYCyi1LS"
+uri = "file://docs/session-note-smartfill-risk-rebuild.md"
+type = "text"
+title = "Session Note Smart Fill (Voice Transcription) & Risk Assessment — Technical Handoff"
