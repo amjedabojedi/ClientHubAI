@@ -24,3 +24,9 @@ id = "BnZSiVvAjhU0cJYCyi1LS"
 uri = "file://docs/session-note-smartfill-risk-rebuild.md"
 type = "text"
 title = "Session Note Smart Fill (Voice Transcription) & Risk Assessment — Technical Handoff"
+
+[[outputs]]
+id = "JQQi6bRoVysk8J2yvxgtM"
+uri = "file://docs/close-client-file-rebuild.md"
+type = "text"
+title = "Close File for Client — Technical Handoff / Rebuild"
