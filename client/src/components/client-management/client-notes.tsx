@@ -24,7 +24,7 @@ interface ClientNotesProps {
 }
 
 const noteSchema = z.object({
-  clientId: z.number(),
+  clientId: z.coerce.number(),
   noteType: z.enum(["call", "email", "note"]),
   eventDate: z.date(),
   title: z.string().optional(),
@@ -172,6 +172,22 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
     } else {
       createNoteMutation.mutate(data);
     }
+  };
+
+  // Surface validation errors instead of silently doing nothing when the
+  // user clicks Save. Some fields (e.g. clientId) have no visible input, so a
+  // failure there would otherwise block submit with no feedback at all.
+  const onInvalid = (errors: Record<string, any>) => {
+    const firstMessage =
+      Object.values(errors)
+        .map((e: any) => e?.message)
+        .find((m: any) => typeof m === "string" && m.length > 0) ||
+      "Please complete the required fields before saving.";
+    toast({
+      title: "Could not save note",
+      description: firstMessage,
+      variant: "destructive",
+    });
   };
 
   // Append transcribed text to the existing rich-text Details without erasing it.
@@ -452,7 +468,7 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="noteType"
@@ -611,7 +627,7 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="noteType"
