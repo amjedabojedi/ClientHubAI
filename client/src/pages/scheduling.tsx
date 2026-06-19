@@ -303,6 +303,7 @@ export default function SchedulingPage() {
     therapistId: 'all',
     status: 'all',
     serviceCode: 'all',
+    clientType: 'all',
     clientId: ''
   });
 
@@ -323,6 +324,7 @@ export default function SchedulingPage() {
       sessionsFilters.therapistId,
       sessionsFilters.status,
       sessionsFilters.serviceCode,
+      sessionsFilters.clientType,
       sessionsFilters.clientId
     ],
     queryFn: async () => {
@@ -342,6 +344,9 @@ export default function SchedulingPage() {
       }
       if (sessionsFilters.serviceCode && sessionsFilters.serviceCode !== 'all') {
         params.append('serviceCode', sessionsFilters.serviceCode);
+      }
+      if (sessionsFilters.clientType && sessionsFilters.clientType !== 'all') {
+        params.append('clientType', sessionsFilters.clientType);
       }
       if (sessionsFilters.clientId) {
         params.append('clientId', sessionsFilters.clientId);
@@ -421,6 +426,13 @@ export default function SchedulingPage() {
     queryKey: ["/api/rooms"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes - rooms rarely change
+  });
+
+  // Fetch client-type options (system-defined) for the list-view filter
+  const { data: clientTypeOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/system-options/by-category/client_type"],
+    queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 15 * 60 * 1000,
   });
 
   // Initialize form before queries that depend on it
@@ -2519,6 +2531,28 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="lg:flex-1 lg:min-w-40">
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Client Type</label>
+                    <Select 
+                      value={sessionsFilters.clientType} 
+                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, clientType: value, page: 1 }))}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="All Client Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Client Types</SelectItem>
+                        {clientTypeOptions.map((option: any) => (
+                          <SelectItem
+                            key={option.id}
+                            value={option.optionKey || option.optionkey}
+                          >
+                            {option.optionLabel || option.optionlabel}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="lg:w-28">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Per Page</label>
                     <Select 
@@ -2548,6 +2582,7 @@ export default function SchedulingPage() {
                       therapistId: 'all',
                       status: 'all',
                       serviceCode: 'all',
+                      clientType: 'all',
                       clientId: ''
                     })}
                     className="text-sm"

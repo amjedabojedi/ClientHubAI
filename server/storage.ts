@@ -225,6 +225,7 @@ export type SessionFilterParams = {
   status?: string;
   serviceCode?: string;
   clientId?: number;
+  clientType?: string;
   page?: number;
   limit?: number;
   includeHiddenServices?: boolean; // Admin-only flag to see all services
@@ -2078,6 +2079,7 @@ export class DatabaseStorage implements IStorage {
       status,
       serviceCode,
       clientId,
+      clientType,
       page = 1,
       limit = 50,
       includeHiddenServices = false
@@ -2158,6 +2160,11 @@ export class DatabaseStorage implements IStorage {
     // Service code filtering
     if (serviceCode && serviceCode !== 'all') {
       whereConditions.push(eq(services.serviceCode, serviceCode));
+    }
+
+    // Client type filtering
+    if (clientType && clientType !== 'all') {
+      whereConditions.push(eq(clients.clientType, clientType));
     }
 
     // Apply all conditions

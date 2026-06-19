@@ -2581,7 +2581,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId,
         status,
         serviceCode,
-        clientId
+        clientId,
+        clientType
       } = req.query;
       
       // Default to current month if no date filters provided
@@ -2596,6 +2597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status as string,
         serviceCode: serviceCode as string,
         clientId: clientId ? parseInt(clientId as string) : undefined,
+        clientType: clientType && clientType !== 'all' ? (clientType as string) : undefined,
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       };
@@ -2634,6 +2636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: filters.status,
         serviceCode: filters.serviceCode,
         clientId: filters.clientId,
+        clientType: filters.clientType,
         page: filters.page,
         limit: filters.limit,
         includeHiddenServices: isAdmin
