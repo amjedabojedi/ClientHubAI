@@ -6,6 +6,13 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface VoiceRecorderProps {
   sessionNoteId?: number | null;
+  /**
+   * Session the note belongs to. Required for new (unsaved) notes so the
+   * server can authorize the caller (assertSessionAccess) and enforce
+   * AI-processing consent — the client is derived from the session
+   * server-side, never trusted from the request.
+   */
+  sessionId?: number | null;
   onTranscriptionComplete: (data: {
     rawTranscription: string;
     mappedFields: {
@@ -20,7 +27,7 @@ interface VoiceRecorderProps {
   }) => void;
 }
 
-export function VoiceRecorder({ sessionNoteId, onTranscriptionComplete }: VoiceRecorderProps) {
+export function VoiceRecorder({ sessionNoteId, sessionId, onTranscriptionComplete }: VoiceRecorderProps) {
   const [isRecording, isSetRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -133,6 +140,12 @@ export function VoiceRecorder({ sessionNoteId, onTranscriptionComplete }: VoiceR
       // Include sessionNoteId if available (for existing notes)
       if (sessionNoteId) {
         formData.append('sessionNoteId', sessionNoteId.toString());
+      }
+      // Include sessionId so the server can authorize the caller and enforce
+      // AI-processing consent even for new (unsaved) notes that don't have a
+      // sessionNoteId yet. The client is derived from the session server-side.
+      if (sessionId != null) {
+        formData.append('sessionId', sessionId.toString());
       }
 
       // Send to backend (apiRequest signature: url, method, data)

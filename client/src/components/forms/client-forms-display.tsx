@@ -112,8 +112,8 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
   const assignFormMutation = useMutation({
     mutationFn: async (templateId: number) => {
       return await apiRequest("/api/forms/assignments", "POST", {
-        templateId,
-        clientId,
+        templateId: Number(templateId),
+        clientId: Number(clientId),
       });
     },
     onSuccess: () => {
@@ -124,10 +124,10 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
         description: "Form assigned successfully",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to assign form",
+        description: error?.message || "Failed to assign form",
         variant: "destructive",
       });
     },

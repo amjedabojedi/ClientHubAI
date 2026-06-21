@@ -8324,7 +8324,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Optional session note ID (may not exist for new unsaved notes)
       const sessionNoteId = req.body.sessionNoteId ? parseInt(req.body.sessionNoteId) : null;
-      
+      // Session the note is for. Required for new (unsaved) notes so we can
+      // authorize the caller and enforce AI-processing consent even without a
+      // sessionNoteId. The client is derived from the session, never trusted
+      // from the request body.
+      const bodySessionId = req.body.sessionId ? parseInt(req.body.sessionId) : null;
+
       let clientName: string | undefined;
       let sessionDate: string | undefined;
       let noteClientId: number | undefined;
@@ -8353,11 +8358,34 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const session = await storage.getSession(note.sessionId);
         clientName = client?.fullName;
         sessionDate = session?.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined;
+      } else if (bodySessionId != null && !Number.isNaN(bodySessionId)) {
+        // New unsaved note: resolve the session, authorize the caller, and
+        // derive the client from it so both access control and consent are
+        // enforced below — same scope model as existing-note transcription.
+        const session = await storage.getSession(bodySessionId);
+        if (!session) {
+          return res.status(404).json({ message: "Session not found" });
+        }
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+        noteClientId = session.clientId;
+        noteSessionId = session.id;
+        const client = await storage.getClient(session.clientId);
+        clientName = client?.fullName;
+        sessionDate = session.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined;
       }
 
       // Check if audio file was uploaded
       if (!req.file) {
         return res.status(400).json({ message: "No audio file uploaded" });
+      }
+
+      // AI consent can only be verified against a known client. Require client
+      // context for every transcription so AI processing is never run ungated.
+      if (!noteClientId) {
+        return res.status(400).json({ message: "Client context is required to transcribe audio" });
       }
 
       // GDPR: Check AI processing consent before transcribing
@@ -18344,9 +18372,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ message: "Insufficient permissions to assign forms" });
       }
 
+      // Coerce ids to numbers so a string id (e.g. when the client component
+      // is embedded in a record drawer) doesn't fail validation. Blank values
+      // are left untouched so Zod reports a clean "Required" 400 rather than
+      // silently coercing "" to 0 and hitting a foreign-key error later.
+      const coerceId = (v: unknown) =>
+        v === '' || v == null ? v : Number(v);
       const validatedData = insertFormAssignmentSchema.parse({
         ...req.body,
-        assignedById: req.user.id
+        templateId: coerceId(req.body?.templateId),
+        clientId: coerceId(req.body?.clientId),
+        assignedById: Number(req.user.id)
       });
 
       const [assignment] = await db

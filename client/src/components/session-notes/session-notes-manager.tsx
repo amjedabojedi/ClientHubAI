@@ -26,6 +26,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 
 // Voice Recording
 import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
+import { VoiceRecorder } from "@/components/voice-recorder";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -1330,6 +1331,52 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 if (!sid) return null;
                 return <TranscriptBanner sessionId={sid} onSmartFill={() => setSmartFillSessionId(sid)} />;
               })()}
+
+              {/* Voice typing — dictate straight into the note. The recording is
+                  transcribed and AI-mapped into the structured note fields; any
+                  text already in a field is preserved (new text is appended). */}
+              <div className="flex flex-col gap-2 py-2 px-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-md">
+                <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300 font-medium">
+                  <Mic className="h-4 w-4" />
+                  Voice typing
+                </div>
+                <p className="text-xs text-blue-700/70 dark:text-blue-400/70">
+                  Speak your note — it will be transcribed and filled into the fields below.
+                </p>
+                <VoiceRecorder
+                  sessionNoteId={editingNote?.id ?? null}
+                  sessionId={editingNote?.sessionId ?? form.watch('sessionId') ?? null}
+                  onTranscriptionComplete={(data) => {
+                    const appendField = (key: keyof SmartFillSuggestion, text?: string) => {
+                      const value = (text || '').trim();
+                      if (!value) return;
+                      const existing = (form.getValues(key) as string | undefined) || '';
+                      const next = existing.trim() ? `${existing.trim()}\n${value}` : value;
+                      form.setValue(key, next, { shouldDirty: true, shouldValidate: false });
+                    };
+                    const mapped = data.mappedFields || {};
+                    // Explicit whitelist of note fields we accept from the
+                    // transcription mapping — never write arbitrary form paths.
+                    const mappedKeys = [
+                      'sessionFocus',
+                      'symptoms',
+                      'shortTermGoals',
+                      'intervention',
+                      'progress',
+                      'remarks',
+                      'recommendations',
+                    ] as const;
+                    const anyMapped = mappedKeys.some((k) => (mapped[k] || '').trim());
+                    if (anyMapped) {
+                      mappedKeys.forEach((k) => appendField(k, mapped[k]));
+                    } else {
+                      // AI could not map the speech to specific fields — keep the
+                      // raw words rather than losing them.
+                      appendField('remarks', data.rawTranscription);
+                    }
+                  }}
+                />
+              </div>
 
               {/* Basic Session Information - Only show dropdown if NOT pre-selected */}
               {!isFromSessionClick && (
