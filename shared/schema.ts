@@ -756,6 +756,81 @@ export const insertTherapistPayoutItemSchema = createInsertSchema(therapistPayou
 export type InsertTherapistPayoutItem = z.infer<typeof insertTherapistPayoutItemSchema>;
 export type TherapistPayoutItem = typeof therapistPayoutItems.$inferSelect;
 
+// Insurance statements - an uploaded insurance payment statement (an EOB/ERA),
+// either a PDF (read by AI) or an Excel/CSV file. Each statement holds many
+// line items, one per claim/service the insurer paid (or denied). status:
+// 'draft' = uploaded & under review (nothing posted yet); 'posted' = the
+// confirmed lines have been recorded as insurance payments; 'voided' = the
+// posted payments were reversed.
+export const insuranceStatements = pgTable("insurance_statements", {
+  id: serial("id").primaryKey(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileBlobName: varchar("file_blob_name", { length: 500 }), // Azure/local blob key; null if not persisted
+  sourceType: varchar("source_type", { length: 20 }).notNull(), // 'pdf' | 'excel'
+  payerName: varchar("payer_name", { length: 255 }), // insurer name (best-effort extracted)
+  checkNumber: varchar("check_number", { length: 100 }), // EOB / check / EFT reference
+  statementDate: date("statement_date"),
+  totalPaid: decimal("total_paid", { precision: 12, scale: 2 }), // total the statement says was paid (for reconciliation)
+  status: varchar("status", { length: 20 }).notNull().default('draft'), // 'draft' | 'posted' | 'voided'
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  postedAt: timestamp("posted_at"),
+  postedBy: integer("posted_by").references(() => users.id),
+  voidedAt: timestamp("voided_at"),
+  voidedBy: integer("voided_by").references(() => users.id),
+  voidReason: text("void_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  statusIdx: index("insurance_statements_status_idx").on(table.status),
+}));
+
+export const insertInsuranceStatementSchema = createInsertSchema(insuranceStatements).omit({
+  id: true,
+  createdAt: true,
+  postedAt: true,
+  postedBy: true,
+  voidedAt: true,
+  voidedBy: true,
+  voidReason: true,
+});
+export type InsertInsuranceStatement = z.infer<typeof insertInsuranceStatementSchema>;
+export type InsuranceStatement = typeof insuranceStatements.$inferSelect;
+
+// Insurance statement lines - one claim/service row from a statement, with the
+// amounts the insurer reported and the session_billing record it matched to.
+// matchStatus: 'unmatched' (no candidate found), 'suggested' (auto-matched,
+// needs confirmation), 'confirmed' (user accepted the match, ready to post),
+// 'posted' (insurance payment recorded), 'skipped' (user chose to ignore it).
+export const insuranceStatementLines = pgTable("insurance_statement_lines", {
+  id: serial("id").primaryKey(),
+  statementId: integer("statement_id").notNull().references(() => insuranceStatements.id, { onDelete: 'cascade' }),
+  serviceDate: date("service_date"),
+  clientNameRaw: varchar("client_name_raw", { length: 255 }), // client/patient name as printed on the statement
+  serviceCode: varchar("service_code", { length: 50 }), // CPT code as printed
+  billedAmount: decimal("billed_amount", { precision: 10, scale: 2 }),
+  allowedAmount: decimal("allowed_amount", { precision: 10, scale: 2 }),
+  insurancePaidAmount: decimal("insurance_paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  patientResponsibility: decimal("patient_responsibility", { precision: 10, scale: 2 }),
+  remarkCode: varchar("remark_code", { length: 100 }), // denial / adjustment / remark code(s)
+  matchedSessionBillingId: integer("matched_session_billing_id").references(() => sessionBilling.id),
+  matchedSessionId: integer("matched_session_id").references(() => sessions.id),
+  matchedClientId: integer("matched_client_id").references(() => clients.id),
+  matchStatus: varchar("match_status", { length: 20 }).notNull().default('unmatched'),
+  matchConfidence: varchar("match_confidence", { length: 10 }), // 'high' | 'medium' | 'low'
+  postedAmount: decimal("posted_amount", { precision: 10, scale: 2 }), // amount actually posted (for accurate void reversal)
+  rawText: text("raw_text"), // original line text/JSON for troubleshooting
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  statementIdx: index("insurance_statement_lines_statement_idx").on(table.statementId),
+  matchedBillingIdx: index("insurance_statement_lines_billing_idx").on(table.matchedSessionBillingId),
+}));
+
+export const insertInsuranceStatementLineSchema = createInsertSchema(insuranceStatementLines).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInsuranceStatementLine = z.infer<typeof insertInsuranceStatementLineSchema>;
+export type InsuranceStatementLine = typeof insuranceStatementLines.$inferSelect;
+
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -1509,6 +1584,11 @@ export const AUDIT_ACTIONS = [
   'therapist_pay_rule_deleted',
   'therapist_payout_created',
   'therapist_payout_voided',
+
+  // Insurance statement reconciliation
+  'insurance_statement_uploaded',
+  'insurance_statement_posted',
+  'insurance_statement_voided',
 
   // Consent / compliance
   'consent_granted',

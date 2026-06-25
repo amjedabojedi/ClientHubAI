@@ -47,6 +47,7 @@ import HIPAAAuditPage from "@/pages/hipaa-audit";
 import AdminConsentPage from "@/pages/admin-consent";
 import BillingDashboard from "@/pages/billing-dashboard";
 import TherapistPaymentsPage from "@/pages/therapist-payments";
+import InsuranceReconciliationPage from "@/pages/insurance-reconciliation";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
@@ -148,6 +149,7 @@ function Navigation() {
     // Billing staff manage therapist payments but don't have the Administration menu
     if (user?.role?.toLowerCase().trim() === 'billing') {
       baseItems.push({ path: "/therapist-payments", label: "Payments", icon: DollarSign });
+      baseItems.push({ path: "/insurance-reconciliation", label: "Insurance", icon: FileText });
     }
 
     // Supervisor: limited Administration menu (clinical tools only, no system admin)
@@ -180,6 +182,7 @@ function Navigation() {
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
           { path: "/therapist-payments", label: "Therapist Payments", icon: DollarSign },
+          { path: "/insurance-reconciliation", label: "Insurance Reconciliation", icon: FileText },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
@@ -388,6 +391,15 @@ function Router() {
               return <AccessRestricted message="Therapist payments are restricted to administrators and billing staff." />;
             }
             return <TherapistPaymentsPage />;
+          }} />
+          <Route path="/insurance-reconciliation" component={() => {
+            const { user } = useAuth();
+            const role = user?.role?.toLowerCase().trim();
+            const allowed = role === 'admin' || role === 'administrator' || role === 'billing';
+            if (!allowed) {
+              return <AccessRestricted message="Insurance reconciliation is restricted to administrators and billing staff." />;
+            }
+            return <InsuranceReconciliationPage />;
           }} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />

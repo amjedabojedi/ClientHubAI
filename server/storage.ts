@@ -56,7 +56,9 @@ import {
   therapistPayouts,
   therapistPayoutItems,
   dailyScheduleEmails,
-  deferredNotificationEmails
+  deferredNotificationEmails,
+  insuranceStatements,
+  insuranceStatementLines
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -131,6 +133,10 @@ import type {
   TherapistPayout,
   InsertTherapistPayout,
   TherapistPayoutItem,
+  InsuranceStatement,
+  InsertInsuranceStatement,
+  InsuranceStatementLine,
+  InsertInsuranceStatementLine,
   ClientInvoice,
   UserProfile,
   InsertUserProfile,
@@ -288,6 +294,31 @@ export interface TherapistPayoutItemDetail {
   amountEarned: number;
 }
 
+// Row shape for the insurance statements list (counts rolled up per statement).
+export interface InsuranceStatementSummary extends InsuranceStatement {
+  uploadedByName: string | null;
+  lineCount: number;
+  matchedCount: number; // suggested or confirmed
+  postedCount: number;
+}
+
+// A statement line enriched with the matched billing's display fields so the
+// review screen can show what each line was matched to.
+export interface InsuranceStatementLineDetail extends InsuranceStatementLine {
+  matchedClientName: string | null;
+  matchedSessionDate: Date | null;
+  matchedServiceCode: string | null;
+  matchedServiceName: string | null;
+  matchedBilledTotal: number | null;
+  matchedInsurancePaid: number | null;
+  matchedClientPaid: number | null;
+}
+
+export interface InsuranceStatementDetail {
+  statement: InsuranceStatement;
+  lines: InsuranceStatementLineDetail[];
+}
+
 export interface IStorage {
   
   // ===== USER MANAGEMENT =====
@@ -326,6 +357,35 @@ export interface IStorage {
   getTherapistPayouts(therapistId?: number): Promise<(TherapistPayout & { therapistName: string; itemCount: number })[]>;
   getTherapistPayoutById(id: number): Promise<(TherapistPayout & { therapistName: string; items: TherapistPayoutItemDetail[] }) | undefined>;
   voidTherapistPayout(id: number, voidedBy: number, reason: string): Promise<TherapistPayout>;
+
+  // ===== INSURANCE STATEMENT RECONCILIATION =====
+  // Persist an uploaded statement and its extracted lines, then auto-match each
+  // line to a session_billing record.
+  createInsuranceStatement(
+    statement: InsertInsuranceStatement,
+    lines: Omit<InsertInsuranceStatementLine, 'statementId'>[],
+  ): Promise<InsuranceStatement>;
+  // Re-run auto-matching for every still-unconfirmed line on a statement.
+  autoMatchStatementLines(statementId: number): Promise<void>;
+  getInsuranceStatements(): Promise<InsuranceStatementSummary[]>;
+  getInsuranceStatementById(id: number): Promise<InsuranceStatementDetail | undefined>;
+  // Manually set a line's match (confirm a suggestion, point it at a different
+  // billing, or skip it). Pass matchedSessionBillingId=null to clear the match.
+  updateStatementLineMatch(
+    lineId: number,
+    update: {
+      matchStatus: 'unmatched' | 'suggested' | 'confirmed' | 'skipped';
+      matchedSessionBillingId?: number | null;
+    },
+  ): Promise<InsuranceStatementLine>;
+  // Record an insurance payment for every confirmed line. Idempotent: lines
+  // already posted are skipped, so a retry after a partial failure is safe.
+  postInsuranceStatement(
+    id: number,
+    userId: number,
+  ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number }>;
+  // Reverse every posted line's insurance payment and mark the statement voided.
+  voidInsuranceStatement(id: number, userId: number, reason: string): Promise<InsuranceStatement>;
 
   // ===== DAILY SCHEDULE EMAILS (8 AM ET therapist digest) =====
   // All daily-email tracking rows for a given Eastern calendar day (yyyy-MM-dd).
@@ -3722,6 +3782,410 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return updated;
     });
+  }
+
+  // ===== INSURANCE STATEMENT RECONCILIATION =====
+
+  async createInsuranceStatement(
+    statement: InsertInsuranceStatement,
+    lines: Omit<InsertInsuranceStatementLine, 'statementId'>[],
+  ): Promise<InsuranceStatement> {
+    const created = await db.transaction(async (tx) => {
+      const [stmt] = await tx.insert(insuranceStatements).values(statement).returning();
+      if (lines.length) {
+        await tx.insert(insuranceStatementLines).values(
+          lines.map((l) => ({ ...l, statementId: stmt.id })),
+        );
+      }
+      return stmt;
+    });
+    // Auto-match outside the insert transaction (it issues its own queries).
+    await this.autoMatchStatementLines(created.id);
+    return created;
+  }
+
+  // Find the single best session_billing match for one statement line. Returns
+  // null when there is no candidate or the candidates are ambiguous (we never
+  // guess between multiple billings — the user resolves those manually).
+  private async findBillingMatchForLine(line: InsuranceStatementLine): Promise<
+    { billingId: number; sessionId: number; clientId: number; confidence: 'high' | 'medium' | 'low' } | null
+  > {
+    const conds: any[] = [];
+    const hasDate = !!line.serviceDate;
+    if (hasDate) {
+      conds.push(sql`${sessions.sessionDate}::date = ${line.serviceDate}::date`);
+    }
+    // Token-based name match so "Doe, John" still matches "John Doe": every
+    // alphabetic token in the statement name must appear in the client's name.
+    const nameTokens = (line.clientNameRaw || '').toLowerCase().match(/[a-z]{2,}/g) || [];
+    for (const t of nameTokens) {
+      conds.push(ilike(clients.fullName, `%${t}%`));
+    }
+    const hasName = nameTokens.length > 0;
+    if (!hasDate && !hasName) return null;
+
+    const rows = await db
+      .select({
+        billingId: sessionBilling.id,
+        sessionId: sessions.id,
+        clientId: clients.id,
+        serviceCode: services.serviceCode,
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .where(and(...conds))
+      .limit(10);
+
+    if (!rows.length) return null;
+
+    let candidates = rows;
+    let codeMatched = false;
+    if (line.serviceCode) {
+      const lc = line.serviceCode.toLowerCase();
+      const byCode = rows.filter((r) => r.serviceCode && r.serviceCode.toLowerCase() === lc);
+      if (byCode.length) {
+        candidates = byCode;
+        codeMatched = true;
+      }
+    }
+
+    // Only auto-suggest when exactly one candidate survives; ambiguity → manual.
+    if (candidates.length !== 1) return null;
+
+    const c = candidates[0];
+    let confidence: 'high' | 'medium' | 'low' = 'low';
+    if (hasName && hasDate && codeMatched) confidence = 'high';
+    else if (hasName && hasDate) confidence = 'medium';
+    return { billingId: c.billingId, sessionId: c.sessionId, clientId: c.clientId, confidence };
+  }
+
+  async autoMatchStatementLines(statementId: number): Promise<void> {
+    const lines = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.statementId, statementId));
+
+    for (const line of lines) {
+      // Never disturb a line the user already confirmed/posted/skipped.
+      if (line.matchStatus === 'confirmed' || line.matchStatus === 'posted' || line.matchStatus === 'skipped') {
+        continue;
+      }
+      const match = await this.findBillingMatchForLine(line);
+      if (match) {
+        await db
+          .update(insuranceStatementLines)
+          .set({
+            matchedSessionBillingId: match.billingId,
+            matchedSessionId: match.sessionId,
+            matchedClientId: match.clientId,
+            matchStatus: 'suggested',
+            matchConfidence: match.confidence,
+          })
+          .where(eq(insuranceStatementLines.id, line.id));
+      } else {
+        await db
+          .update(insuranceStatementLines)
+          .set({
+            matchedSessionBillingId: null,
+            matchedSessionId: null,
+            matchedClientId: null,
+            matchStatus: 'unmatched',
+            matchConfidence: null,
+          })
+          .where(eq(insuranceStatementLines.id, line.id));
+      }
+    }
+  }
+
+  async getInsuranceStatements(): Promise<InsuranceStatementSummary[]> {
+    const stmts = await db
+      .select()
+      .from(insuranceStatements)
+      .orderBy(desc(insuranceStatements.createdAt));
+    if (!stmts.length) return [];
+
+    const ids = stmts.map((s) => s.id);
+    // Per-statement line counts in one grouped query.
+    const counts = await db
+      .select({
+        statementId: insuranceStatementLines.statementId,
+        lineCount: sql<number>`count(*)::int`,
+        matchedCount: sql<number>`count(*) FILTER (WHERE ${insuranceStatementLines.matchStatus} IN ('suggested','confirmed','posted'))::int`,
+        postedCount: sql<number>`count(*) FILTER (WHERE ${insuranceStatementLines.matchStatus} = 'posted')::int`,
+      })
+      .from(insuranceStatementLines)
+      .where(inArray(insuranceStatementLines.statementId, ids))
+      .groupBy(insuranceStatementLines.statementId);
+    const countMap = new Map(counts.map((c) => [c.statementId, c]));
+
+    const uploaderIds = Array.from(
+      new Set(stmts.map((s) => s.uploadedBy).filter((x): x is number => x != null)),
+    );
+    const uploaders = uploaderIds.length
+      ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, uploaderIds))
+      : [];
+    const userMap = new Map(uploaders.map((u) => [u.id, u.fullName]));
+
+    return stmts.map((s) => {
+      const c = countMap.get(s.id);
+      return {
+        ...s,
+        uploadedByName: s.uploadedBy != null ? userMap.get(s.uploadedBy) ?? null : null,
+        lineCount: c?.lineCount ?? 0,
+        matchedCount: c?.matchedCount ?? 0,
+        postedCount: c?.postedCount ?? 0,
+      };
+    });
+  }
+
+  async getInsuranceStatementById(id: number): Promise<InsuranceStatementDetail | undefined> {
+    const [statement] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, id))
+      .limit(1);
+    if (!statement) return undefined;
+
+    const rows = await db
+      .select({
+        line: insuranceStatementLines,
+        clientName: clients.fullName,
+        sessionDate: sessions.sessionDate,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+        billedTotal: sessionBilling.totalAmount,
+        insurancePaid: sessionBilling.insurancePaidAmount,
+        clientPaid: sessionBilling.clientPaidAmount,
+      })
+      .from(insuranceStatementLines)
+      .leftJoin(sessionBilling, eq(insuranceStatementLines.matchedSessionBillingId, sessionBilling.id))
+      .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .where(eq(insuranceStatementLines.statementId, id))
+      .orderBy(asc(insuranceStatementLines.id));
+
+    const lines: InsuranceStatementLineDetail[] = rows.map((r) => ({
+      ...r.line,
+      matchedClientName: r.clientName ?? null,
+      matchedSessionDate: r.sessionDate ?? null,
+      matchedServiceCode: r.serviceCode ?? null,
+      matchedServiceName: r.serviceName ?? null,
+      matchedBilledTotal: r.billedTotal != null ? Number(r.billedTotal) : null,
+      matchedInsurancePaid: r.insurancePaid != null ? Number(r.insurancePaid) : null,
+      matchedClientPaid: r.clientPaid != null ? Number(r.clientPaid) : null,
+    }));
+
+    return { statement, lines };
+  }
+
+  async updateStatementLineMatch(
+    lineId: number,
+    update: {
+      matchStatus: 'unmatched' | 'suggested' | 'confirmed' | 'skipped';
+      matchedSessionBillingId?: number | null;
+    },
+  ): Promise<InsuranceStatementLine> {
+    const [existing] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    if (!existing) throw new Error('Statement line not found');
+    if (existing.matchStatus === 'posted') {
+      throw new Error('Cannot change a line that has already been posted. Void the statement first.');
+    }
+
+    const setData: any = { matchStatus: update.matchStatus };
+
+    // When the caller points the line at a (different) billing, resolve its
+    // session/client so the display joins and posting stay consistent.
+    if (update.matchedSessionBillingId !== undefined) {
+      if (update.matchedSessionBillingId === null) {
+        setData.matchedSessionBillingId = null;
+        setData.matchedSessionId = null;
+        setData.matchedClientId = null;
+      } else {
+        const [b] = await db
+          .select({ billingId: sessionBilling.id, sessionId: sessions.id, clientId: clients.id })
+          .from(sessionBilling)
+          .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+          .innerJoin(clients, eq(sessions.clientId, clients.id))
+          .where(eq(sessionBilling.id, update.matchedSessionBillingId))
+          .limit(1);
+        if (!b) throw new Error('Selected billing record not found');
+        setData.matchedSessionBillingId = b.billingId;
+        setData.matchedSessionId = b.sessionId;
+        setData.matchedClientId = b.clientId;
+      }
+    }
+
+    // Confirming requires a billing target.
+    if (update.matchStatus === 'confirmed') {
+      const targetBilling =
+        update.matchedSessionBillingId !== undefined
+          ? update.matchedSessionBillingId
+          : existing.matchedSessionBillingId;
+      if (!targetBilling) {
+        throw new Error('Cannot confirm a line with no matched billing record.');
+      }
+    }
+
+    const [updated] = await db
+      .update(insuranceStatementLines)
+      .set(setData)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .returning();
+    return updated;
+  }
+
+  async postInsuranceStatement(
+    id: number,
+    userId: number,
+  ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number }> {
+    const [statement] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, id))
+      .limit(1);
+    if (!statement) throw new Error('Statement not found');
+    if (statement.status === 'voided') throw new Error('Cannot post a voided statement.');
+
+    const lines = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.statementId, id));
+
+    // Block finalizing a draft that has nothing confirmed — otherwise the
+    // statement would be marked "posted" without recording any payment, which
+    // prematurely closes it. (Re-running an already-posted statement stays
+    // allowed so a partial failure can be retried idempotently.)
+    if (statement.status === 'draft') {
+      const confirmedCount = lines.filter(
+        (l) => l.matchStatus === 'confirmed' && l.matchedSessionBillingId,
+      ).length;
+      if (confirmedCount === 0) {
+        throw new Error('Cannot post: confirm at least one matched line first.');
+      }
+    }
+
+    const paymentDate = statement.statementDate || new Date().toISOString().slice(0, 10);
+    let postedCount = 0;
+    let postedTotal = 0;
+
+    for (const line of lines) {
+      // Only confirmed, billing-linked lines get posted. Already-posted lines
+      // are skipped so re-running after a partial failure is safe (idempotent).
+      if (line.matchStatus !== 'confirmed') continue;
+      if (!line.matchedSessionBillingId) continue;
+      const lineAmount = Number(line.insurancePaidAmount) || 0;
+      if (lineAmount <= 0) {
+        // Nothing to pay (e.g. fully denied) — mark posted with zero so it's
+        // reflected as handled without touching the billing record.
+        await db
+          .update(insuranceStatementLines)
+          .set({ matchStatus: 'posted', postedAmount: '0' })
+          .where(eq(insuranceStatementLines.id, line.id));
+        postedCount += 1;
+        continue;
+      }
+
+      // recordPayment expects the NEW CUMULATIVE insurance amount for the
+      // billing, so add this line's payment to whatever insurance already paid.
+      const [billing] = await db
+        .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+        .from(sessionBilling)
+        .where(eq(sessionBilling.id, line.matchedSessionBillingId))
+        .limit(1);
+      if (!billing) continue;
+      const currentInsurance = Number(billing.insurancePaid) || 0;
+      const newCumulative = +(currentInsurance + lineAmount).toFixed(2);
+
+      await this.recordPayment(line.matchedSessionBillingId, {
+        status: 'paid',
+        amount: newCumulative,
+        date: paymentDate,
+        method: 'insurance',
+        source: 'insurance',
+        reference: statement.checkNumber || undefined,
+        notes: `Insurance statement #${statement.id}${statement.payerName ? ` (${statement.payerName})` : ''}`,
+        recordedBy: userId,
+      });
+
+      await db
+        .update(insuranceStatementLines)
+        .set({ matchStatus: 'posted', postedAmount: lineAmount.toFixed(2) })
+        .where(eq(insuranceStatementLines.id, line.id));
+      postedCount += 1;
+      postedTotal = +(postedTotal + lineAmount).toFixed(2);
+    }
+
+    const [updated] = await db
+      .update(insuranceStatements)
+      .set({ status: 'posted', postedAt: new Date(), postedBy: userId })
+      .where(eq(insuranceStatements.id, id))
+      .returning();
+
+    return { statement: updated, postedCount, postedTotal };
+  }
+
+  async voidInsuranceStatement(id: number, userId: number, reason: string): Promise<InsuranceStatement> {
+    const [statement] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, id))
+      .limit(1);
+    if (!statement) throw new Error('Statement not found');
+    if (statement.status === 'voided') throw new Error('Statement already voided.');
+
+    const lines = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.statementId, id));
+
+    const paymentDate = new Date().toISOString().slice(0, 10);
+
+    for (const line of lines) {
+      if (line.matchStatus !== 'posted') continue;
+      const posted = Number(line.postedAmount) || 0;
+      if (line.matchedSessionBillingId && posted > 0) {
+        // Reverse: subtract this line's payment from the billing's cumulative
+        // insurance amount (never below zero).
+        const [billing] = await db
+          .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.id, line.matchedSessionBillingId))
+          .limit(1);
+        if (billing) {
+          const currentInsurance = Number(billing.insurancePaid) || 0;
+          const newCumulative = Math.max(0, +(currentInsurance - posted).toFixed(2));
+          await this.recordPayment(line.matchedSessionBillingId, {
+            status: 'billed',
+            amount: newCumulative,
+            date: paymentDate,
+            method: 'insurance',
+            source: 'insurance',
+            reference: statement.checkNumber || undefined,
+            notes: `Void of insurance statement #${statement.id}: ${reason}`,
+            recordedBy: userId,
+          });
+        }
+      }
+      // Return the line to confirmed so it could be re-posted if needed.
+      await db
+        .update(insuranceStatementLines)
+        .set({ matchStatus: 'confirmed', postedAmount: null })
+        .where(eq(insuranceStatementLines.id, line.id));
+    }
+
+    const [updated] = await db
+      .update(insuranceStatements)
+      .set({ status: 'voided', voidedAt: new Date(), voidedBy: userId, voidReason: reason })
+      .where(eq(insuranceStatements.id, id))
+      .returning();
+    return updated;
   }
 
   // Enhanced Task Management Methods

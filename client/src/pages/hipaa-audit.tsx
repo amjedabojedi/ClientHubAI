@@ -190,6 +190,11 @@ const AUDIT_ACTION_LABELS = {
   therapist_pay_rule_deleted: 'Therapist Pay Rule Deleted',
   therapist_payout_created: 'Therapist Payout Created',
   therapist_payout_voided: 'Therapist Payout Voided',
+
+  // Insurance statement reconciliation
+  insurance_statement_uploaded: 'Insurance Statement Uploaded',
+  insurance_statement_posted: 'Insurance Statement Posted',
+  insurance_statement_voided: 'Insurance Statement Voided',
 } satisfies Record<AuditAction, string>;
 
 // Fallback: turn any unmapped snake_case action into Title Case words.

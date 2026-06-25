@@ -23,6 +23,7 @@ import { buildTherapistCalendar } from "./ics-service";
 import { clientInitials } from "@shared/privacy";
 // Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
+import { parseInsuranceUpload } from "./insurance/parse";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { classifyInboundSms, validateTwilioSignature, normalizePhoneE164 } from "./sms-service";
@@ -12564,6 +12565,232 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const msg = error?.message || "Internal server error";
       if (msg === 'Payout not found') return res.status(404).json({ message: msg });
       if (msg === 'Payout already voided') return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===================================================================
+  // INSURANCE STATEMENT RECONCILIATION (admin + billing only)
+  // ===================================================================
+  const insuranceUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+    fileFilter: (_req, file, cb) => {
+      const name = (file.originalname || '').toLowerCase();
+      const ok =
+        name.endsWith('.pdf') ||
+        name.endsWith('.xlsx') ||
+        name.endsWith('.xls') ||
+        name.endsWith('.csv') ||
+        name.endsWith('.txt') ||
+        name.endsWith('.docx');
+      if (ok) {
+        cb(null, true);
+      } else {
+        cb(new Error('Please upload a PDF, Excel (.xlsx/.xls), or CSV file.'));
+      }
+    },
+  });
+
+  // Upload an insurance statement: extract its lines (AI for PDF, direct parse
+  // for Excel/CSV), persist, and auto-match each line to a session billing.
+  app.post(
+    "/api/insurance/statements",
+    requireAuth,
+    requireTherapistPayAccess,
+    insuranceUpload.single('file'),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+        const { buffer, originalname, mimetype } = req.file;
+
+        let parsed;
+        try {
+          parsed = await parseInsuranceUpload(buffer, mimetype, originalname);
+        } catch (e: any) {
+          return res.status(422).json({ message: e?.message || "Could not read the uploaded file." });
+        }
+        const { sourceType, extracted } = parsed;
+        if (!extracted.lines.length) {
+          return res.status(422).json({
+            message: "No payment lines could be read from this file. Please check the file and try again.",
+          });
+        }
+
+        const statement = await storage.createInsuranceStatement(
+          {
+            fileName: originalname,
+            fileBlobName: null,
+            sourceType,
+            payerName: extracted.payerName,
+            checkNumber: extracted.checkNumber,
+            statementDate: extracted.statementDate,
+            totalPaid: extracted.totalPaid != null ? extracted.totalPaid.toFixed(2) : null,
+            status: 'draft',
+            uploadedBy: req.user!.id,
+          },
+          extracted.lines.map((l) => ({
+            serviceDate: l.serviceDate,
+            clientNameRaw: l.clientName,
+            serviceCode: l.serviceCode,
+            billedAmount: l.billedAmount != null ? l.billedAmount.toFixed(2) : null,
+            allowedAmount: l.allowedAmount != null ? l.allowedAmount.toFixed(2) : null,
+            insurancePaidAmount: (l.insurancePaidAmount ?? 0).toFixed(2),
+            patientResponsibility: l.patientResponsibility != null ? l.patientResponsibility.toFixed(2) : null,
+            remarkCode: l.remarkCode,
+            rawText: JSON.stringify(l),
+          })),
+        );
+
+        await db.insert(auditLogs).values({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'insurance_statement_uploaded',
+          result: 'success',
+          resourceType: 'insurance_statement',
+          resourceId: String(statement.id),
+          details: JSON.stringify({
+            sourceType,
+            fileName: originalname,
+            lineCount: extracted.lines.length,
+            payerName: extracted.payerName,
+          }),
+          ipAddress: req.ip || null,
+          userAgent: req.get('user-agent') || null,
+        });
+
+        const detail = await storage.getInsuranceStatementById(statement.id);
+        res.status(201).json(detail);
+      } catch (error: any) {
+        res.status(500).json({ message: error?.message || "Internal server error" });
+      }
+    },
+  );
+
+  // List uploaded statements with rolled-up counts.
+  app.get("/api/insurance/statements", requireAuth, requireTherapistPayAccess, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const statements = await storage.getInsuranceStatements();
+      res.json(statements);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Statement detail with each line and what it matched to.
+  app.get("/api/insurance/statements/:id", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+      const detail = await storage.getInsuranceStatementById(id);
+      if (!detail) return res.status(404).json({ message: "Statement not found" });
+      res.json(detail);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Re-run auto-matching for a statement's still-unconfirmed lines.
+  app.post("/api/insurance/statements/:id/rematch", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+      await storage.autoMatchStatementLines(id);
+      const detail = await storage.getInsuranceStatementById(id);
+      if (!detail) return res.status(404).json({ message: "Statement not found" });
+      res.json(detail);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update one line's match (confirm / repoint / clear / skip).
+  app.patch("/api/insurance/lines/:id", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid line ID" });
+      const { matchStatus, matchedSessionBillingId } = req.body || {};
+      const allowed = ['unmatched', 'suggested', 'confirmed', 'skipped'];
+      if (!allowed.includes(matchStatus)) {
+        return res.status(400).json({ message: "Invalid matchStatus" });
+      }
+      let billingId: number | null | undefined = undefined;
+      if (matchedSessionBillingId !== undefined) {
+        billingId = matchedSessionBillingId === null ? null : parseInt(String(matchedSessionBillingId));
+        if (billingId !== null && isNaN(billingId)) {
+          return res.status(400).json({ message: "Invalid matchedSessionBillingId" });
+        }
+      }
+      const updated = await storage.updateStatementLineMatch(id, {
+        matchStatus,
+        matchedSessionBillingId: billingId,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Cannot') || msg.includes('confirm')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Post the confirmed lines as insurance payments.
+  app.post("/api/insurance/statements/:id/post", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+      const result = await storage.postInsuranceStatement(id, req.user!.id);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_posted',
+        result: 'success',
+        resourceType: 'insurance_statement',
+        resourceId: String(id),
+        details: JSON.stringify({ postedCount: result.postedCount, postedTotal: result.postedTotal }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      const detail = await storage.getInsuranceStatementById(id);
+      res.json({ ...detail, postedCount: result.postedCount, postedTotal: result.postedTotal });
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Cannot')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Void a posted statement (reverses every posted insurance payment).
+  app.post("/api/insurance/statements/:id/void", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+      const reason = (req.body?.reason || '').toString().trim();
+      if (!reason) return res.status(400).json({ message: "A reason is required to void a statement" });
+
+      const statement = await storage.voidInsuranceStatement(id, req.user!.id, reason);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_voided',
+        result: 'success',
+        resourceType: 'insurance_statement',
+        resourceId: String(id),
+        details: JSON.stringify({ reason }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      const detail = await storage.getInsuranceStatementById(id);
+      res.json(detail ?? statement);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('already voided')) return res.status(400).json({ message: msg });
       res.status(500).json({ message: "Internal server error" });
     }
   });

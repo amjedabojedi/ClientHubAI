@@ -553,6 +553,102 @@ Return only a JSON array of strings, each suggestion should be 1-2 sentences max
   }
 }
 
+// ---------------------------------------------------------------------------
+// Insurance statement (EOB / remittance) extraction
+// ---------------------------------------------------------------------------
+// Reads the plain text of an insurance Explanation of Benefits / remittance
+// advice and returns the payment line items as structured JSON so they can be
+// matched back to session billings. The model is told to never invent values.
+export interface ExtractedInsuranceLine {
+  serviceDate: string | null; // YYYY-MM-DD
+  clientName: string | null;
+  serviceCode: string | null; // CPT/procedure code
+  billedAmount: number | null;
+  allowedAmount: number | null;
+  insurancePaidAmount: number | null;
+  patientResponsibility: number | null;
+  remarkCode: string | null;
+}
+
+export interface ExtractedInsuranceStatement {
+  payerName: string | null;
+  checkNumber: string | null;
+  statementDate: string | null; // YYYY-MM-DD
+  totalPaid: number | null;
+  lines: ExtractedInsuranceLine[];
+}
+
+function insNumOrNull(v: any): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(String(v).replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function extractInsuranceStatementFromText(
+  text: string,
+): Promise<ExtractedInsuranceStatement> {
+  const systemPrompt =
+    `You are a medical billing assistant that reads insurance Explanation of Benefits (EOB) / remittance advice statements and extracts the payment line items as structured JSON. ` +
+    `Extract ONLY what is actually present in the document; never invent or guess values. ` +
+    `All dates must be ISO format YYYY-MM-DD. All amounts must be plain numbers with no currency symbols or commas. Use null for anything that is missing.`;
+
+  const userPrompt = `Extract the insurance statement below into JSON with EXACTLY this shape:
+{
+  "payerName": string|null,
+  "checkNumber": string|null,
+  "statementDate": string|null,
+  "totalPaid": number|null,
+  "lines": [
+    {
+      "serviceDate": string|null,
+      "clientName": string|null,
+      "serviceCode": string|null,
+      "billedAmount": number|null,
+      "allowedAmount": number|null,
+      "insurancePaidAmount": number|null,
+      "patientResponsibility": number|null,
+      "remarkCode": string|null
+    }
+  ]
+}
+Notes: checkNumber is the check/EFT/remittance reference. serviceCode is the CPT/procedure code (e.g. 90837). insurancePaidAmount is what the insurer paid for that line. patientResponsibility is copay/coinsurance/deductible owed by the patient. remarkCode holds any denial/adjustment/remark codes.
+
+Statement text:
+"""
+${text}
+"""`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0,
+    max_tokens: 4000,
+  });
+
+  const parsed = JSON.parse(response.choices[0].message.content || '{}');
+  const rawLines = Array.isArray(parsed.lines) ? parsed.lines : [];
+  return {
+    payerName: parsed.payerName ? String(parsed.payerName) : null,
+    checkNumber: parsed.checkNumber ? String(parsed.checkNumber) : null,
+    statementDate: parsed.statementDate ? String(parsed.statementDate).slice(0, 10) : null,
+    totalPaid: insNumOrNull(parsed.totalPaid),
+    lines: rawLines.map((l: any) => ({
+      serviceDate: l.serviceDate ? String(l.serviceDate).slice(0, 10) : null,
+      clientName: l.clientName ? String(l.clientName) : null,
+      serviceCode: l.serviceCode != null && l.serviceCode !== '' ? String(l.serviceCode) : null,
+      billedAmount: insNumOrNull(l.billedAmount),
+      allowedAmount: insNumOrNull(l.allowedAmount),
+      insurancePaidAmount: insNumOrNull(l.insurancePaidAmount),
+      patientResponsibility: insNumOrNull(l.patientResponsibility),
+      remarkCode: l.remarkCode != null && l.remarkCode !== '' ? String(l.remarkCode) : null,
+    })),
+  };
+}
+
 // Assessment Report Generation
 async function generateAssessmentReport(
   assignment: any, 
