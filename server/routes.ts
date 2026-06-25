@@ -92,7 +92,6 @@ import {
   insertRoomSchema,
   insertRoomBookingSchema,
   insertSessionBillingSchema,
-  insertTherapistPayRuleSchema,
   insertTherapistPayoutSchema,
   insertRoleSchema,
   insertPermissionSchema,
@@ -12368,10 +12367,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // serviceId is null; otherwise one rule per service).
   app.post("/api/therapist-pay/rules", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
     try {
-      const validated = insertTherapistPayRuleSchema.parse(req.body);
-      if (validated.payType !== 'percentage' && validated.payType !== 'fixed') {
-        return res.status(400).json({ message: "payType must be 'percentage' or 'fixed'" });
-      }
+      // Coerce incoming values defensively: ids can arrive as strings (the
+      // Neon driver returns serial ids as strings, so a service id selected in
+      // the UI comes through as e.g. "29"), and payValue may be a number.
+      const payRuleInputSchema = z.object({
+        therapistId: z.coerce.number().int().positive(),
+        serviceId: z.preprocess(
+          (v) => (v === null || v === undefined || v === '' ? null : Number(v)),
+          z.number().int().positive().nullable(),
+        ),
+        payType: z.enum(['percentage', 'fixed']),
+        payValue: z.coerce.string().trim().min(1),
+      });
+      const validated = payRuleInputSchema.parse(req.body);
       const value = Number(validated.payValue);
       if (!isFinite(value) || value < 0) {
         return res.status(400).json({ message: "payValue must be a non-negative number" });

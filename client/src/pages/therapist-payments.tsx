@@ -184,9 +184,13 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
       return res.json();
     },
   });
-  const { data: services = [], isLoading: loadingServices } = useQuery<ServiceOption[]>({
+  const { data: servicesRaw = [], isLoading: loadingServices } = useQuery<ServiceOption[]>({
     queryKey: ["/api/therapist-pay/services"],
   });
+  // Service ids arrive from the API as strings (serial ids over the Neon
+  // driver). Normalize to numbers so they match each rule's numeric serviceId
+  // for override lookups, and so saving sends a numeric id.
+  const services = servicesRaw.map((s) => ({ ...s, id: Number(s.id) }));
 
   const upsert = useMutation({
     mutationFn: (body: { serviceId: number | null; payType: PayType; payValue: string }) =>
