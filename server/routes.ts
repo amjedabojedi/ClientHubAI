@@ -12499,6 +12499,31 @@ You can download a copy if you have it saved locally and re-upload it.`;
         userAgent: req.get('user-agent') || null,
       });
 
+      // One audit row per session allocation so every applied amount is
+      // independently traceable (HIPAA/financial audit trail).
+      if (payout.allocations.length > 0) {
+        await db.insert(auditLogs).values(
+          payout.allocations.map((a) => ({
+            userId: req.user!.id,
+            username: req.user!.username,
+            action: 'therapist_payment_allocated' as const,
+            result: 'success' as const,
+            resourceType: 'therapist_payment_allocation',
+            resourceId: String(a.sessionBillingId),
+            details: JSON.stringify({
+              payoutId: payout.id,
+              paymentType: 'itemized',
+              therapistId: tId,
+              sessionBillingId: a.sessionBillingId,
+              sessionId: a.sessionId,
+              amountAllocated: a.amountAllocated,
+            }),
+            ipAddress: req.ip || null,
+            userAgent: req.get('user-agent') || null,
+          })),
+        );
+      }
+
       res.status(201).json(payout);
     } catch (error: any) {
       const msg = error?.message || "Internal server error";
@@ -12624,6 +12649,31 @@ You can download a copy if you have it saved locally and re-upload it.`;
         ipAddress: req.ip || null,
         userAgent: req.get('user-agent') || null,
       });
+
+      // One audit row per session allocation so every applied amount is
+      // independently traceable (HIPAA/financial audit trail).
+      if (payout.allocations.length > 0) {
+        await db.insert(auditLogs).values(
+          payout.allocations.map((a) => ({
+            userId: req.user!.id,
+            username: req.user!.username,
+            action: 'therapist_payment_allocated' as const,
+            result: 'success' as const,
+            resourceType: 'therapist_payment_allocation',
+            resourceId: String(a.sessionBillingId),
+            details: JSON.stringify({
+              payoutId: payout.id,
+              paymentType: 'lump',
+              therapistId: tId,
+              sessionBillingId: a.sessionBillingId,
+              sessionId: a.sessionId,
+              amountAllocated: a.amountAllocated,
+            }),
+            ipAddress: req.ip || null,
+            userAgent: req.get('user-agent') || null,
+          })),
+        );
+      }
 
       res.status(201).json(payout);
     } catch (error: any) {

@@ -67,7 +67,7 @@ interface OwedResponse {
 }
 interface StatementEntry {
   date: string;
-  type: "earning" | "payment";
+  type: "earning" | "payment" | "adjustment";
   description: string;
   reference: string | null;
   earned: number;
@@ -1047,7 +1047,7 @@ function StatementTab({
   const exportCsv = () => {
     const rows = entries.map((e) => [
       e.date,
-      e.type === "earning" ? "Earning" : "Payment",
+      e.type === "earning" ? "Earning" : e.type === "adjustment" ? "Adjustment" : "Payment",
       e.description,
       e.reference || "",
       e.earned ? e.earned.toFixed(2) : "",
@@ -1068,7 +1068,7 @@ function StatementTab({
     const rowsHtml = entries.map((e) => `
       <tr>
         <td>${fmtDate(e.date)}</td>
-        <td>${e.type === "earning" ? "Earning" : "Payment"}</td>
+        <td>${e.type === "earning" ? "Earning" : e.type === "adjustment" ? "Adjustment" : "Payment"}</td>
         <td>${escapeHtml(e.description)}</td>
         <td class="num">${e.earned ? money(e.earned) : ""}</td>
         <td class="num">${e.paid ? money(e.paid) : ""}</td>
@@ -1171,6 +1171,8 @@ function StatementTab({
                     <TableCell>
                       {e.type === "earning"
                         ? <Badge variant="outline">Earning</Badge>
+                        : e.type === "adjustment"
+                        ? <Badge variant="destructive">Adjustment</Badge>
                         : <Badge variant="secondary">Payment</Badge>}
                     </TableCell>
                     <TableCell>{e.description}</TableCell>

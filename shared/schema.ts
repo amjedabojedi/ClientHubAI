@@ -1622,6 +1622,7 @@ export const AUDIT_ACTIONS = [
   'therapist_pay_rule_updated',
   'therapist_pay_rule_deleted',
   'therapist_payout_created',
+  'therapist_payment_allocated',
   'therapist_payout_voided',
   'therapist_statement_exported',
 

@@ -189,6 +189,7 @@ const AUDIT_ACTION_LABELS = {
   therapist_pay_rule_updated: 'Therapist Pay Rule Updated',
   therapist_pay_rule_deleted: 'Therapist Pay Rule Deleted',
   therapist_payout_created: 'Therapist Payout Created',
+  therapist_payment_allocated: 'Therapist Payment Allocated',
   therapist_payout_voided: 'Therapist Payout Voided',
   therapist_statement_exported: 'Therapist Statement Exported',
 

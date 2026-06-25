@@ -309,14 +309,25 @@ export interface TherapistPayoutItemDetail {
 // after this line (positive = owed to therapist, negative = therapist credit).
 export interface TherapistStatementEntry {
   date: string; // YYYY-MM-DD
-  type: 'earning' | 'payment';
+  // 'adjustment' lines reverse a previously-recorded payment that was later
+  // voided, so the ledger stays continuous (nothing is erased).
+  type: 'earning' | 'payment' | 'adjustment';
   description: string;
   reference: string | null;
   earned: number;   // > 0 for earning lines, 0 otherwise
-  paid: number;     // > 0 for payment lines, 0 otherwise
+  // > 0 for payment lines; < 0 for a void-reversal adjustment line; 0 otherwise.
+  paid: number;
   runningBalance: number;
   payoutId?: number;
   sessionId?: number;
+}
+
+// A single session-level allocation produced when a payout is recorded, surfaced
+// so each allocation can be written to the audit trail with stable identifiers.
+export interface TherapistPayoutAllocationDetail {
+  sessionBillingId: number;
+  sessionId: number;
+  amountAllocated: number;
 }
 
 export interface TherapistStatement {
@@ -419,10 +430,21 @@ export interface IStorage {
     notes?: string | null;
     sessionBillingIds: number[];
     createdBy: number;
-  }): Promise<TherapistPayout>;
+  }): Promise<TherapistPayout & { allocations: TherapistPayoutAllocationDetail[] }>;
+  createTherapistLumpPayment(input: {
+    therapistId: number;
+    amount: number;
+    paymentDate: string;
+    paymentMethod?: string | null;
+    referenceNumber?: string | null;
+    notes?: string | null;
+    createdBy: number;
+  }): Promise<TherapistPayout & { appliedAmount: number; unappliedAmount: number; allocationCount: number; allocations: TherapistPayoutAllocationDetail[] }>;
   getTherapistPayouts(therapistId?: number): Promise<(TherapistPayout & { therapistName: string; itemCount: number })[]>;
   getTherapistPayoutById(id: number): Promise<(TherapistPayout & { therapistName: string; items: TherapistPayoutItemDetail[] }) | undefined>;
   voidTherapistPayout(id: number, voidedBy: number, reason: string): Promise<TherapistPayout>;
+  getTherapistStatement(therapistId: number): Promise<TherapistStatement>;
+  getTherapistMonthlyStatement(therapistId: number, month: string): Promise<TherapistMonthlyStatement>;
 
   // ===== INSURANCE STATEMENT RECONCILIATION =====
   // Persist an uploaded statement and its extracted lines, then auto-match each
@@ -3806,7 +3828,7 @@ export class DatabaseStorage implements IStorage {
     notes?: string | null;
     sessionBillingIds: number[];
     createdBy: number;
-  }): Promise<TherapistPayout> {
+  }): Promise<TherapistPayout & { allocations: TherapistPayoutAllocationDetail[] }> {
     return await db.transaction(async (tx) => {
       // Serialize payout creation per therapist (shared with the lump path) so a
       // concurrent itemized/lump payout can't allocate against the same stale
@@ -3861,7 +3883,14 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      return payout;
+      return {
+        ...(payout as any),
+        allocations: selected.map((i) => ({
+          sessionBillingId: i.sessionBillingId,
+          sessionId: i.sessionId,
+          amountAllocated: i.amountRemaining,
+        })),
+      };
     });
   }
 
@@ -4056,7 +4085,7 @@ export class DatabaseStorage implements IStorage {
     referenceNumber?: string | null;
     notes?: string | null;
     createdBy: number;
-  }): Promise<TherapistPayout & { appliedAmount: number; unappliedAmount: number; allocationCount: number }> {
+  }): Promise<TherapistPayout & { appliedAmount: number; unappliedAmount: number; allocationCount: number; allocations: TherapistPayoutAllocationDetail[] }> {
     const amount = Math.round(Number(input.amount) * 100) / 100;
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero');
 
@@ -4135,6 +4164,11 @@ export class DatabaseStorage implements IStorage {
         appliedAmount,
         unappliedAmount,
         allocationCount: allocations.length,
+        allocations: allocations.map(({ item, apply }) => ({
+          sessionBillingId: item.sessionBillingId,
+          sessionId: item.sessionId,
+          amountAllocated: apply,
+        })),
       };
     });
   }
@@ -4174,11 +4208,14 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Payment lines: non-voided payouts (itemized or lump).
+    // Payment lines: ALL payouts (itemized or lump), including voided ones.
+    // A voided payout is NOT erased — its original payment line is kept and a
+    // reversing 'adjustment' line is added on the void date, so the ledger is a
+    // continuous, append-only history (the two lines net to zero in the balance).
     const payouts = await db
       .select()
       .from(therapistPayouts)
-      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+      .where(eq(therapistPayouts.therapistId, therapistId));
     for (const p of payouts) {
       const d = p.paymentDate ? new Date(p.paymentDate as any) : new Date(0);
       const label = p.paymentType === 'lump' ? 'Lump payment' : 'Payment';
@@ -4192,14 +4229,30 @@ export class DatabaseStorage implements IStorage {
         payoutId: p.id,
         sortKey: d.getTime(),
       });
+      if (p.status === 'voided') {
+        const vd = p.voidedAt ? new Date(p.voidedAt as any) : d;
+        const reason = p.voidReason ? `: ${p.voidReason}` : '';
+        raw.push({
+          date: vd.toISOString().slice(0, 10),
+          type: 'adjustment',
+          description: `${label} voided${reason}`,
+          reference: p.referenceNumber ?? null,
+          earned: 0,
+          // Negative paid = money returned to the ledger; running balance += amount.
+          paid: -Number(p.totalAmount || 0),
+          payoutId: p.id,
+          sortKey: vd.getTime(),
+        });
+      }
     }
 
-    // Chronological order; earnings before payments on the same day so a payment
-    // can settle that day's earnings in the running balance.
+    // Chronological order. On the same day: earnings first, then payments, then
+    // void adjustments, so a payment can settle that day's earnings and a void
+    // reversal applies after the payment it reverses.
+    const rank = (t: RawEntry['type']) => (t === 'earning' ? 0 : t === 'payment' ? 1 : 2);
     raw.sort((a, b) => {
       if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
-      if (a.type !== b.type) return a.type === 'earning' ? -1 : 1;
-      return 0;
+      return rank(a.type) - rank(b.type);
     });
 
     let running = 0;
