@@ -4339,18 +4339,38 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Payment math uses ledger semantics (mirrors getTherapistStatement) so the
+    // monthly opening/closing chain stays consistent with the running statement:
+    // every payout contributes a positive payment event on its paymentDate, and
+    // a voided payout ALSO contributes a negative reversal event on its voidedAt.
+    // Each event is bucketed by its OWN date — so a payment made in one month and
+    // voided in a later month adds the money back in the month it was voided,
+    // never silently disappearing from earlier totals.
     const payouts = await db
-      .select({ paymentDate: therapistPayouts.paymentDate, totalAmount: therapistPayouts.totalAmount })
+      .select({
+        paymentDate: therapistPayouts.paymentDate,
+        totalAmount: therapistPayouts.totalAmount,
+        status: therapistPayouts.status,
+        voidedAt: therapistPayouts.voidedAt,
+      })
       .from(therapistPayouts)
-      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+      .where(eq(therapistPayouts.therapistId, therapistId));
     let openingPaid = 0;
     let paidInMonth = 0;
+    const bucketPayment = (eventDate: Date | null, amt: number) => {
+      if (eventDate == null) return;
+      if (eventDate < monthStart) openingPaid = Math.round((openingPaid + amt) * 100) / 100;
+      else if (eventDate < monthEnd) paidInMonth = Math.round((paidInMonth + amt) * 100) / 100;
+    };
     for (const p of payouts) {
-      const d = p.paymentDate ? new Date(p.paymentDate as any) : null;
-      if (d == null) continue;
       const amt = Number(p.totalAmount || 0);
-      if (d < monthStart) openingPaid = Math.round((openingPaid + amt) * 100) / 100;
-      else if (d < monthEnd) paidInMonth = Math.round((paidInMonth + amt) * 100) / 100;
+      bucketPayment(p.paymentDate ? new Date(p.paymentDate as any) : null, amt);
+      if (p.status === 'voided') {
+        const vd = p.voidedAt
+          ? new Date(p.voidedAt as any)
+          : (p.paymentDate ? new Date(p.paymentDate as any) : null);
+        bucketPayment(vd, -amt);
+      }
     }
 
     const openingBalance = Math.round((openingEarned - openingPaid) * 100) / 100;

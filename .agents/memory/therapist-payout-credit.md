@@ -1,35 +1,43 @@
 ---
-name: Therapist payout credit reconciliation
-description: How over-payment credit, allocations and the owed list stay reconciled with the running statement for therapist payouts.
+name: Therapist payout ledger reconciliation
+description: Durable invariants for therapist payouts — over-payment credit, voids, and how the owed list, running statement, and monthly report must agree.
 ---
 
 # Therapist payout ledger reconciliation
 
-The Owed list, the running statement, and payout creation must all agree. The
-invariant that ties them together:
+The owed list, the running statement, and the monthly report are three views of
+ONE ledger and must always agree. Net owed = total earned − total paid.
 
-`sum(payout.totalAmount over non-voided payouts) = sum(allocations) + sum(legacy payout_items) + sum(payout.unappliedAmount)`
+## Over-payment credit must offset new earnings
+A lump payment that exceeds everything owed stores the excess as a credit, NOT as
+per-session payment. The owed calculation must subtract that credit pool
+(oldest-first) on top of per-session payments.
 
-Therefore `owed = totalEarned - totalPaid = statement net`.
+**Why:** if the credit is ignored, newly collected sessions reappear as payable
+while the ledger still shows a credit, so the therapist gets paid twice for money
+already advanced.
 
-**Rule:** `getTherapistOwed` must subtract BOTH per-session paid amounts
-(allocations + legacy items) AND the over-payment credit pool
-(`sum(unappliedAmount)` across non-voided payouts), applying the credit
-oldest-first to rule-resolved sessions and dropping any that hit 0.
+**How to apply:** every payout path must pay the credit-adjusted *remaining*
+amount, never raw earned. Both payout paths recompute owed inside one transaction
+behind a per-therapist advisory lock so concurrent payouts can't allocate against
+a stale snapshot.
 
-**Why:** A lump over-payment stores the excess as `unappliedAmount` (a credit),
-NOT as per-session allocations. If the owed calc ignores that credit, newly
-collected sessions reappear as payable while the statement still shows a credit —
-so the therapist can be paid twice for money already advanced. The credit must
-virtually offset new earnings before they become cash-payable. The credit pool is
-never decremented in the DB; it is re-applied virtually on every read, which stays
-correct because allocations zero out the sessions it already covered.
+## Voids are reversals, never deletions
+A voided payout must stay visible everywhere as the original payment plus an equal
+and opposite reversal dated at the void time — the two net to zero. The running
+statement and the monthly report both bucket each payment/reversal by its OWN
+event date.
 
-**How to apply:** Any new payout path (itemized or lump) must consume
-`getTherapistOwed`'s credit-adjusted `amountRemaining`, never raw `amountEarned`.
-Both `createTherapistPayout` and `createTherapistLumpPayment` recompute owed
-INSIDE a `db.transaction` after taking `pg_advisory_xact_lock(hashtext('therapist_payout'), therapistId)`
-so concurrent payouts for the same therapist can't allocate against a stale
-remaining snapshot and over-pay. Voiding a payout flips status to 'voided', which
-removes both its allocations AND its credit from these sums (legacy itemized
-payout_items are deleted on void instead).
+**Why:** a payment made in one period and voided in a later one must add the money
+back in the period it was voided. Filtering to status='paid' silently drops the
+original payment from earlier totals, so opening/closing balances diverge from the
+running ledger and the audit can't reconcile.
+
+**How to apply:** never compute payment totals from a status='paid' snapshot. Walk
+all payouts as signed events. (Legacy itemized payout_items are the exception —
+they are deleted on void because their mere existence means "fully paid".)
+
+## Every allocation is independently auditable
+Recording a payout must write one audit row per session allocation (stable ids:
+payoutId, sessionBillingId, amount), not just a single summary row — financial/HIPAA
+traceability requires per-allocation events.
