@@ -4330,7 +4330,10 @@ export class DatabaseStorage implements IStorage {
           expected: e.expected,
           collected: e.collectedAmount,
           uncollected,
-          earned: e.hasRule ? e.amountEarned : 0,
+          // Earnings follow collected money: a fixed-rate rule still earns $0
+          // until something is collected, so an uncollected session must show 0
+          // (its row would otherwise overstate earnings vs. the month total/ledger).
+          earned: e.hasRule && e.collectedAmount > 0 ? e.amountEarned : 0,
           hasRule: e.hasRule,
         });
         totalExpected = Math.round((totalExpected + e.expected) * 100) / 100;

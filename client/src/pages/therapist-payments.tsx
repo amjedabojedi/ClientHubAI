@@ -222,9 +222,12 @@ const printHtml = (title: string, bodyHtml: string): boolean => {
   return true;
 };
 
-// Record an export in the audit log (best-effort; never blocks the download).
-const auditExport = (body: { therapistId: number; reportType: "statement" | "monthly"; format: "csv" | "pdf"; month?: string }) => {
-  apiRequest("/api/therapist-pay/export-audit", "POST", body).catch(() => {});
+// Record an export in the audit log. This MUST succeed before the report is
+// produced — every export is required to leave an audit trail, so callers await
+// this and abort the download/print if it throws (rather than silently exporting
+// un-audited data).
+const auditExport = async (body: { therapistId: number; reportType: "statement" | "monthly"; format: "csv" | "pdf"; month?: string }): Promise<void> => {
+  await apiRequest("/api/therapist-pay/export-audit", "POST", body);
 };
 
 export default function TherapistPaymentsPage() {
@@ -1044,7 +1047,7 @@ function StatementTab({
   const name = data.therapistName || therapistName;
   const entries = data.entries;
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     const rows = entries.map((e) => [
       e.date,
       e.type === "earning" ? "Earning" : e.type === "adjustment" ? "Adjustment" : "Payment",
@@ -1059,12 +1062,17 @@ function StatementTab({
       ["Date", "Type", "Description", "Reference", "Earned", "Paid", "Running Balance"],
       rows,
     );
+    try {
+      await auditExport({ therapistId, reportType: "statement", format: "csv" });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
     downloadFile(`statement-${name.replace(/\s+/g, "_")}.csv`, csv);
-    auditExport({ therapistId, reportType: "statement", format: "csv" });
     toast({ title: "Statement exported", description: "CSV downloaded." });
   };
 
-  const exportPrint = () => {
+  const exportPrint = async () => {
     const rowsHtml = entries.map((e) => `
       <tr>
         <td>${fmtDate(e.date)}</td>
@@ -1086,12 +1094,16 @@ function StatementTab({
         <thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="num">Earned</th><th class="num">Paid</th><th class="num">Balance</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
+    try {
+      await auditExport({ therapistId, reportType: "statement", format: "pdf" });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
     const ok = printHtml(`Statement — ${name}`, body);
     if (!ok) {
       toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
-      return;
     }
-    auditExport({ therapistId, reportType: "statement", format: "pdf" });
   };
 
   return (
@@ -1320,7 +1332,7 @@ function MonthlyReportTab({
 
   const name = data?.therapistName || therapistName;
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     if (!data) return;
     const rows = data.sessions.map((s) => [
       ymd(s.sessionDate),
@@ -1344,12 +1356,17 @@ function MonthlyReportTab({
       `Total expected,${data.totalExpected.toFixed(2)}\r\n` +
       `Total collected,${data.totalCollected.toFixed(2)}\r\n` +
       `Total uncollected,${data.totalUncollected.toFixed(2)}\r\n\r\n`;
+    try {
+      await auditExport({ therapistId, reportType: "monthly", format: "csv", month });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
     downloadFile(`monthly-${name.replace(/\s+/g, "_")}-${month}.csv`, header + csv);
-    auditExport({ therapistId, reportType: "monthly", format: "csv", month });
     toast({ title: "Report exported", description: "CSV downloaded." });
   };
 
-  const exportPrint = () => {
+  const exportPrint = async () => {
     if (!data) return;
     const rowsHtml = data.sessions.map((s) => `
       <tr>
@@ -1380,12 +1397,16 @@ function MonthlyReportTab({
         <thead><tr><th>Date</th><th>Client</th><th>Service</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
+    try {
+      await auditExport({ therapistId, reportType: "monthly", format: "pdf", month });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
     const ok = printHtml(`Monthly Report — ${name} — ${month}`, body);
     if (!ok) {
       toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
-      return;
     }
-    auditExport({ therapistId, reportType: "monthly", format: "pdf", month });
   };
 
   return (
