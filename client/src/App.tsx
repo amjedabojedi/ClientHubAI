@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, Wallet } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -46,6 +46,7 @@ import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import AdminConsentPage from "@/pages/admin-consent";
 import BillingDashboard from "@/pages/billing-dashboard";
+import PaymentReconciliationPage from "@/pages/payment-reconciliation";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
@@ -139,6 +140,10 @@ function Navigation() {
       { path: "/billing", label: "Billing", icon: CreditCard },
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
     );
+
+    if (isAdminOrSupervisor(user) || isAccountant(user)) {
+      baseItems.push({ path: "/reconciliation", label: "Reconciliation", icon: Wallet });
+    }
 
     if (!isAccountant(user)) {
       baseItems.push({ path: "/document-review", label: "Doc Review", icon: FolderOpen });
@@ -373,6 +378,13 @@ function Router() {
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/billing" component={BillingDashboard} />
           <Route path="/billing-dashboard" component={BillingDashboard} />
+          <Route path="/reconciliation" component={() => {
+            const { user } = useAuth();
+            if (!(isAdminOrSupervisor(user) || isAccountant(user))) {
+              return <AccessRestricted message="Payment reconciliation is restricted to administrators, supervisors, and accountants." />;
+            }
+            return <PaymentReconciliationPage />;
+          }} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
           <Route path="/document-review" component={() => {
