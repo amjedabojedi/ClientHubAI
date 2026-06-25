@@ -13,6 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -21,8 +25,9 @@ import {
 } from "@/components/ui/table";
 import {
   DollarSign, Percent, Users, Receipt, History, Loader2, AlertTriangle,
-  ChevronDown, ChevronRight, Ban,
+  ChevronDown, ChevronRight, Ban, Check, ChevronsUpDown,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type PayType = "percentage" | "fixed";
 
@@ -100,10 +105,13 @@ const describeRule = (type: PayType | string | null, value: number | string | nu
 export default function TherapistPaymentsPage() {
   const { toast } = useToast();
   const [therapistId, setTherapistId] = useState<number | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: therapists = [], isLoading: loadingTherapists } = useQuery<TherapistOption[]>({
     queryKey: ["/api/therapist-pay/therapists"],
   });
+
+  const selectedTherapist = therapists.find((t) => t.id === therapistId) || null;
 
   return (
     <div className="space-y-6">
@@ -120,21 +128,58 @@ export default function TherapistPaymentsPage() {
       <Card>
         <CardContent className="pt-6">
           <Label className="mb-2 block">Select a therapist</Label>
-          <Select
-            value={therapistId != null ? String(therapistId) : ""}
-            onValueChange={(v) => setTherapistId(Number(v))}
-          >
-            <SelectTrigger className="w-full max-w-md" data-testid="select-therapist">
-              <SelectValue placeholder={loadingTherapists ? "Loading…" : "Choose a therapist"} />
-            </SelectTrigger>
-            <SelectContent>
-              {therapists.map((t) => (
-                <SelectItem key={t.id} value={String(t.id)}>
-                  {t.fullName} ({t.role})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={pickerOpen}
+                disabled={loadingTherapists}
+                className="w-full max-w-md justify-between font-normal"
+                data-testid="select-therapist"
+              >
+                <span className={cn(!selectedTherapist && "text-muted-foreground")}>
+                  {selectedTherapist
+                    ? `${selectedTherapist.fullName} (${selectedTherapist.role})`
+                    : loadingTherapists ? "Loading…" : "Choose a therapist"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command
+                filter={(value, search) =>
+                  value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+                }
+              >
+                <CommandInput placeholder="Search therapists…" data-testid="input-therapist-search" />
+                <CommandList>
+                  <CommandEmpty>No therapist found.</CommandEmpty>
+                  <CommandGroup>
+                    {therapists.map((t) => (
+                      <CommandItem
+                        key={t.id}
+                        value={`${t.fullName} ${t.role}`}
+                        onSelect={() => {
+                          setTherapistId(t.id);
+                          setPickerOpen(false);
+                        }}
+                        data-testid={`option-therapist-${t.id}`}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            therapistId === t.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {t.fullName} <span className="ml-1 text-xs text-muted-foreground">({t.role})</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
