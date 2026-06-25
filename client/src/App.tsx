@@ -141,7 +141,8 @@ function Navigation() {
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
     );
 
-    if (isAdminOrSupervisor(user) || isAccountant(user)) {
+    // Accountants have no Administration menu, so keep a top-level link for them.
+    if (isAccountant(user)) {
       baseItems.push({ path: "/reconciliation", label: "Reconciliation", icon: Wallet });
     }
 
@@ -156,6 +157,7 @@ function Navigation() {
         label: "Administration",
         icon: Cog,
         submenu: [
+          { path: "/reconciliation", label: "Reconciliation", icon: Wallet },
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
           { path: "/forms-management", label: "Clinical Forms", icon: ClipboardCheck },
@@ -172,6 +174,7 @@ function Navigation() {
         label: "Administration", 
         icon: Cog,
         submenu: [
+          { path: "/reconciliation", label: "Reconciliation", icon: Wallet },
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
           { path: "/report-templates", label: "Report Templates", icon: FileText },
