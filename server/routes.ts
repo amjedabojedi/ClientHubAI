@@ -12569,6 +12569,122 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Running statement (ledger) for a therapist: chronological earnings & payments
+  // with a running balance.
+  app.get("/api/therapist-pay/statement/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const statement = await storage.getTherapistStatement(therapistId);
+      res.json(statement);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Record a single lump payment, auto-applied oldest-first to outstanding earnings.
+  app.post("/api/therapist-pay/lump-payment", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { therapistId, amount, paymentDate, paymentMethod, referenceNumber, notes } = req.body || {};
+      const tId = parseInt(String(therapistId));
+      if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const amt = Math.round(Number(amount) * 100) / 100;
+      if (!(amt > 0)) return res.status(400).json({ message: "Payment amount must be greater than zero" });
+      if (!paymentDate || typeof paymentDate !== 'string') {
+        return res.status(400).json({ message: "paymentDate is required" });
+      }
+
+      const payout = await storage.createTherapistLumpPayment({
+        therapistId: tId,
+        amount: amt,
+        paymentDate,
+        paymentMethod: paymentMethod || null,
+        referenceNumber: referenceNumber || null,
+        notes: notes || null,
+        createdBy: req.user!.id,
+      });
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_payout_created',
+        result: 'success',
+        resourceType: 'therapist_payout',
+        resourceId: String(payout.id),
+        details: JSON.stringify({
+          paymentType: 'lump',
+          therapistId: tId,
+          totalAmount: payout.totalAmount,
+          appliedAmount: payout.appliedAmount,
+          unappliedAmount: payout.unappliedAmount,
+          allocationCount: payout.allocationCount,
+          paymentMethod: payout.paymentMethod,
+          referenceNumber: payout.referenceNumber,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.status(201).json(payout);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg === 'Payment amount must be greater than zero') {
+        return res.status(400).json({ message: msg });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Per-therapist monthly audit report (opening/earned/paid/closing + session detail).
+  app.get("/api/therapist-pay/monthly-statement/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const month = String(req.query.month || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "month query is required (YYYY-MM)" });
+      }
+      const statement = await storage.getTherapistMonthlyStatement(therapistId, month);
+      res.json(statement);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('YYYY-MM')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Audit a statement / monthly-report export (CSV or print/PDF) by an admin.
+  app.post("/api/therapist-pay/export-audit", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { therapistId, reportType, format, month } = req.body || {};
+      const tId = parseInt(String(therapistId));
+      if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const type = reportType === 'monthly' ? 'monthly' : 'statement';
+      const fmt = format === 'pdf' || format === 'print' ? 'pdf' : 'csv';
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_statement_exported',
+        result: 'success',
+        resourceType: 'therapist_payout',
+        resourceId: String(tId),
+        details: JSON.stringify({
+          therapistId: tId,
+          reportType: type,
+          format: fmt,
+          month: typeof month === 'string' ? month : null,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // ===================================================================
   // INSURANCE STATEMENT RECONCILIATION (admin + billing only)
   // ===================================================================

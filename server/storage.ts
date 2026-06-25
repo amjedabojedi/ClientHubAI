@@ -55,6 +55,7 @@ import {
   therapistPayRules,
   therapistPayouts,
   therapistPayoutItems,
+  therapistPaymentAllocations,
   dailyScheduleEmails,
   deferredNotificationEmails,
   insuranceStatements,
@@ -278,6 +279,10 @@ export interface TherapistOwedItem {
   payValue: number | null;
   ruleSource: 'service' | 'default' | 'none';
   amountEarned: number;
+  // Portion of amountEarned already covered by non-voided lump/partial payments.
+  amountAllocated: number;
+  // What is still owed for this session: amountEarned - amountAllocated.
+  amountRemaining: number;
 }
 
 export interface TherapistPayoutItemDetail {
@@ -292,6 +297,67 @@ export interface TherapistPayoutItemDetail {
   payType: string;
   payValue: number;
   amountEarned: number;
+  // For lump/partial payments this is the portion of amountEarned this payout
+  // covered (may be less than amountEarned). For legacy itemized payouts it
+  // equals amountEarned.
+  amountAllocated: number;
+}
+
+// A single dated line in a therapist's running statement: either money EARNED
+// from a collected session (positive) or a PAYMENT made to the therapist
+// (negative). runningBalance is what the practice owed the therapist right
+// after this line (positive = owed to therapist, negative = therapist credit).
+export interface TherapistStatementEntry {
+  date: string; // YYYY-MM-DD
+  type: 'earning' | 'payment';
+  description: string;
+  reference: string | null;
+  earned: number;   // > 0 for earning lines, 0 otherwise
+  paid: number;     // > 0 for payment lines, 0 otherwise
+  runningBalance: number;
+  payoutId?: number;
+  sessionId?: number;
+}
+
+export interface TherapistStatement {
+  therapistId: number;
+  therapistName: string;
+  entries: TherapistStatementEntry[];
+  totalEarned: number;
+  totalPaid: number;
+  // Net = totalEarned - totalPaid. currentOwed = max(net, 0);
+  // creditBalance = max(-net, 0) (therapist was paid ahead of earnings).
+  currentOwed: number;
+  creditBalance: number;
+  unresolvedCount: number;
+}
+
+export interface TherapistMonthlySessionRow {
+  sessionId: number;
+  sessionBillingId: number;
+  sessionDate: Date | null;
+  clientName: string;
+  serviceCode: string | null;
+  serviceName: string | null;
+  expected: number;    // full fee after discount (what should be collected)
+  collected: number;   // client + insurance paid
+  uncollected: number; // expected - collected (clamped at >= 0)
+  earned: number;      // therapist earning on collected (0 if no rule)
+  hasRule: boolean;
+}
+
+export interface TherapistMonthlyStatement {
+  therapistId: number;
+  therapistName: string;
+  month: string; // YYYY-MM
+  openingBalance: number;
+  earnedInMonth: number;
+  paidInMonth: number;
+  closingBalance: number;
+  sessions: TherapistMonthlySessionRow[];
+  totalExpected: number;
+  totalCollected: number;
+  totalUncollected: number;
 }
 
 // Row shape for the insurance statements list (counts rolled up per statement).
@@ -3514,26 +3580,32 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(therapistPayRules.id, id), eq(therapistPayRules.therapistId, therapistId)));
   }
 
-  async getTherapistOwed(therapistId: number): Promise<{
-    therapistId: number;
-    items: TherapistOwedItem[];
-    total: number;
-    unresolvedCount: number;
-  }> {
+  // Compute every collected session for a therapist with the pay rule applied,
+  // newest first. This is the single source of truth for "what the therapist
+  // earned" and is shared by the owed list, the running statement and the
+  // monthly report so they can never disagree. One row per session billing.
+  private async computeTherapistEarnings(therapistId: number): Promise<{
+    billingId: number;
+    sessionId: number;
+    sessionDate: Date;
+    serviceId: number | null;
+    serviceCode: string | null;
+    serviceName: string | null;
+    category: string | null;
+    clientName: string;
+    totalAmount: number;
+    expected: number;
+    collectedAmount: number;
+    payType: 'percentage' | 'fixed' | null;
+    payValue: number | null;
+    ruleSource: 'service' | 'default' | 'none';
+    amountEarned: number;
+    hasRule: boolean;
+  }[]> {
     const rules = await this.getTherapistPayRules(therapistId);
     const defaultRule = rules.find((r) => r.serviceId == null) || null;
     const serviceRuleMap = new Map<number, TherapistPayRule>();
     for (const r of rules) if (r.serviceId != null) serviceRuleMap.set(Number(r.serviceId), r);
-
-    // Billings already covered by a payout item. Voided payouts have their
-    // items deleted, so the underlying sessions become owed again.
-    const paidRows = await db
-      .select({ sbId: therapistPayoutItems.sessionBillingId })
-      .from(therapistPayoutItems)
-      .innerJoin(sessionBilling, eq(therapistPayoutItems.sessionBillingId, sessionBilling.id))
-      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-      .where(eq(sessions.therapistId, therapistId));
-    const paidSet = new Set(paidRows.map((r) => Number(r.sbId)));
 
     const rows = await db
       .select({
@@ -3546,6 +3618,7 @@ export class DatabaseStorage implements IStorage {
         category: services.category,
         clientName: clients.fullName,
         totalAmount: sessionBilling.totalAmount,
+        discountAmount: sessionBilling.discountAmount,
         clientPaid: sessionBilling.clientPaidAmount,
         insurancePaid: sessionBilling.insurancePaidAmount,
       })
@@ -3556,15 +3629,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessions.therapistId, therapistId))
       .orderBy(desc(sessions.sessionDate));
 
-    const items: TherapistOwedItem[] = [];
-    let total = 0;
-    let unresolvedCount = 0;
-    for (const row of rows) {
-      const billingId = Number(row.billingId);
-      if (paidSet.has(billingId)) continue;
+    return rows.map((row) => {
       const collected = Number(row.clientPaid || 0) + Number(row.insurancePaid || 0);
-      if (collected <= 0) continue;
-
+      const expected = Math.max(0, Number(row.totalAmount || 0) - Number(row.discountAmount || 0));
       const svcId = row.serviceId != null ? Number(row.serviceId) : null;
       let rule: TherapistPayRule | null = null;
       let ruleSource: 'service' | 'default' | 'none' = 'none';
@@ -3582,16 +3649,12 @@ export class DatabaseStorage implements IStorage {
       if (rule) {
         payType = rule.payType as 'percentage' | 'fixed';
         payValue = Number(rule.payValue);
-        amountEarned =
-          payType === 'percentage' ? (collected * payValue) / 100 : payValue;
+        amountEarned = payType === 'percentage' ? (collected * payValue) / 100 : payValue;
         amountEarned = Math.round(amountEarned * 100) / 100;
-        total += amountEarned;
-      } else {
-        unresolvedCount++;
       }
 
-      items.push({
-        sessionBillingId: billingId,
+      return {
+        billingId: Number(row.billingId),
         sessionId: Number(row.sessionId),
         sessionDate: row.sessionDate,
         serviceId: svcId,
@@ -3600,15 +3663,139 @@ export class DatabaseStorage implements IStorage {
         category: row.category ?? null,
         clientName: row.clientName ?? '',
         totalAmount: Number(row.totalAmount || 0),
+        expected,
         collectedAmount: collected,
         payType,
         payValue,
         ruleSource,
         amountEarned,
+        hasRule: !!rule,
+      };
+    });
+  }
+
+  // How much of each session billing's earning has already been paid to the
+  // therapist, keyed by session billing id. Combines two sources:
+  //  - Legacy itemized payouts: a payout_item exists => the full amountEarned
+  //    snapshot was paid (voided payouts delete their items, so anything present
+  //    is live). 
+  //  - Lump / partial payments: the sum of allocation amounts whose payout is
+  //    still 'paid' (voiding a payout keeps its allocations but flips status, so
+  //    they stop counting here).
+  private async getTherapistPaidByBilling(therapistId: number): Promise<Map<number, number>> {
+    const paid = new Map<number, number>();
+
+    const itemRows = await db
+      .select({ sbId: therapistPayoutItems.sessionBillingId, amt: therapistPayoutItems.amountEarned })
+      .from(therapistPayoutItems)
+      .innerJoin(sessions, eq(therapistPayoutItems.sessionId, sessions.id))
+      .where(eq(sessions.therapistId, therapistId));
+    for (const r of itemRows) {
+      const id = Number(r.sbId);
+      paid.set(id, (paid.get(id) || 0) + Number(r.amt || 0));
+    }
+
+    const allocRows = await db
+      .select({ sbId: therapistPaymentAllocations.sessionBillingId, amt: therapistPaymentAllocations.amountAllocated })
+      .from(therapistPaymentAllocations)
+      .innerJoin(therapistPayouts, eq(therapistPaymentAllocations.payoutId, therapistPayouts.id))
+      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+    for (const r of allocRows) {
+      const id = Number(r.sbId);
+      paid.set(id, (paid.get(id) || 0) + Number(r.amt || 0));
+    }
+
+    return paid;
+  }
+
+  // Total over-payment credit currently sitting on a therapist's account: the
+  // sum of unappliedAmount across their non-voided payouts (money paid beyond
+  // what was owed at the time). Voiding a payout flips its status, so its credit
+  // stops counting here.
+  private async getTherapistUnappliedCredit(therapistId: number): Promise<number> {
+    const rows = await db
+      .select({ amt: therapistPayouts.unappliedAmount })
+      .from(therapistPayouts)
+      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+    let sum = 0;
+    for (const r of rows) sum = Math.round((sum + Number(r.amt || 0)) * 100) / 100;
+    return sum;
+  }
+
+  async getTherapistOwed(therapistId: number): Promise<{
+    therapistId: number;
+    items: TherapistOwedItem[];
+    total: number;
+    unresolvedCount: number;
+  }> {
+    const earnings = await this.computeTherapistEarnings(therapistId);
+    const paidByBilling = await this.getTherapistPaidByBilling(therapistId);
+
+    const items: TherapistOwedItem[] = [];
+    let unresolvedCount = 0;
+    for (const e of earnings) {
+      if (e.collectedAmount <= 0) continue;
+      const paid = paidByBilling.get(e.billingId) || 0;
+      const remaining = Math.round((e.amountEarned - paid) * 100) / 100;
+
+      // Fully-settled (via allocations/items), rule-resolved sessions drop off.
+      if (e.hasRule && remaining <= 0) continue;
+
+      if (!e.hasRule) unresolvedCount++;
+
+      items.push({
+        sessionBillingId: e.billingId,
+        sessionId: e.sessionId,
+        sessionDate: e.sessionDate,
+        serviceId: e.serviceId,
+        serviceCode: e.serviceCode,
+        serviceName: e.serviceName,
+        category: e.category,
+        clientName: e.clientName,
+        totalAmount: e.totalAmount,
+        collectedAmount: e.collectedAmount,
+        payType: e.payType,
+        payValue: e.payValue,
+        ruleSource: e.ruleSource,
+        amountEarned: e.amountEarned,
+        amountAllocated: Math.round(paid * 100) / 100,
+        amountRemaining: Math.max(0, remaining),
       });
     }
 
-    return { therapistId, items, total: Math.round(total * 100) / 100, unresolvedCount };
+    // Apply any over-payment credit (unapplied lump money) to outstanding
+    // rule-resolved earnings, oldest first, so the owed list reconciles with the
+    // statement's net balance. Without this, an over-payment credit would never
+    // offset new earnings and those sessions could be paid a second time.
+    const creditPool = await this.getTherapistUnappliedCredit(therapistId);
+    if (creditPool > 0) {
+      const payableOldestFirst = items
+        .filter((i) => i.payType != null && i.amountRemaining > 0)
+        .sort((a, b) => {
+          const ta = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
+          const tb = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
+          if (ta !== tb) return ta - tb; // oldest first
+          return a.sessionBillingId - b.sessionBillingId;
+        });
+      let creditRemaining = creditPool;
+      for (const i of payableOldestFirst) {
+        if (creditRemaining <= 0) break;
+        const cover = Math.round(Math.min(i.amountRemaining, creditRemaining) * 100) / 100;
+        if (cover <= 0) continue;
+        i.amountRemaining = Math.round((i.amountRemaining - cover) * 100) / 100;
+        creditRemaining = Math.round((creditRemaining - cover) * 100) / 100;
+      }
+    }
+
+    // Rule-resolved sessions fully covered (by payment or credit) are no longer
+    // cash-payable and drop off the owed list. Unresolved (no-rule) sessions stay
+    // so they remain visible for follow-up.
+    const visible = items.filter((i) => !(i.payType != null && i.amountRemaining <= 0));
+    const total = Math.round(
+      visible.reduce((s, i) => s + (i.payType != null ? i.amountRemaining : 0), 0) * 100,
+    ) / 100;
+
+    return { therapistId, items: visible, total, unresolvedCount };
   }
 
   async createTherapistPayout(input: {
@@ -3620,18 +3807,32 @@ export class DatabaseStorage implements IStorage {
     sessionBillingIds: number[];
     createdBy: number;
   }): Promise<TherapistPayout> {
-    // Recompute owed server-side so amounts and eligibility can't be tampered
-    // with by the client. Only sessions that are owed AND have a resolved rule
-    // are payable.
-    const owed = await this.getTherapistOwed(input.therapistId);
-    const wanted = new Set(input.sessionBillingIds.map(Number));
-    const selected = owed.items.filter((i) => wanted.has(i.sessionBillingId) && i.payType != null);
-    if (selected.length === 0) {
-      throw new Error('No payable sessions selected');
-    }
-    const total = Math.round(selected.reduce((s, i) => s + i.amountEarned, 0) * 100) / 100;
-
     return await db.transaction(async (tx) => {
+      // Serialize payout creation per therapist (shared with the lump path) so a
+      // concurrent itemized/lump payout can't allocate against the same stale
+      // "remaining" snapshot and over-pay a session. Released on commit/rollback.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('therapist_payout'), ${input.therapistId})`,
+      );
+
+      // Recompute owed server-side (inside the lock) so amounts and eligibility
+      // can't be tampered with by the client and reflect any just-committed
+      // concurrent payout. Only sessions that are owed AND have a resolved rule
+      // are payable.
+      const owed = await this.getTherapistOwed(input.therapistId);
+      const wanted = new Set(input.sessionBillingIds.map(Number));
+      // Only sessions that still have an outstanding remaining amount are payable.
+      const selected = owed.items.filter(
+        (i) => wanted.has(i.sessionBillingId) && i.payType != null && i.amountRemaining > 0,
+      );
+      if (selected.length === 0) {
+        throw new Error('No payable sessions selected');
+      }
+      // Pay each selected session's *remaining* (earned minus anything already
+      // paid via an earlier partial/lump payment). Fresh sessions have
+      // remaining === earned, so this behaves exactly like before.
+      const total = Math.round(selected.reduce((s, i) => s + i.amountRemaining, 0) * 100) / 100;
+
       const [payout] = await tx
         .insert(therapistPayouts)
         .values({
@@ -3642,6 +3843,7 @@ export class DatabaseStorage implements IStorage {
           referenceNumber: input.referenceNumber ?? null,
           notes: input.notes ?? null,
           status: 'paid',
+          paymentType: 'itemized',
           createdBy: input.createdBy,
         })
         .returning();
@@ -3655,7 +3857,7 @@ export class DatabaseStorage implements IStorage {
           basisAmount: i.collectedAmount.toString(),
           payType: i.payType!,
           payValue: (i.payValue ?? 0).toString(),
-          amountEarned: i.amountEarned.toString(),
+          amountEarned: i.amountRemaining.toString(),
         });
       }
 
@@ -3691,9 +3893,21 @@ export class DatabaseStorage implements IStorage {
       .groupBy(therapistPayouts.id, users.fullName)
       .orderBy(desc(therapistPayouts.paymentDate), desc(therapistPayouts.id));
 
+    // Lump payouts have no payout_items; their session count lives in the
+    // allocations table. Count those separately and fold them in.
+    const allocCounts = await db
+      .select({
+        payoutId: therapistPaymentAllocations.payoutId,
+        c: count(therapistPaymentAllocations.id),
+      })
+      .from(therapistPaymentAllocations)
+      .groupBy(therapistPaymentAllocations.payoutId);
+    const allocCountMap = new Map<number, number>();
+    for (const a of allocCounts) allocCountMap.set(Number(a.payoutId), Number(a.c));
+
     return rows.map((r) => ({
       ...(r as any),
-      itemCount: Number(r.itemCount),
+      itemCount: Number(r.itemCount) + (allocCountMap.get(Number(r.id)) || 0),
     }));
   }
 
@@ -3757,7 +3971,50 @@ export class DatabaseStorage implements IStorage {
       payType: r.payType,
       payValue: Number(r.payValue || 0),
       amountEarned: Number(r.amountEarned || 0),
+      // Legacy itemized payouts pay the full (remaining) earned amount.
+      amountAllocated: Number(r.amountEarned || 0),
     }));
+
+    // Lump / partial payments record their coverage in the allocations table
+    // instead of payout_items. Include those rows so the detail view is complete.
+    const allocRows = await db
+      .select({
+        id: therapistPaymentAllocations.id,
+        sessionBillingId: therapistPaymentAllocations.sessionBillingId,
+        sessionId: therapistPaymentAllocations.sessionId,
+        sessionDate: sessions.sessionDate,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+        clientName: clients.fullName,
+        basisAmount: therapistPaymentAllocations.basisAmount,
+        payType: therapistPaymentAllocations.payType,
+        payValue: therapistPaymentAllocations.payValue,
+        amountEarned: therapistPaymentAllocations.amountEarned,
+        amountAllocated: therapistPaymentAllocations.amountAllocated,
+      })
+      .from(therapistPaymentAllocations)
+      .leftJoin(sessions, eq(therapistPaymentAllocations.sessionId, sessions.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(therapistPaymentAllocations.serviceId, services.id))
+      .where(eq(therapistPaymentAllocations.payoutId, id))
+      .orderBy(desc(sessions.sessionDate));
+
+    for (const r of allocRows) {
+      items.push({
+        id: Number(r.id),
+        sessionBillingId: Number(r.sessionBillingId),
+        sessionId: Number(r.sessionId),
+        sessionDate: r.sessionDate ?? null,
+        serviceCode: r.serviceCode ?? null,
+        serviceName: r.serviceName ?? null,
+        clientName: r.clientName ?? '',
+        basisAmount: Number(r.basisAmount || 0),
+        payType: r.payType,
+        payValue: Number(r.payValue || 0),
+        amountEarned: Number(r.amountEarned || 0),
+        amountAllocated: Number(r.amountAllocated || 0),
+      });
+    }
 
     return { ...(payout as any), items };
   }
@@ -3772,7 +4029,10 @@ export class DatabaseStorage implements IStorage {
       if (!existing) throw new Error('Payout not found');
       if (existing.status === 'voided') throw new Error('Payout already voided');
 
-      // Release the covered sessions so they become owed again.
+      // Release legacy itemized coverage so those sessions become owed again
+      // (their existence == fully paid). Lump/partial *allocations* are kept on
+      // purpose for the audit trail; flipping status to 'voided' makes the owed
+      // and statement queries stop counting them.
       await tx.delete(therapistPayoutItems).where(eq(therapistPayoutItems.payoutId, id));
 
       const [updated] = await tx
@@ -3782,6 +4042,288 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return updated;
     });
+  }
+
+  // Record a single lump payment to a therapist and auto-apply it oldest-first
+  // across their outstanding earnings. Each session is settled up to its
+  // remaining amount (partial allocations allowed); any money beyond everything
+  // owed is recorded as the payout's unappliedAmount (an over-payment credit).
+  async createTherapistLumpPayment(input: {
+    therapistId: number;
+    amount: number;
+    paymentDate: string;
+    paymentMethod?: string | null;
+    referenceNumber?: string | null;
+    notes?: string | null;
+    createdBy: number;
+  }): Promise<TherapistPayout & { appliedAmount: number; unappliedAmount: number; allocationCount: number }> {
+    const amount = Math.round(Number(input.amount) * 100) / 100;
+    if (!(amount > 0)) throw new Error('Payment amount must be greater than zero');
+
+    return await db.transaction(async (tx) => {
+      // Serialize payout creation per therapist: hold a per-therapist advisory
+      // lock for the life of this transaction so a concurrent payout can't
+      // allocate against the same stale "remaining" snapshot and over-pay a
+      // session. Released automatically on commit/rollback.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('therapist_payout'), ${input.therapistId})`,
+      );
+
+      // Outstanding, rule-resolved sessions, oldest first. getTherapistOwed
+      // already nets out prior allocations AND over-payment credit, so we only
+      // allocate against genuinely-owed remaining balances. Read inside the lock
+      // so the snapshot reflects any just-committed concurrent payout.
+      const owed = await this.getTherapistOwed(input.therapistId);
+      const payable = owed.items
+        .filter((i) => i.payType != null && i.amountRemaining > 0)
+        .sort((a, b) => {
+          const ta = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
+          const tb = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
+          if (ta !== tb) return ta - tb; // oldest first
+          return a.sessionBillingId - b.sessionBillingId;
+        });
+
+      let remainingToApply = amount;
+      const allocations: {
+        item: TherapistOwedItem;
+        apply: number;
+      }[] = [];
+      for (const item of payable) {
+        if (remainingToApply <= 0) break;
+        const apply = Math.min(item.amountRemaining, remainingToApply);
+        const applyRounded = Math.round(apply * 100) / 100;
+        if (applyRounded <= 0) continue;
+        allocations.push({ item, apply: applyRounded });
+        remainingToApply = Math.round((remainingToApply - applyRounded) * 100) / 100;
+      }
+
+      const appliedAmount = Math.round((amount - remainingToApply) * 100) / 100;
+      const unappliedAmount = Math.round(remainingToApply * 100) / 100;
+
+      const [payout] = await tx
+        .insert(therapistPayouts)
+        .values({
+          therapistId: input.therapistId,
+          totalAmount: amount.toString(),
+          paymentDate: input.paymentDate,
+          paymentMethod: input.paymentMethod ?? null,
+          referenceNumber: input.referenceNumber ?? null,
+          notes: input.notes ?? null,
+          status: 'paid',
+          paymentType: 'lump',
+          unappliedAmount: unappliedAmount.toString(),
+          createdBy: input.createdBy,
+        })
+        .returning();
+
+      for (const { item, apply } of allocations) {
+        await tx.insert(therapistPaymentAllocations).values({
+          payoutId: payout.id,
+          sessionBillingId: item.sessionBillingId,
+          sessionId: item.sessionId,
+          serviceId: item.serviceId,
+          basisAmount: item.collectedAmount.toString(),
+          payType: item.payType!,
+          payValue: (item.payValue ?? 0).toString(),
+          amountEarned: item.amountEarned.toString(),
+          amountAllocated: apply.toString(),
+        });
+      }
+
+      return {
+        ...(payout as any),
+        appliedAmount,
+        unappliedAmount,
+        allocationCount: allocations.length,
+      };
+    });
+  }
+
+  // Build a therapist's running statement (ledger): a chronological list of
+  // earning lines (collected sessions) and payment lines (payouts), with a
+  // running balance of what the practice owed the therapist after each line.
+  async getTherapistStatement(therapistId: number): Promise<TherapistStatement> {
+    const [therapist] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, therapistId))
+      .limit(1);
+
+    const earnings = await this.computeTherapistEarnings(therapistId);
+
+    type RawEntry = Omit<TherapistStatementEntry, 'runningBalance'> & { sortKey: number };
+    const raw: RawEntry[] = [];
+
+    let unresolvedCount = 0;
+    for (const e of earnings) {
+      if (e.collectedAmount <= 0) continue;
+      if (!e.hasRule) {
+        unresolvedCount++;
+        continue; // no resolvable earning amount; surfaced via unresolvedCount
+      }
+      const d = e.sessionDate ? new Date(e.sessionDate) : new Date(0);
+      raw.push({
+        date: d.toISOString().slice(0, 10),
+        type: 'earning',
+        description: `${e.clientName || 'Client'} — ${e.serviceName || e.serviceCode || 'Session'}`,
+        reference: e.serviceCode ?? null,
+        earned: e.amountEarned,
+        paid: 0,
+        sessionId: e.sessionId,
+        sortKey: d.getTime(),
+      });
+    }
+
+    // Payment lines: non-voided payouts (itemized or lump).
+    const payouts = await db
+      .select()
+      .from(therapistPayouts)
+      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+    for (const p of payouts) {
+      const d = p.paymentDate ? new Date(p.paymentDate as any) : new Date(0);
+      const label = p.paymentType === 'lump' ? 'Lump payment' : 'Payment';
+      raw.push({
+        date: typeof p.paymentDate === 'string' ? p.paymentDate : d.toISOString().slice(0, 10),
+        type: 'payment',
+        description: p.referenceNumber ? `${label} (${p.referenceNumber})` : label,
+        reference: p.referenceNumber ?? null,
+        earned: 0,
+        paid: Number(p.totalAmount || 0),
+        payoutId: p.id,
+        sortKey: d.getTime(),
+      });
+    }
+
+    // Chronological order; earnings before payments on the same day so a payment
+    // can settle that day's earnings in the running balance.
+    raw.sort((a, b) => {
+      if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+      if (a.type !== b.type) return a.type === 'earning' ? -1 : 1;
+      return 0;
+    });
+
+    let running = 0;
+    let totalEarned = 0;
+    let totalPaid = 0;
+    const entries: TherapistStatementEntry[] = raw.map((r) => {
+      running = Math.round((running + r.earned - r.paid) * 100) / 100;
+      totalEarned = Math.round((totalEarned + r.earned) * 100) / 100;
+      totalPaid = Math.round((totalPaid + r.paid) * 100) / 100;
+      const { sortKey, ...rest } = r;
+      return { ...rest, runningBalance: running };
+    });
+
+    const net = Math.round((totalEarned - totalPaid) * 100) / 100;
+    return {
+      therapistId,
+      therapistName: therapist?.fullName || '',
+      entries,
+      totalEarned,
+      totalPaid,
+      currentOwed: Math.max(0, net),
+      creditBalance: Math.max(0, -net),
+      unresolvedCount,
+    };
+  }
+
+  // Per-therapist monthly audit report: opening/closing balance bracketing the
+  // month, money earned & paid within it, and a session-by-session breakdown
+  // with expected-vs-collected so uncollected balances are easy to flag.
+  async getTherapistMonthlyStatement(
+    therapistId: number,
+    month: string, // YYYY-MM
+  ): Promise<TherapistMonthlyStatement> {
+    const m = /^(\d{4})-(\d{2})$/.exec(month);
+    if (!m) throw new Error('month must be in YYYY-MM format');
+    const year = Number(m[1]);
+    const mon = Number(m[2]);
+    if (mon < 1 || mon > 12) throw new Error('month must be in YYYY-MM format');
+    const monthStart = new Date(Date.UTC(year, mon - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, mon, 1)); // exclusive
+
+    const [therapist] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, therapistId))
+      .limit(1);
+
+    const earnings = await this.computeTherapistEarnings(therapistId);
+
+    // Opening balance = earnings before the month minus payments before it.
+    let openingEarned = 0;
+    let earnedInMonth = 0;
+    const sessions: TherapistMonthlySessionRow[] = [];
+    let totalExpected = 0;
+    let totalCollected = 0;
+    let totalUncollected = 0;
+
+    for (const e of earnings) {
+      const d = e.sessionDate ? new Date(e.sessionDate) : null;
+      const inMonth = d != null && d >= monthStart && d < monthEnd;
+      const before = d != null && d < monthStart;
+      if (e.hasRule && e.collectedAmount > 0) {
+        if (before) openingEarned = Math.round((openingEarned + e.amountEarned) * 100) / 100;
+        if (inMonth) earnedInMonth = Math.round((earnedInMonth + e.amountEarned) * 100) / 100;
+      }
+      if (inMonth) {
+        const uncollected = Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
+        sessions.push({
+          sessionId: e.sessionId,
+          sessionBillingId: e.billingId,
+          sessionDate: e.sessionDate,
+          clientName: e.clientName,
+          serviceCode: e.serviceCode,
+          serviceName: e.serviceName,
+          expected: e.expected,
+          collected: e.collectedAmount,
+          uncollected,
+          earned: e.hasRule ? e.amountEarned : 0,
+          hasRule: e.hasRule,
+        });
+        totalExpected = Math.round((totalExpected + e.expected) * 100) / 100;
+        totalCollected = Math.round((totalCollected + e.collectedAmount) * 100) / 100;
+        totalUncollected = Math.round((totalUncollected + uncollected) * 100) / 100;
+      }
+    }
+
+    const payouts = await db
+      .select({ paymentDate: therapistPayouts.paymentDate, totalAmount: therapistPayouts.totalAmount })
+      .from(therapistPayouts)
+      .where(and(eq(therapistPayouts.therapistId, therapistId), eq(therapistPayouts.status, 'paid')));
+    let openingPaid = 0;
+    let paidInMonth = 0;
+    for (const p of payouts) {
+      const d = p.paymentDate ? new Date(p.paymentDate as any) : null;
+      if (d == null) continue;
+      const amt = Number(p.totalAmount || 0);
+      if (d < monthStart) openingPaid = Math.round((openingPaid + amt) * 100) / 100;
+      else if (d < monthEnd) paidInMonth = Math.round((paidInMonth + amt) * 100) / 100;
+    }
+
+    const openingBalance = Math.round((openingEarned - openingPaid) * 100) / 100;
+    const closingBalance = Math.round((openingBalance + earnedInMonth - paidInMonth) * 100) / 100;
+
+    // Sessions oldest first within the month.
+    sessions.sort((a, b) => {
+      const ta = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
+      const tb = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      return a.sessionBillingId - b.sessionBillingId;
+    });
+
+    return {
+      therapistId,
+      therapistName: therapist?.fullName || '',
+      month,
+      openingBalance,
+      earnedInMonth,
+      paidInMonth,
+      closingBalance,
+      sessions,
+      totalExpected,
+      totalCollected,
+      totalUncollected,
+    };
   }
 
   // ===== INSURANCE STATEMENT RECONCILIATION =====

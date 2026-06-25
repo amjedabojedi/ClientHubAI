@@ -710,6 +710,13 @@ export const therapistPayouts = pgTable("therapist_payouts", {
   referenceNumber: varchar("reference_number", { length: 100 }),
   notes: text("notes"),
   status: varchar("status", { length: 20 }).notNull().default('paid'), // 'paid' | 'voided'
+  // 'itemized' = paid against a hand-picked set of sessions (legacy/select flow).
+  // 'lump' = a single payment amount auto-applied oldest-first to outstanding
+  // earnings; any money beyond what was owed is recorded as unappliedAmount.
+  paymentType: varchar("payment_type", { length: 20 }).notNull().default('itemized'),
+  // For lump payments: the part of totalAmount that exceeded everything owed at
+  // the time of payment (an over-payment credit carried against future earnings).
+  unappliedAmount: decimal("unapplied_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   voidedAt: timestamp("voided_at"),
   voidedBy: integer("voided_by").references(() => users.id),
   voidReason: text("void_reason"),
@@ -755,6 +762,38 @@ export const insertTherapistPayoutItemSchema = createInsertSchema(therapistPayou
 });
 export type InsertTherapistPayoutItem = z.infer<typeof insertTherapistPayoutItemSchema>;
 export type TherapistPayoutItem = typeof therapistPayoutItems.$inferSelect;
+
+// Therapist payment allocations - how a payout's money was applied to individual
+// earned (collected) sessions. Unlike the legacy payout *items*, an allocation
+// can cover only PART of a session's earned amount, so one lump payment can be
+// spread oldest-first across many sessions and a single session can be settled
+// across several payments. Deliberately NOT uniquely indexed on sessionBillingId
+// (partial + multi-payment settlement requires multiple rows per billing).
+// Voiding a payout marks it 'voided' but keeps these rows for the audit trail;
+// owed/statement queries ignore allocations whose payout is not 'paid'.
+export const therapistPaymentAllocations = pgTable("therapist_payment_allocations", {
+  id: serial("id").primaryKey(),
+  payoutId: integer("payout_id").notNull().references(() => therapistPayouts.id, { onDelete: 'cascade' }),
+  sessionBillingId: integer("session_billing_id").notNull().references(() => sessionBilling.id),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  serviceId: integer("service_id").references(() => services.id),
+  basisAmount: decimal("basis_amount", { precision: 10, scale: 2 }).notNull(), // amount collected used as the basis
+  payType: varchar("pay_type", { length: 20 }).notNull(),
+  payValue: decimal("pay_value", { precision: 10, scale: 2 }).notNull(),
+  amountEarned: decimal("amount_earned", { precision: 10, scale: 2 }).notNull(), // full earned for the session (snapshot)
+  amountAllocated: decimal("amount_allocated", { precision: 10, scale: 2 }).notNull(), // portion of earned paid by THIS payout
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  payoutIdx: index("therapist_payment_allocations_payout_idx").on(table.payoutId),
+  billingIdx: index("therapist_payment_allocations_billing_idx").on(table.sessionBillingId),
+}));
+
+export const insertTherapistPaymentAllocationSchema = createInsertSchema(therapistPaymentAllocations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTherapistPaymentAllocation = z.infer<typeof insertTherapistPaymentAllocationSchema>;
+export type TherapistPaymentAllocation = typeof therapistPaymentAllocations.$inferSelect;
 
 // Insurance statements - an uploaded insurance payment statement (an EOB/ERA),
 // either a PDF (read by AI) or an Excel/CSV file. Each statement holds many
@@ -1584,6 +1623,7 @@ export const AUDIT_ACTIONS = [
   'therapist_pay_rule_deleted',
   'therapist_payout_created',
   'therapist_payout_voided',
+  'therapist_statement_exported',
 
   // Insurance statement reconciliation
   'insurance_statement_uploaded',

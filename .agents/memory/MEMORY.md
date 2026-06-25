@@ -30,6 +30,7 @@
 - [phoneE164 derived SMS copy](phone-e164-derived-copy.md) — separate auto-derived E.164 copy for texting; recompute only when patch.phone !== undefined (Drizzle ignores undefined → would drift columns).
 - [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.
 - [Backend reload trap](backend-reload-trap.md) — a committed server fix that emits ZERO logs/audit rows is likely a stale tsx process; restart "Start application" before chasing a logic bug.
+- [Therapist payout credit](therapist-payout-credit.md) — owed calc must subtract over-payment credit (sum unappliedAmount) oldest-first or new sessions get double-paid; both payout paths lock per-therapist + recompute owed inside the txn.
 - [apiRequest arg order](apiRequest-arg-order.md) — apiRequest is (url, method, data) returning a raw Response; handles CSRF+FormData. Swapping method/url is silent (both strings).
 - [Date-only timezone shift](date-only-timezone-shift.md) — date-only cols (sessionDate) shift month/day via new Date() in non-UTC zones; bucket+display from literal "YYYY-MM-DD".
 - [queryClient key→URL trap](queryclient-key-url-trap.md) — default queryFn drops a non-object 2nd queryKey segment (e.g. a number id) and hits the base URL; use explicit queryFn for `/api/x/:id`.

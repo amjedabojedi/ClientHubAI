@@ -26,6 +26,7 @@ import {
 import {
   DollarSign, Percent, Users, Receipt, History, Loader2, AlertTriangle,
   ChevronDown, ChevronRight, Ban, Check, ChevronsUpDown,
+  FileText, CalendarRange, Download, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,12 +56,61 @@ interface OwedItem {
   payValue: number | null;
   ruleSource: "service" | "default" | "none";
   amountEarned: number;
+  amountAllocated: number;
+  amountRemaining: number;
 }
 interface OwedResponse {
   therapistId: number;
   items: OwedItem[];
   total: number;
   unresolvedCount: number;
+}
+interface StatementEntry {
+  date: string;
+  type: "earning" | "payment";
+  description: string;
+  reference: string | null;
+  earned: number;
+  paid: number;
+  runningBalance: number;
+  payoutId?: number;
+  sessionId?: number;
+}
+interface StatementResponse {
+  therapistId: number;
+  therapistName: string;
+  entries: StatementEntry[];
+  totalEarned: number;
+  totalPaid: number;
+  currentOwed: number;
+  creditBalance: number;
+  unresolvedCount: number;
+}
+interface MonthlySessionRow {
+  sessionId: number;
+  sessionBillingId: number;
+  sessionDate: string | null;
+  clientName: string;
+  serviceCode: string | null;
+  serviceName: string | null;
+  expected: number;
+  collected: number;
+  uncollected: number;
+  earned: number;
+  hasRule: boolean;
+}
+interface MonthlyStatementResponse {
+  therapistId: number;
+  therapistName: string;
+  month: string;
+  openingBalance: number;
+  earnedInMonth: number;
+  paidInMonth: number;
+  closingBalance: number;
+  sessions: MonthlySessionRow[];
+  totalExpected: number;
+  totalCollected: number;
+  totalUncollected: number;
 }
 interface PayoutSummary {
   id: number;
@@ -87,6 +137,7 @@ interface PayoutItemDetail {
   payType: string;
   payValue: number;
   amountEarned: number;
+  amountAllocated: number;
 }
 interface PayoutDetail extends PayoutSummary {
   items: PayoutItemDetail[];
@@ -121,6 +172,59 @@ const fmtMonth = (ym: string) => {
 const describeRule = (type: PayType | string | null, value: number | string | null) => {
   if (!type || value == null) return "No rule";
   return type === "percentage" ? `${Number(value)}% of collected` : `${money(value)} flat`;
+};
+
+// Build a CSV string from a header row + data rows, quoting every field so
+// commas, quotes and newlines inside values can't break the columns.
+const toCsv = (header: string[], rows: (string | number)[][]) => {
+  const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  return [header, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");
+};
+
+// Trigger a browser download of text content as a file.
+const downloadFile = (filename: string, content: string, mime = "text/csv;charset=utf-8") => {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// Open a print-friendly window with the given title + HTML body and trigger the
+// browser print dialog (which can "Save as PDF"). Returns false if blocked.
+const printHtml = (title: string, bodyHtml: string): boolean => {
+  const w = window.open("", "_blank", "width=900,height=700");
+  if (!w) return false;
+  w.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, sans-serif; color: #111; padding: 24px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      h2 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
+      .muted { color: #666; font-size: 12px; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+      th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+      th { background: #f3f4f6; }
+      td.num, th.num { text-align: right; }
+      .cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; min-width: 140px; }
+      .card .label { font-size: 11px; color: #666; }
+      .card .value { font-size: 18px; font-weight: 700; }
+      .flag { color: #b45309; font-weight: 600; }
+    </style></head><body>${bodyHtml}</body></html>`);
+  w.document.close();
+  w.focus();
+  // Give the new window a tick to render before printing.
+  setTimeout(() => { w.print(); }, 300);
+  return true;
+};
+
+// Record an export in the audit log (best-effort; never blocks the download).
+const auditExport = (body: { therapistId: number; reportType: "statement" | "monthly"; format: "csv" | "pdf"; month?: string }) => {
+  apiRequest("/api/therapist-pay/export-audit", "POST", body).catch(() => {});
 };
 
 export default function TherapistPaymentsPage() {
@@ -220,6 +324,12 @@ export default function TherapistPaymentsPage() {
             <TabsTrigger value="owed" data-testid="tab-owed">
               <Receipt className="mr-2 h-4 w-4" /> Owed / Record Payout
             </TabsTrigger>
+            <TabsTrigger value="statement" data-testid="tab-statement">
+              <FileText className="mr-2 h-4 w-4" /> Statement
+            </TabsTrigger>
+            <TabsTrigger value="monthly" data-testid="tab-monthly">
+              <CalendarRange className="mr-2 h-4 w-4" /> Monthly Report
+            </TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">
               <History className="mr-2 h-4 w-4" /> Payout History
             </TabsTrigger>
@@ -230,6 +340,12 @@ export default function TherapistPaymentsPage() {
           </TabsContent>
           <TabsContent value="owed" className="mt-4">
             <OwedTab key={therapistId} therapistId={therapistId} toast={toast} />
+          </TabsContent>
+          <TabsContent value="statement" className="mt-4">
+            <StatementTab key={`stmt-${therapistId}`} therapistId={therapistId} therapistName={selectedTherapist?.fullName || ""} toast={toast} />
+          </TabsContent>
+          <TabsContent value="monthly" className="mt-4">
+            <MonthlyReportTab key={`month-${therapistId}`} therapistId={therapistId} therapistName={selectedTherapist?.fullName || ""} toast={toast} />
           </TabsContent>
           <TabsContent value="history" className="mt-4">
             <HistoryTab therapistId={therapistId} toast={toast} />
@@ -439,18 +555,20 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
 
   const payable = items.filter((i) => i.ruleSource !== "none");
   const selectedItems = payable.filter((i) => selected.has(i.sessionBillingId));
-  const selectedTotal = selectedItems.reduce((sum, i) => sum + i.amountEarned, 0);
+  // Pay what is still OWED on each session (earned minus anything already paid
+  // via an earlier partial/lump payment).
+  const selectedTotal = selectedItems.reduce((sum, i) => sum + i.amountRemaining, 0);
 
-  // Total earned in the current view (respects the month filter).
-  const viewTotal = payable.reduce((sum, i) => sum + i.amountEarned, 0);
+  // Total still owed in the current view (respects the month filter).
+  const viewTotal = payable.reduce((sum, i) => sum + i.amountRemaining, 0);
 
-  // Sum earned + collected per main service category for the current view.
+  // Sum owed + collected per main service category for the current view.
   const categorySummary = (() => {
     const map = new Map<string, { earned: number; collected: number; count: number }>();
     for (const i of payable) {
       const key = i.category?.trim() || "Uncategorized";
       const cur = map.get(key) || { earned: 0, collected: 0, count: 0 };
-      cur.earned += i.amountEarned;
+      cur.earned += i.amountRemaining;
       cur.collected += i.collectedAmount;
       cur.count += 1;
       map.set(key, cur);
@@ -578,7 +696,7 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
                   <TableHead>Service</TableHead>
                   <TableHead className="text-right">Collected</TableHead>
                   <TableHead>Rule</TableHead>
-                  <TableHead className="text-right">Earned</TableHead>
+                  <TableHead className="text-right">Owed</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -611,7 +729,14 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-medium">{noRule ? "—" : money(i.amountEarned)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {noRule ? "—" : money(i.amountRemaining)}
+                        {!noRule && i.amountAllocated > 0 && (
+                          <span className="ml-1 block text-xs font-normal text-gray-500">
+                            partial · {money(i.amountAllocated)} paid of {money(i.amountEarned)}
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -815,7 +940,7 @@ function PayoutItems({ payoutId }: { payoutId: number }) {
             <TableHead>Service</TableHead>
             <TableHead className="text-right">Basis</TableHead>
             <TableHead>Rule</TableHead>
-            <TableHead className="text-right">Earned</TableHead>
+            <TableHead className="text-right">Paid</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -829,7 +954,12 @@ function PayoutItems({ payoutId }: { payoutId: number }) {
               </TableCell>
               <TableCell className="text-right">{money(it.basisAmount)}</TableCell>
               <TableCell className="text-xs">{describeRule(it.payType, it.payValue)}</TableCell>
-              <TableCell className="text-right font-medium">{money(it.amountEarned)}</TableCell>
+              <TableCell className="text-right font-medium">
+                {money(it.amountAllocated)}
+                {it.amountAllocated < it.amountEarned && (
+                  <span className="ml-1 block text-xs font-normal text-gray-500">of {money(it.amountEarned)} earned</span>
+                )}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -886,4 +1016,479 @@ function VoidPayoutDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/* ----------------------------- Statement ----------------------------- */
+
+function StatementTab({
+  therapistId, therapistName, toast,
+}: {
+  therapistId: number;
+  therapistName: string;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const { data, isLoading } = useQuery<StatementResponse>({
+    queryKey: ["/api/therapist-pay/statement", therapistId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/statement/${therapistId}`, "GET");
+      return res.json();
+    },
+  });
+  const [lumpOpen, setLumpOpen] = useState(false);
+
+  if (isLoading) {
+    return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading statement…</div>;
+  }
+  if (!data) return null;
+
+  const name = data.therapistName || therapistName;
+  const entries = data.entries;
+
+  const exportCsv = () => {
+    const rows = entries.map((e) => [
+      e.date,
+      e.type === "earning" ? "Earning" : "Payment",
+      e.description,
+      e.reference || "",
+      e.earned ? e.earned.toFixed(2) : "",
+      e.paid ? e.paid.toFixed(2) : "",
+      e.runningBalance.toFixed(2),
+    ]);
+    rows.push(["", "", "Totals", "", data.totalEarned.toFixed(2), data.totalPaid.toFixed(2), ""]);
+    const csv = toCsv(
+      ["Date", "Type", "Description", "Reference", "Earned", "Paid", "Running Balance"],
+      rows,
+    );
+    downloadFile(`statement-${name.replace(/\s+/g, "_")}.csv`, csv);
+    auditExport({ therapistId, reportType: "statement", format: "csv" });
+    toast({ title: "Statement exported", description: "CSV downloaded." });
+  };
+
+  const exportPrint = () => {
+    const rowsHtml = entries.map((e) => `
+      <tr>
+        <td>${fmtDate(e.date)}</td>
+        <td>${e.type === "earning" ? "Earning" : "Payment"}</td>
+        <td>${escapeHtml(e.description)}</td>
+        <td class="num">${e.earned ? money(e.earned) : ""}</td>
+        <td class="num">${e.paid ? money(e.paid) : ""}</td>
+        <td class="num">${money(e.runningBalance)}</td>
+      </tr>`).join("");
+    const body = `
+      <h1>Running Statement — ${escapeHtml(name)}</h1>
+      <div class="muted">Generated ${new Date().toLocaleString()}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Total earned</div><div class="value">${money(data.totalEarned)}</div></div>
+        <div class="card"><div class="label">Total paid</div><div class="value">${money(data.totalPaid)}</div></div>
+        <div class="card"><div class="label">${data.creditBalance > 0 ? "Credit balance" : "Currently owed"}</div><div class="value">${money(data.creditBalance > 0 ? data.creditBalance : data.currentOwed)}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="num">Earned</th><th class="num">Paid</th><th class="num">Balance</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    const ok = printHtml(`Statement — ${name}`, body);
+    if (!ok) {
+      toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
+      return;
+    }
+    auditExport({ therapistId, reportType: "statement", format: "pdf" });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-gray-500">Total earned</p>
+            <p className="text-xl font-bold" data-testid="text-statement-earned">{money(data.totalEarned)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Total paid</p>
+            <p className="text-xl font-bold" data-testid="text-statement-paid">{money(data.totalPaid)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">{data.creditBalance > 0 ? "Credit balance" : "Currently owed"}</p>
+            <p className="text-xl font-bold" data-testid="text-statement-balance">
+              {money(data.creditBalance > 0 ? data.creditBalance : data.currentOwed)}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setLumpOpen(true)} data-testid="button-lump-payment">
+            <DollarSign className="mr-2 h-4 w-4" /> Make a lump payment
+          </Button>
+          <Button variant="outline" onClick={exportCsv} disabled={entries.length === 0} data-testid="button-statement-csv">
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={exportPrint} disabled={entries.length === 0} data-testid="button-statement-print">
+            <Printer className="mr-2 h-4 w-4" /> Print / PDF
+          </Button>
+        </div>
+      </div>
+
+      {data.creditBalance > 0 && (
+        <div className="rounded-lg border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950/30">
+          This therapist has been paid {money(data.creditBalance)} ahead of their earnings. The credit will be used up
+          automatically as new sessions are collected.
+        </div>
+      )}
+
+      {data.unresolvedCount > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>
+            {data.unresolvedCount} collected session{data.unresolvedCount === 1 ? "" : "s"} have no pay rule and are not
+            included above. Add a rule in the Pay Profile tab so they can be counted.
+          </span>
+        </div>
+      )}
+
+      {entries.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            <FileText className="mx-auto mb-3 h-10 w-10 opacity-40" />
+            No earnings or payments recorded for this therapist yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Earned</TableHead>
+                  <TableHead className="text-right">Paid</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map((e, idx) => (
+                  <TableRow key={idx} data-testid={`statement-row-${idx}`}>
+                    <TableCell>{fmtDate(e.date)}</TableCell>
+                    <TableCell>
+                      {e.type === "earning"
+                        ? <Badge variant="outline">Earning</Badge>
+                        : <Badge variant="secondary">Payment</Badge>}
+                    </TableCell>
+                    <TableCell>{e.description}</TableCell>
+                    <TableCell className="text-right">{e.earned ? money(e.earned) : "—"}</TableCell>
+                    <TableCell className="text-right">{e.paid ? money(e.paid) : "—"}</TableCell>
+                    <TableCell className="text-right font-medium">{money(e.runningBalance)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <LumpPaymentDialog
+        open={lumpOpen}
+        onOpenChange={setLumpOpen}
+        therapistId={therapistId}
+        currentOwed={data.currentOwed}
+        toast={toast}
+      />
+    </div>
+  );
+}
+
+function LumpPaymentDialog({
+  open, onOpenChange, therapistId, currentOwed, toast,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  therapistId: number;
+  currentOwed: number;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(today);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const reset = () => {
+    setAmount(""); setPaymentDate(today); setPaymentMethod(""); setReferenceNumber(""); setNotes("");
+  };
+
+  const amt = Number(amount);
+  const validAmount = amount.trim() !== "" && isFinite(amt) && amt > 0;
+
+  const create = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/therapist-pay/lump-payment", "POST", {
+        therapistId,
+        amount: amt,
+        paymentDate,
+        paymentMethod: paymentMethod || null,
+        referenceNumber: referenceNumber || null,
+        notes: notes || null,
+      }),
+    onSuccess: async (res) => {
+      const payout = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/payouts"] });
+      const applied = Number(payout.appliedAmount || 0);
+      const unapplied = Number(payout.unappliedAmount || 0);
+      toast({
+        title: "Lump payment recorded",
+        description: unapplied > 0
+          ? `${money(applied)} applied to ${payout.allocationCount} session(s); ${money(unapplied)} kept as credit.`
+          : `${money(applied)} applied to ${payout.allocationCount} session(s).`,
+      });
+      reset();
+      onOpenChange(false);
+    },
+    onError: (err: any) =>
+      toast({ title: "Could not record payment", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Make a lump payment</DialogTitle>
+          <DialogDescription>
+            Enter one payment amount. It is applied automatically to the oldest outstanding sessions first. Anything
+            beyond what is owed ({money(currentOwed)}) is kept as a credit against future earnings.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="lumpAmount">Amount ($)</Label>
+            <Input id="lumpAmount" type="number" min="0" step="0.01" value={amount}
+              onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 500.00" data-testid="input-lump-amount" />
+          </div>
+          <div>
+            <Label htmlFor="lumpDate">Payment date</Label>
+            <Input id="lumpDate" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} data-testid="input-lump-date" />
+          </div>
+          <div>
+            <Label htmlFor="lumpMethod">Method (optional)</Label>
+            <Input id="lumpMethod" placeholder="e.g. Bank transfer, Check" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} data-testid="input-lump-method" />
+          </div>
+          <div>
+            <Label htmlFor="lumpRef">Reference number (optional)</Label>
+            <Input id="lumpRef" placeholder="e.g. Check #1234" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} data-testid="input-lump-reference" />
+          </div>
+          <div>
+            <Label htmlFor="lumpNotes">Notes (optional)</Label>
+            <Textarea id="lumpNotes" value={notes} onChange={(e) => setNotes(e.target.value)} data-testid="input-lump-notes" />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={create.isPending}>Cancel</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !validAmount || !paymentDate} data-testid="button-confirm-lump">
+            {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Record payment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* --------------------------- Monthly Report --------------------------- */
+
+function MonthlyReportTab({
+  therapistId, therapistName, toast,
+}: {
+  therapistId: number;
+  therapistName: string;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+
+  const { data, isLoading, isError } = useQuery<MonthlyStatementResponse>({
+    queryKey: ["/api/therapist-pay/monthly-statement", therapistId, month],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/monthly-statement/${therapistId}?month=${month}`, "GET");
+      return res.json();
+    },
+    enabled: /^\d{4}-\d{2}$/.test(month),
+  });
+
+  const name = data?.therapistName || therapistName;
+
+  const exportCsv = () => {
+    if (!data) return;
+    const rows = data.sessions.map((s) => [
+      ymd(s.sessionDate),
+      s.clientName,
+      s.serviceName || s.serviceCode || "",
+      s.expected.toFixed(2),
+      s.collected.toFixed(2),
+      s.uncollected.toFixed(2),
+      s.hasRule ? s.earned.toFixed(2) : "no rule",
+    ]);
+    const csv = toCsv(
+      ["Date", "Client", "Service", "Expected", "Collected", "Uncollected", "Earned"],
+      rows,
+    );
+    const header =
+      `Monthly report,${name},${fmtMonth(month)}\r\n` +
+      `Opening balance,${data.openingBalance.toFixed(2)}\r\n` +
+      `Earned in month,${data.earnedInMonth.toFixed(2)}\r\n` +
+      `Paid in month,${data.paidInMonth.toFixed(2)}\r\n` +
+      `Closing balance,${data.closingBalance.toFixed(2)}\r\n` +
+      `Total expected,${data.totalExpected.toFixed(2)}\r\n` +
+      `Total collected,${data.totalCollected.toFixed(2)}\r\n` +
+      `Total uncollected,${data.totalUncollected.toFixed(2)}\r\n\r\n`;
+    downloadFile(`monthly-${name.replace(/\s+/g, "_")}-${month}.csv`, header + csv);
+    auditExport({ therapistId, reportType: "monthly", format: "csv", month });
+    toast({ title: "Report exported", description: "CSV downloaded." });
+  };
+
+  const exportPrint = () => {
+    if (!data) return;
+    const rowsHtml = data.sessions.map((s) => `
+      <tr>
+        <td>${fmtDate(s.sessionDate)}</td>
+        <td>${escapeHtml(s.clientName)}</td>
+        <td>${escapeHtml(s.serviceName || s.serviceCode || "—")}</td>
+        <td class="num">${money(s.expected)}</td>
+        <td class="num">${money(s.collected)}</td>
+        <td class="num ${s.uncollected > 0 ? "flag" : ""}">${money(s.uncollected)}</td>
+        <td class="num">${s.hasRule ? money(s.earned) : "no rule"}</td>
+      </tr>`).join("");
+    const body = `
+      <h1>Monthly Report — ${escapeHtml(name)}</h1>
+      <div class="muted">${fmtMonth(month)} · generated ${new Date().toLocaleString()}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Opening balance</div><div class="value">${money(data.openingBalance)}</div></div>
+        <div class="card"><div class="label">Earned in month</div><div class="value">${money(data.earnedInMonth)}</div></div>
+        <div class="card"><div class="label">Paid in month</div><div class="value">${money(data.paidInMonth)}</div></div>
+        <div class="card"><div class="label">Closing balance</div><div class="value">${money(data.closingBalance)}</div></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">Total expected</div><div class="value">${money(data.totalExpected)}</div></div>
+        <div class="card"><div class="label">Total collected</div><div class="value">${money(data.totalCollected)}</div></div>
+        <div class="card"><div class="label">Total uncollected</div><div class="value">${money(data.totalUncollected)}</div></div>
+      </div>
+      <h2>Sessions</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Client</th><th>Service</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    const ok = printHtml(`Monthly Report — ${name} — ${month}`, body);
+    if (!ok) {
+      toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
+      return;
+    }
+    auditExport({ therapistId, reportType: "monthly", format: "pdf", month });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="w-48">
+          <Label htmlFor="reportMonth" className="mb-1 block text-xs">Month</Label>
+          <Input id="reportMonth" type="month" value={month} onChange={(e) => setMonth(e.target.value)} data-testid="input-report-month" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportCsv} disabled={!data} data-testid="button-monthly-csv">
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={exportPrint} disabled={!data} data-testid="button-monthly-print">
+            <Printer className="mr-2 h-4 w-4" /> Print / PDF
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading report…</div>
+      ) : isError || !data ? (
+        <Card><CardContent className="py-12 text-center text-gray-500">Could not load the report for this month.</CardContent></Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard label="Opening balance" value={money(data.openingBalance)} testId="text-opening" />
+            <SummaryCard label="Earned in month" value={money(data.earnedInMonth)} testId="text-earned-month" />
+            <SummaryCard label="Paid in month" value={money(data.paidInMonth)} testId="text-paid-month" />
+            <SummaryCard label="Closing balance" value={money(data.closingBalance)} testId="text-closing" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <SummaryCard label="Total expected" value={money(data.totalExpected)} testId="text-total-expected" />
+            <SummaryCard label="Total collected" value={money(data.totalCollected)} testId="text-total-collected" />
+            <SummaryCard label="Total uncollected" value={money(data.totalUncollected)} testId="text-total-uncollected" highlight={data.totalUncollected > 0} />
+          </div>
+
+          {data.sessions.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
+                No sessions for {fmtMonth(month)}.
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead className="text-right">Expected</TableHead>
+                      <TableHead className="text-right">Collected</TableHead>
+                      <TableHead className="text-right">Uncollected</TableHead>
+                      <TableHead className="text-right">Earned</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.sessions.map((s) => (
+                      <TableRow key={s.sessionBillingId} data-testid={`monthly-row-${s.sessionBillingId}`}>
+                        <TableCell>{fmtDate(s.sessionDate)}</TableCell>
+                        <TableCell>{s.clientName}</TableCell>
+                        <TableCell>
+                          {s.serviceName || "—"}
+                          {s.serviceCode ? <span className="ml-1 text-xs text-gray-500">{s.serviceCode}</span> : null}
+                        </TableCell>
+                        <TableCell className="text-right">{money(s.expected)}</TableCell>
+                        <TableCell className="text-right">{money(s.collected)}</TableCell>
+                        <TableCell className={cn("text-right", s.uncollected > 0 && "font-medium text-amber-600")}>
+                          {money(s.uncollected)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {s.hasRule ? money(s.earned) : <Badge variant="destructive">No rule</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, testId, highlight }: { label: string; value: string; testId?: string; highlight?: boolean }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className={cn("text-xl font-bold", highlight && "text-amber-600")} data-testid={testId}>{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Minimal HTML escaping for values injected into the print window.
+function escapeHtml(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
