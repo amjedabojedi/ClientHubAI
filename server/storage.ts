@@ -264,6 +264,7 @@ export interface TherapistOwedItem {
   serviceId: number | null;
   serviceCode: string | null;
   serviceName: string | null;
+  category: string | null;
   clientName: string;
   totalAmount: number;
   collectedAmount: number;
@@ -3482,6 +3483,7 @@ export class DatabaseStorage implements IStorage {
         serviceId: sessions.serviceId,
         serviceCode: services.serviceCode,
         serviceName: services.serviceName,
+        category: services.category,
         clientName: clients.fullName,
         totalAmount: sessionBilling.totalAmount,
         clientPaid: sessionBilling.clientPaidAmount,
@@ -3535,6 +3537,7 @@ export class DatabaseStorage implements IStorage {
         serviceId: svcId,
         serviceCode: row.serviceCode ?? null,
         serviceName: row.serviceName ?? null,
+        category: row.category ?? null,
         clientName: row.clientName ?? '',
         totalAmount: Number(row.totalAmount || 0),
         collectedAmount: collected,

@@ -47,6 +47,7 @@ interface OwedItem {
   serviceId: number | null;
   serviceCode: string | null;
   serviceName: string | null;
+  category: string | null;
   clientName: string;
   totalAmount: number;
   collectedAmount: number;
@@ -94,8 +95,28 @@ interface PayoutDetail extends PayoutSummary {
 const money = (n: number | string) =>
   `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const fmtDate = (d: string | null) =>
-  d ? new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—";
+// Pull the literal calendar date "YYYY-MM-DD" out of a date string WITHOUT
+// reinterpreting it through a timezone. sessionDate is a date-only value, so
+// `new Date(d)` would shift it across day/month boundaries in non-UTC zones —
+// that would let a row display in one month but filter into another.
+const ymd = (d: string | null) => (d || "").slice(0, 10);
+
+const fmtDate = (d: string | null) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || "");
+  if (!m) return "—";
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+// Format a "YYYY-MM" key as e.g. "June 2026".
+const fmtMonth = (ym: string) => {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m) return ym;
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+};
 
 const describeRule = (type: PayType | string | null, value: number | string | null) => {
   if (!type || value == null) return "No rule";
@@ -208,7 +229,7 @@ export default function TherapistPaymentsPage() {
             <PayProfileTab therapistId={therapistId} toast={toast} />
           </TabsContent>
           <TabsContent value="owed" className="mt-4">
-            <OwedTab therapistId={therapistId} toast={toast} />
+            <OwedTab key={therapistId} therapistId={therapistId} toast={toast} />
           </TabsContent>
           <TabsContent value="history" className="mt-4">
             <HistoryTab therapistId={therapistId} toast={toast} />
@@ -400,11 +421,50 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
   });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [month, setMonth] = useState<string>("all");
 
-  const items = data?.items || [];
+  const allItems = data?.items || [];
+
+  // Months (YYYY-MM) that actually have owed sessions, newest first.
+  // Use the literal calendar month (same basis as fmtDate) so the filter never
+  // disagrees with the date shown in each row.
+  const monthOptions = Array.from(
+    new Set(allItems.map((i) => ymd(i.sessionDate).slice(0, 7)).filter(Boolean)),
+  ).sort((a, b) => b.localeCompare(a));
+
+  const items =
+    month === "all"
+      ? allItems
+      : allItems.filter((i) => ymd(i.sessionDate).slice(0, 7) === month);
+
   const payable = items.filter((i) => i.ruleSource !== "none");
   const selectedItems = payable.filter((i) => selected.has(i.sessionBillingId));
   const selectedTotal = selectedItems.reduce((sum, i) => sum + i.amountEarned, 0);
+
+  // Total earned in the current view (respects the month filter).
+  const viewTotal = payable.reduce((sum, i) => sum + i.amountEarned, 0);
+
+  // Sum earned + collected per main service category for the current view.
+  const categorySummary = (() => {
+    const map = new Map<string, { earned: number; collected: number; count: number }>();
+    for (const i of payable) {
+      const key = i.category?.trim() || "Uncategorized";
+      const cur = map.get(key) || { earned: 0, collected: 0, count: 0 };
+      cur.earned += i.amountEarned;
+      cur.collected += i.collectedAmount;
+      cur.count += 1;
+      map.set(key, cur);
+    }
+    return Array.from(map.entries())
+      .map(([category, v]) => ({ category, ...v }))
+      .sort((a, b) => b.earned - a.earned);
+  })();
+
+  // Changing the month clears the selection so a hidden session can't be paid by accident.
+  const changeMonth = (m: string) => {
+    setMonth(m);
+    setSelected(new Set());
+  };
 
   const toggle = (id: number) =>
     setSelected((prev) => {
@@ -424,10 +484,30 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-gray-500">Total currently owed (all payable sessions)</p>
-          <p className="text-2xl font-bold" data-testid="text-total-owed">{money(data?.total || 0)}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <p className="text-sm text-gray-500">
+              {month === "all" ? "Total currently owed (all payable sessions)" : `Owed in ${fmtMonth(month)}`}
+            </p>
+            <p className="text-2xl font-bold" data-testid="text-total-owed">
+              {money(month === "all" ? (data?.total || 0) : viewTotal)}
+            </p>
+          </div>
+          <div className="w-52">
+            <Label className="mb-1 block text-xs">Filter by month</Label>
+            <Select value={month} onValueChange={changeMonth}>
+              <SelectTrigger data-testid="select-owed-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All months</SelectItem>
+                {monthOptions.map((m) => (
+                  <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <Button
           disabled={selectedItems.length === 0}
@@ -438,6 +518,30 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
           Record payout ({selectedItems.length}) · {money(selectedTotal)}
         </Button>
       </div>
+
+      {categorySummary.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Earnings by category{month === "all" ? "" : ` · ${fmtMonth(month)}`}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {categorySummary.map((c) => (
+              <Card key={c.category} data-testid={`category-summary-${c.category}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{c.category}</span>
+                    <Badge variant="secondary">{c.count} session{c.count === 1 ? "" : "s"}</Badge>
+                  </div>
+                  <p className="mt-1 text-xl font-bold" data-testid={`category-earned-${c.category}`}>
+                    {money(c.earned)}
+                  </p>
+                  <p className="text-xs text-gray-500">earned · {money(c.collected)} collected</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data && data.unresolvedCount > 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
