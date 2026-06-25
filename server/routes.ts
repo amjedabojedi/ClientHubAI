@@ -1,5 +1,5 @@
 // Core Express and Node.js
-import type { Express } from "express";
+import type { Express, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import * as fs from "fs";
 import * as path from "path";
@@ -92,6 +92,8 @@ import {
   insertRoomSchema,
   insertRoomBookingSchema,
   insertSessionBillingSchema,
+  insertTherapistPayRuleSchema,
+  insertTherapistPayoutSchema,
   insertRoleSchema,
   insertPermissionSchema,
   insertRolePermissionSchema,
@@ -120,6 +122,16 @@ const azureStorage = new AzureBlobStorage(
   process.env.AZURE_STORAGE_CONNECTION_STRING || '',
   process.env.AZURE_BLOB_CONTAINER_NAME || 'documents'
 );
+
+// Restrict therapist-payment management (pay rules + payouts) to admin and
+// billing roles. Therapists must not see or edit compensation settings here.
+function requireTherapistPayAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const role = req.user?.role?.toLowerCase();
+  if (role === 'admin' || role === 'administrator' || role === 'billing') {
+    return next();
+  }
+  return res.status(403).json({ message: "Access denied. Admin or billing privileges required." });
+}
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -12314,6 +12326,236 @@ You can download a copy if you have it saved locally and re-upload it.`;
       await storage.deleteService(serviceId);
       res.status(204).send();
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===================== THERAPIST PAYMENTS =====================
+  // Active service list for the pay-rule editor (admin/billing only).
+  app.get("/api/therapist-pay/services", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const allServices = await storage.getServices();
+      const active = allServices.filter((s: any) => s.isActive !== false);
+      res.json(active);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Therapist list for the picker (admin/billing only).
+  app.get("/api/therapist-pay/therapists", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapists = await storage.getTherapists();
+      res.json(therapists.map((t) => ({ id: t.id, fullName: t.fullName, role: t.role })));
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get a therapist's pay rules.
+  app.get("/api/therapist-pay/rules/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const rules = await storage.getTherapistPayRules(therapistId);
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create or update a single pay rule (one default rule per therapist when
+  // serviceId is null; otherwise one rule per service).
+  app.post("/api/therapist-pay/rules", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const validated = insertTherapistPayRuleSchema.parse(req.body);
+      if (validated.payType !== 'percentage' && validated.payType !== 'fixed') {
+        return res.status(400).json({ message: "payType must be 'percentage' or 'fixed'" });
+      }
+      const value = Number(validated.payValue);
+      if (!isFinite(value) || value < 0) {
+        return res.status(400).json({ message: "payValue must be a non-negative number" });
+      }
+      if (validated.payType === 'percentage' && value > 100) {
+        return res.status(400).json({ message: "A percentage rule cannot exceed 100%" });
+      }
+      const rule = await storage.upsertTherapistPayRule(validated);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_pay_rule_updated',
+        result: 'success',
+        resourceType: 'therapist_pay_rule',
+        resourceId: String(rule.id),
+        details: JSON.stringify({
+          therapistId: rule.therapistId,
+          serviceId: rule.serviceId,
+          payType: rule.payType,
+          payValue: rule.payValue,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.status(201).json(rule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid pay rule data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete a pay rule.
+  app.delete("/api/therapist-pay/rules/:id", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const therapistId = parseInt(String(req.query.therapistId));
+      if (isNaN(id) || isNaN(therapistId)) {
+        return res.status(400).json({ message: "Invalid rule or therapist ID" });
+      }
+      await storage.deleteTherapistPayRule(id, therapistId);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_pay_rule_deleted',
+        result: 'success',
+        resourceType: 'therapist_pay_rule',
+        resourceId: String(id),
+        details: JSON.stringify({ therapistId }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // What a therapist is currently owed (collected, not-yet-paid sessions).
+  app.get("/api/therapist-pay/owed/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const owed = await storage.getTherapistOwed(therapistId);
+      res.json(owed);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Record a payout for selected owed sessions.
+  app.post("/api/therapist-pay/payouts", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { therapistId, paymentDate, paymentMethod, referenceNumber, notes, sessionBillingIds } = req.body || {};
+      const tId = parseInt(String(therapistId));
+      if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      if (!paymentDate || typeof paymentDate !== 'string') {
+        return res.status(400).json({ message: "paymentDate is required" });
+      }
+      if (!Array.isArray(sessionBillingIds) || sessionBillingIds.length === 0) {
+        return res.status(400).json({ message: "Select at least one session to pay" });
+      }
+      const ids = sessionBillingIds.map((x: any) => parseInt(String(x))).filter((x: number) => !isNaN(x));
+      if (ids.length === 0) return res.status(400).json({ message: "No valid sessions selected" });
+
+      const payout = await storage.createTherapistPayout({
+        therapistId: tId,
+        paymentDate,
+        paymentMethod: paymentMethod || null,
+        referenceNumber: referenceNumber || null,
+        notes: notes || null,
+        sessionBillingIds: ids,
+        createdBy: req.user!.id,
+      });
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_payout_created',
+        result: 'success',
+        resourceType: 'therapist_payout',
+        resourceId: String(payout.id),
+        details: JSON.stringify({
+          therapistId: tId,
+          totalAmount: payout.totalAmount,
+          sessionCount: ids.length,
+          paymentMethod: payout.paymentMethod,
+          referenceNumber: payout.referenceNumber,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.status(201).json(payout);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg === 'No payable sessions selected') {
+        return res.status(400).json({ message: msg });
+      }
+      // Unique violation on payout items => a selected session was already paid
+      // (e.g. concurrent submit). Surface a clear, actionable message.
+      if (error?.code === '23505') {
+        return res.status(409).json({ message: "One or more selected sessions were already paid out. Please refresh and try again." });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // List payouts (optionally filtered by therapist).
+  app.get("/api/therapist-pay/payouts", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = req.query.therapistId ? parseInt(String(req.query.therapistId)) : undefined;
+      const payouts = await storage.getTherapistPayouts(therapistId != null && !isNaN(therapistId) ? therapistId : undefined);
+      res.json(payouts);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Payout detail with the sessions it covered.
+  app.get("/api/therapist-pay/payouts/:id", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid payout ID" });
+      const payout = await storage.getTherapistPayoutById(id);
+      if (!payout) return res.status(404).json({ message: "Payout not found" });
+      res.json(payout);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Void a payout (releases its sessions back to owed).
+  app.post("/api/therapist-pay/payouts/:id/void", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid payout ID" });
+      const reason = (req.body?.reason || '').toString().trim();
+      if (!reason) return res.status(400).json({ message: "A reason is required to void a payout" });
+
+      const payout = await storage.voidTherapistPayout(id, req.user!.id, reason);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_payout_voided',
+        result: 'success',
+        resourceType: 'therapist_payout',
+        resourceId: String(id),
+        details: JSON.stringify({ therapistId: payout.therapistId, reason }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.json(payout);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg === 'Payout not found') return res.status(404).json({ message: msg });
+      if (msg === 'Payout already voided') return res.status(400).json({ message: msg });
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -30,4 +30,5 @@
 - [phoneE164 derived SMS copy](phone-e164-derived-copy.md) — separate auto-derived E.164 copy for texting; recompute only when patch.phone !== undefined (Drizzle ignores undefined → would drift columns).
 - [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.
 - [Backend reload trap](backend-reload-trap.md) — a committed server fix that emits ZERO logs/audit rows is likely a stale tsx process; restart "Start application" before chasing a logic bug.
+- [queryClient key→URL trap](queryclient-key-url-trap.md) — default queryFn drops a non-object 2nd queryKey segment (e.g. a number id) and hits the base URL; use explicit queryFn for `/api/x/:id`.
 - [AI transcribe authz](ai-transcribe-authz.md) — AI on UNSAVED notes (no sessionNoteId) must authorize by sessionId via assertSessionAccess + derive clientId from the session; never trust body clientId, consent != authz (IDOR).

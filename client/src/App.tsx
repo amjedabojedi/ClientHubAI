@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -46,6 +46,7 @@ import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import AdminConsentPage from "@/pages/admin-consent";
 import BillingDashboard from "@/pages/billing-dashboard";
+import TherapistPaymentsPage from "@/pages/therapist-payments";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
@@ -144,6 +145,11 @@ function Navigation() {
       baseItems.push({ path: "/document-review", label: "Doc Review", icon: FolderOpen });
     }
 
+    // Billing staff manage therapist payments but don't have the Administration menu
+    if (user?.role?.toLowerCase().trim() === 'billing') {
+      baseItems.push({ path: "/therapist-payments", label: "Payments", icon: DollarSign });
+    }
+
     // Supervisor: limited Administration menu (clinical tools only, no system admin)
     if (user?.role?.toLowerCase() === 'supervisor') {
       baseItems.push({
@@ -173,6 +179,7 @@ function Navigation() {
           { path: "/forms-management", label: "Clinical Forms", icon: ClipboardCheck },
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
+          { path: "/therapist-payments", label: "Therapist Payments", icon: DollarSign },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
@@ -373,6 +380,15 @@ function Router() {
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/billing" component={BillingDashboard} />
           <Route path="/billing-dashboard" component={BillingDashboard} />
+          <Route path="/therapist-payments" component={() => {
+            const { user } = useAuth();
+            const role = user?.role?.toLowerCase().trim();
+            const allowed = role === 'admin' || role === 'administrator' || role === 'billing';
+            if (!allowed) {
+              return <AccessRestricted message="Therapist payments are restricted to administrators and billing staff." />;
+            }
+            return <TherapistPaymentsPage />;
+          }} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
           <Route path="/document-review" component={() => {

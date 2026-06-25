@@ -664,6 +664,98 @@ export const insertPaymentTransactionSchema = createInsertSchema(paymentTransact
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 
+// Therapist pay rules - per-therapist, per-service compensation rules.
+// A rule with serviceId = null is the therapist's DEFAULT rule, applied to any
+// service that has no specific override. payType 'percentage' means payValue is
+// a percent of the amount actually COLLECTED for the session (client + insurance,
+// after deductions); 'fixed' means payValue is a flat dollar amount per session.
+// Fully editable at any time.
+export const therapistPayRules = pgTable("therapist_pay_rules", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  serviceId: integer("service_id").references(() => services.id, { onDelete: 'cascade' }), // null = default rule for all services
+  payType: varchar("pay_type", { length: 20 }).notNull(), // 'percentage' | 'fixed'
+  payValue: decimal("pay_value", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  therapistIdx: index("therapist_pay_rules_therapist_idx").on(table.therapistId),
+  // Enforces at most one rule per (therapist, service) for non-default rules.
+  therapistServiceIdx: uniqueIndex("therapist_pay_rules_therapist_service_idx").on(table.therapistId, table.serviceId),
+  // Enforces at most one DEFAULT rule (serviceId NULL) per therapist at the DB
+  // level, since Postgres treats NULLs as distinct in a normal unique index.
+  therapistDefaultIdx: uniqueIndex("therapist_pay_rules_therapist_default_idx")
+    .on(table.therapistId)
+    .where(sql`${table.serviceId} IS NULL`),
+}));
+
+export const insertTherapistPayRuleSchema = createInsertSchema(therapistPayRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertTherapistPayRule = z.infer<typeof insertTherapistPayRuleSchema>;
+export type TherapistPayRule = typeof therapistPayRules.$inferSelect;
+
+// Therapist payouts - a recorded payment from the practice to a therapist for
+// one or more earned (collected) sessions. status 'paid' is the normal state;
+// 'voided' reverses a mistaken payout (its items are released so the underlying
+// sessions become owed again).
+export const therapistPayouts = pgTable("therapist_payouts", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: date("payment_date").notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  referenceNumber: varchar("reference_number", { length: 100 }),
+  notes: text("notes"),
+  status: varchar("status", { length: 20 }).notNull().default('paid'), // 'paid' | 'voided'
+  voidedAt: timestamp("voided_at"),
+  voidedBy: integer("voided_by").references(() => users.id),
+  voidReason: text("void_reason"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  therapistIdx: index("therapist_payouts_therapist_idx").on(table.therapistId),
+}));
+
+export const insertTherapistPayoutSchema = createInsertSchema(therapistPayouts).omit({
+  id: true,
+  createdAt: true,
+  voidedAt: true,
+  voidedBy: true,
+  voidReason: true,
+});
+export type InsertTherapistPayout = z.infer<typeof insertTherapistPayoutSchema>;
+export type TherapistPayout = typeof therapistPayouts.$inferSelect;
+
+// Therapist payout items - the individual session billings covered by a payout,
+// with a snapshot of the pay rule applied so history stays accurate even if the
+// rule later changes. The unique constraint on sessionBillingId guarantees a
+// billing can only be paid out once (no double-paying).
+export const therapistPayoutItems = pgTable("therapist_payout_items", {
+  id: serial("id").primaryKey(),
+  payoutId: integer("payout_id").notNull().references(() => therapistPayouts.id, { onDelete: 'cascade' }),
+  sessionBillingId: integer("session_billing_id").notNull().references(() => sessionBilling.id),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  serviceId: integer("service_id").references(() => services.id),
+  basisAmount: decimal("basis_amount", { precision: 10, scale: 2 }).notNull(), // amount collected used as the basis
+  payType: varchar("pay_type", { length: 20 }).notNull(),
+  payValue: decimal("pay_value", { precision: 10, scale: 2 }).notNull(),
+  amountEarned: decimal("amount_earned", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  payoutIdx: index("therapist_payout_items_payout_idx").on(table.payoutId),
+  billingUniqueIdx: uniqueIndex("therapist_payout_items_billing_idx").on(table.sessionBillingId),
+}));
+
+export const insertTherapistPayoutItemSchema = createInsertSchema(therapistPayoutItems).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTherapistPayoutItem = z.infer<typeof insertTherapistPayoutItemSchema>;
+export type TherapistPayoutItem = typeof therapistPayoutItems.$inferSelect;
+
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -1411,6 +1503,12 @@ export const AUDIT_ACTIONS = [
   'invoice_viewed',
   'payment_initiated',
   'payment_completed',
+
+  // Therapist compensation / payouts
+  'therapist_pay_rule_updated',
+  'therapist_pay_rule_deleted',
+  'therapist_payout_created',
+  'therapist_payout_voided',
 
   // Consent / compliance
   'consent_granted',

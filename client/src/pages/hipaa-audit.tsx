@@ -184,6 +184,12 @@ const AUDIT_ACTION_LABELS = {
   calendar_feed_token_revoked: 'Calendar Link Revoked',
   // Data export
   data_exported: 'Data Exported',
+
+  // Therapist payments
+  therapist_pay_rule_updated: 'Therapist Pay Rule Updated',
+  therapist_pay_rule_deleted: 'Therapist Pay Rule Deleted',
+  therapist_payout_created: 'Therapist Payout Created',
+  therapist_payout_voided: 'Therapist Payout Voided',
 } satisfies Record<AuditAction, string>;
 
 // Fallback: turn any unmapped snake_case action into Title Case words.

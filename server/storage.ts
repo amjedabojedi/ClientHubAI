@@ -52,6 +52,9 @@ import {
   sessionTranscripts,
   commTranscribeUploads,
   paymentTransactions,
+  therapistPayRules,
+  therapistPayouts,
+  therapistPayoutItems,
   dailyScheduleEmails,
   deferredNotificationEmails
 } from "@shared/schema";
@@ -123,6 +126,11 @@ import type {
   InsertRoomBooking,
   SelectSessionBilling,
   InsertSessionBilling,
+  TherapistPayRule,
+  InsertTherapistPayRule,
+  TherapistPayout,
+  InsertTherapistPayout,
+  TherapistPayoutItem,
   ClientInvoice,
   UserProfile,
   InsertUserProfile,
@@ -245,6 +253,40 @@ export type SessionQueryResult = {
   totalPages: number;
 };
 
+// A single owed (collected, not-yet-paid) session for a therapist, with the
+// resolved pay rule and computed earnings. `payType` is null when no rule
+// (specific or default) applies — such items are surfaced but excluded from
+// the payable total so nothing is paid by accident.
+export interface TherapistOwedItem {
+  sessionBillingId: number;
+  sessionId: number;
+  sessionDate: Date;
+  serviceId: number | null;
+  serviceCode: string | null;
+  serviceName: string | null;
+  clientName: string;
+  totalAmount: number;
+  collectedAmount: number;
+  payType: 'percentage' | 'fixed' | null;
+  payValue: number | null;
+  ruleSource: 'service' | 'default' | 'none';
+  amountEarned: number;
+}
+
+export interface TherapistPayoutItemDetail {
+  id: number;
+  sessionBillingId: number;
+  sessionId: number;
+  sessionDate: Date | null;
+  serviceCode: string | null;
+  serviceName: string | null;
+  clientName: string;
+  basisAmount: number;
+  payType: string;
+  payValue: number;
+  amountEarned: number;
+}
+
 export interface IStorage {
   
   // ===== USER MANAGEMENT =====
@@ -257,6 +299,32 @@ export interface IStorage {
   deleteUser(id: number): Promise<void>;
   getTherapists(): Promise<User[]>;
   getUsers(): Promise<User[]>;
+
+  // ===== THERAPIST PAYMENTS (compensation rules, owed earnings, payouts) =====
+  getTherapistPayRules(therapistId: number): Promise<TherapistPayRule[]>;
+  upsertTherapistPayRule(rule: InsertTherapistPayRule): Promise<TherapistPayRule>;
+  deleteTherapistPayRule(id: number, therapistId: number): Promise<void>;
+  // Sessions whose billing has been (at least partly) collected for this
+  // therapist and that have not yet been included in a payout, with the
+  // applicable pay rule resolved and the earned amount computed.
+  getTherapistOwed(therapistId: number): Promise<{
+    therapistId: number;
+    items: TherapistOwedItem[];
+    total: number;
+    unresolvedCount: number;
+  }>;
+  createTherapistPayout(input: {
+    therapistId: number;
+    paymentDate: string;
+    paymentMethod?: string | null;
+    referenceNumber?: string | null;
+    notes?: string | null;
+    sessionBillingIds: number[];
+    createdBy: number;
+  }): Promise<TherapistPayout>;
+  getTherapistPayouts(therapistId?: number): Promise<(TherapistPayout & { therapistName: string; itemCount: number })[]>;
+  getTherapistPayoutById(id: number): Promise<(TherapistPayout & { therapistName: string; items: TherapistPayoutItemDetail[] }) | undefined>;
+  voidTherapistPayout(id: number, voidedBy: number, reason: string): Promise<TherapistPayout>;
 
   // ===== DAILY SCHEDULE EMAILS (8 AM ET therapist digest) =====
   // All daily-email tracking rows for a given Eastern calendar day (yyyy-MM-dd).
@@ -3343,6 +3411,314 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  // ===== THERAPIST PAYMENTS =====
+
+  async getTherapistPayRules(therapistId: number): Promise<TherapistPayRule[]> {
+    return db
+      .select()
+      .from(therapistPayRules)
+      .where(eq(therapistPayRules.therapistId, therapistId))
+      .orderBy(asc(therapistPayRules.serviceId));
+  }
+
+  async upsertTherapistPayRule(rule: InsertTherapistPayRule): Promise<TherapistPayRule> {
+    const therapistId = rule.therapistId;
+    const serviceId = rule.serviceId ?? null;
+    const whereRule =
+      serviceId == null
+        ? and(eq(therapistPayRules.therapistId, therapistId), isNull(therapistPayRules.serviceId))
+        : and(eq(therapistPayRules.therapistId, therapistId), eq(therapistPayRules.serviceId, serviceId));
+
+    const existing = await db.select().from(therapistPayRules).where(whereRule).limit(1);
+    if (existing.length) {
+      const [updated] = await db
+        .update(therapistPayRules)
+        .set({ payType: rule.payType, payValue: String(rule.payValue), updatedAt: new Date() })
+        .where(eq(therapistPayRules.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [inserted] = await db
+      .insert(therapistPayRules)
+      .values({ therapistId, serviceId, payType: rule.payType, payValue: String(rule.payValue) })
+      .returning();
+    return inserted;
+  }
+
+  async deleteTherapistPayRule(id: number, therapistId: number): Promise<void> {
+    await db
+      .delete(therapistPayRules)
+      .where(and(eq(therapistPayRules.id, id), eq(therapistPayRules.therapistId, therapistId)));
+  }
+
+  async getTherapistOwed(therapistId: number): Promise<{
+    therapistId: number;
+    items: TherapistOwedItem[];
+    total: number;
+    unresolvedCount: number;
+  }> {
+    const rules = await this.getTherapistPayRules(therapistId);
+    const defaultRule = rules.find((r) => r.serviceId == null) || null;
+    const serviceRuleMap = new Map<number, TherapistPayRule>();
+    for (const r of rules) if (r.serviceId != null) serviceRuleMap.set(Number(r.serviceId), r);
+
+    // Billings already covered by a payout item. Voided payouts have their
+    // items deleted, so the underlying sessions become owed again.
+    const paidRows = await db
+      .select({ sbId: therapistPayoutItems.sessionBillingId })
+      .from(therapistPayoutItems)
+      .innerJoin(sessionBilling, eq(therapistPayoutItems.sessionBillingId, sessionBilling.id))
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .where(eq(sessions.therapistId, therapistId));
+    const paidSet = new Set(paidRows.map((r) => Number(r.sbId)));
+
+    const rows = await db
+      .select({
+        billingId: sessionBilling.id,
+        sessionId: sessions.id,
+        sessionDate: sessions.sessionDate,
+        serviceId: sessions.serviceId,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+        clientName: clients.fullName,
+        totalAmount: sessionBilling.totalAmount,
+        clientPaid: sessionBilling.clientPaidAmount,
+        insurancePaid: sessionBilling.insurancePaidAmount,
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .where(eq(sessions.therapistId, therapistId))
+      .orderBy(desc(sessions.sessionDate));
+
+    const items: TherapistOwedItem[] = [];
+    let total = 0;
+    let unresolvedCount = 0;
+    for (const row of rows) {
+      const billingId = Number(row.billingId);
+      if (paidSet.has(billingId)) continue;
+      const collected = Number(row.clientPaid || 0) + Number(row.insurancePaid || 0);
+      if (collected <= 0) continue;
+
+      const svcId = row.serviceId != null ? Number(row.serviceId) : null;
+      let rule: TherapistPayRule | null = null;
+      let ruleSource: 'service' | 'default' | 'none' = 'none';
+      if (svcId != null && serviceRuleMap.has(svcId)) {
+        rule = serviceRuleMap.get(svcId)!;
+        ruleSource = 'service';
+      } else if (defaultRule) {
+        rule = defaultRule;
+        ruleSource = 'default';
+      }
+
+      let amountEarned = 0;
+      let payType: 'percentage' | 'fixed' | null = null;
+      let payValue: number | null = null;
+      if (rule) {
+        payType = rule.payType as 'percentage' | 'fixed';
+        payValue = Number(rule.payValue);
+        amountEarned =
+          payType === 'percentage' ? (collected * payValue) / 100 : payValue;
+        amountEarned = Math.round(amountEarned * 100) / 100;
+        total += amountEarned;
+      } else {
+        unresolvedCount++;
+      }
+
+      items.push({
+        sessionBillingId: billingId,
+        sessionId: Number(row.sessionId),
+        sessionDate: row.sessionDate,
+        serviceId: svcId,
+        serviceCode: row.serviceCode ?? null,
+        serviceName: row.serviceName ?? null,
+        clientName: row.clientName ?? '',
+        totalAmount: Number(row.totalAmount || 0),
+        collectedAmount: collected,
+        payType,
+        payValue,
+        ruleSource,
+        amountEarned,
+      });
+    }
+
+    return { therapistId, items, total: Math.round(total * 100) / 100, unresolvedCount };
+  }
+
+  async createTherapistPayout(input: {
+    therapistId: number;
+    paymentDate: string;
+    paymentMethod?: string | null;
+    referenceNumber?: string | null;
+    notes?: string | null;
+    sessionBillingIds: number[];
+    createdBy: number;
+  }): Promise<TherapistPayout> {
+    // Recompute owed server-side so amounts and eligibility can't be tampered
+    // with by the client. Only sessions that are owed AND have a resolved rule
+    // are payable.
+    const owed = await this.getTherapistOwed(input.therapistId);
+    const wanted = new Set(input.sessionBillingIds.map(Number));
+    const selected = owed.items.filter((i) => wanted.has(i.sessionBillingId) && i.payType != null);
+    if (selected.length === 0) {
+      throw new Error('No payable sessions selected');
+    }
+    const total = Math.round(selected.reduce((s, i) => s + i.amountEarned, 0) * 100) / 100;
+
+    return await db.transaction(async (tx) => {
+      const [payout] = await tx
+        .insert(therapistPayouts)
+        .values({
+          therapistId: input.therapistId,
+          totalAmount: total.toString(),
+          paymentDate: input.paymentDate,
+          paymentMethod: input.paymentMethod ?? null,
+          referenceNumber: input.referenceNumber ?? null,
+          notes: input.notes ?? null,
+          status: 'paid',
+          createdBy: input.createdBy,
+        })
+        .returning();
+
+      for (const i of selected) {
+        await tx.insert(therapistPayoutItems).values({
+          payoutId: payout.id,
+          sessionBillingId: i.sessionBillingId,
+          sessionId: i.sessionId,
+          serviceId: i.serviceId,
+          basisAmount: i.collectedAmount.toString(),
+          payType: i.payType!,
+          payValue: (i.payValue ?? 0).toString(),
+          amountEarned: i.amountEarned.toString(),
+        });
+      }
+
+      return payout;
+    });
+  }
+
+  async getTherapistPayouts(
+    therapistId?: number,
+  ): Promise<(TherapistPayout & { therapistName: string; itemCount: number })[]> {
+    const rows = await db
+      .select({
+        id: therapistPayouts.id,
+        therapistId: therapistPayouts.therapistId,
+        totalAmount: therapistPayouts.totalAmount,
+        paymentDate: therapistPayouts.paymentDate,
+        paymentMethod: therapistPayouts.paymentMethod,
+        referenceNumber: therapistPayouts.referenceNumber,
+        notes: therapistPayouts.notes,
+        status: therapistPayouts.status,
+        voidedAt: therapistPayouts.voidedAt,
+        voidedBy: therapistPayouts.voidedBy,
+        voidReason: therapistPayouts.voidReason,
+        createdBy: therapistPayouts.createdBy,
+        createdAt: therapistPayouts.createdAt,
+        therapistName: users.fullName,
+        itemCount: count(therapistPayoutItems.id),
+      })
+      .from(therapistPayouts)
+      .innerJoin(users, eq(therapistPayouts.therapistId, users.id))
+      .leftJoin(therapistPayoutItems, eq(therapistPayoutItems.payoutId, therapistPayouts.id))
+      .where(therapistId != null ? eq(therapistPayouts.therapistId, therapistId) : undefined)
+      .groupBy(therapistPayouts.id, users.fullName)
+      .orderBy(desc(therapistPayouts.paymentDate), desc(therapistPayouts.id));
+
+    return rows.map((r) => ({
+      ...(r as any),
+      itemCount: Number(r.itemCount),
+    }));
+  }
+
+  async getTherapistPayoutById(
+    id: number,
+  ): Promise<(TherapistPayout & { therapistName: string; items: TherapistPayoutItemDetail[] }) | undefined> {
+    const [payout] = await db
+      .select({
+        id: therapistPayouts.id,
+        therapistId: therapistPayouts.therapistId,
+        totalAmount: therapistPayouts.totalAmount,
+        paymentDate: therapistPayouts.paymentDate,
+        paymentMethod: therapistPayouts.paymentMethod,
+        referenceNumber: therapistPayouts.referenceNumber,
+        notes: therapistPayouts.notes,
+        status: therapistPayouts.status,
+        voidedAt: therapistPayouts.voidedAt,
+        voidedBy: therapistPayouts.voidedBy,
+        voidReason: therapistPayouts.voidReason,
+        createdBy: therapistPayouts.createdBy,
+        createdAt: therapistPayouts.createdAt,
+        therapistName: users.fullName,
+      })
+      .from(therapistPayouts)
+      .innerJoin(users, eq(therapistPayouts.therapistId, users.id))
+      .where(eq(therapistPayouts.id, id))
+      .limit(1);
+
+    if (!payout) return undefined;
+
+    const itemRows = await db
+      .select({
+        id: therapistPayoutItems.id,
+        sessionBillingId: therapistPayoutItems.sessionBillingId,
+        sessionId: therapistPayoutItems.sessionId,
+        sessionDate: sessions.sessionDate,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+        clientName: clients.fullName,
+        basisAmount: therapistPayoutItems.basisAmount,
+        payType: therapistPayoutItems.payType,
+        payValue: therapistPayoutItems.payValue,
+        amountEarned: therapistPayoutItems.amountEarned,
+      })
+      .from(therapistPayoutItems)
+      .leftJoin(sessions, eq(therapistPayoutItems.sessionId, sessions.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(therapistPayoutItems.serviceId, services.id))
+      .where(eq(therapistPayoutItems.payoutId, id))
+      .orderBy(desc(sessions.sessionDate));
+
+    const items: TherapistPayoutItemDetail[] = itemRows.map((r) => ({
+      id: Number(r.id),
+      sessionBillingId: Number(r.sessionBillingId),
+      sessionId: Number(r.sessionId),
+      sessionDate: r.sessionDate ?? null,
+      serviceCode: r.serviceCode ?? null,
+      serviceName: r.serviceName ?? null,
+      clientName: r.clientName ?? '',
+      basisAmount: Number(r.basisAmount || 0),
+      payType: r.payType,
+      payValue: Number(r.payValue || 0),
+      amountEarned: Number(r.amountEarned || 0),
+    }));
+
+    return { ...(payout as any), items };
+  }
+
+  async voidTherapistPayout(id: number, voidedBy: number, reason: string): Promise<TherapistPayout> {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(therapistPayouts)
+        .where(eq(therapistPayouts.id, id))
+        .limit(1);
+      if (!existing) throw new Error('Payout not found');
+      if (existing.status === 'voided') throw new Error('Payout already voided');
+
+      // Release the covered sessions so they become owed again.
+      await tx.delete(therapistPayoutItems).where(eq(therapistPayoutItems.payoutId, id));
+
+      const [updated] = await tx
+        .update(therapistPayouts)
+        .set({ status: 'voided', voidedAt: new Date(), voidedBy, voidReason: reason })
+        .where(eq(therapistPayouts.id, id))
+        .returning();
+      return updated;
+    });
   }
 
   // Enhanced Task Management Methods
