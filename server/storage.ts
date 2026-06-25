@@ -56,6 +56,8 @@ import {
   therapistPayouts,
   therapistPayoutItems,
   therapistPaymentAllocations,
+  therapistEarnings,
+  auditLogs,
   dailyScheduleEmails,
   deferredNotificationEmails,
   insuranceStatements,
@@ -3614,6 +3616,7 @@ export class DatabaseStorage implements IStorage {
     serviceCode: string | null;
     serviceName: string | null;
     category: string | null;
+    clientId: number | null;
     clientName: string;
     totalAmount: number;
     expected: number;
@@ -3638,6 +3641,7 @@ export class DatabaseStorage implements IStorage {
         serviceCode: services.serviceCode,
         serviceName: services.serviceName,
         category: services.category,
+        clientId: clients.id,
         clientName: clients.fullName,
         totalAmount: sessionBilling.totalAmount,
         discountAmount: sessionBilling.discountAmount,
@@ -3683,6 +3687,7 @@ export class DatabaseStorage implements IStorage {
         serviceCode: row.serviceCode ?? null,
         serviceName: row.serviceName ?? null,
         category: row.category ?? null,
+        clientId: row.clientId != null ? Number(row.clientId) : null,
         clientName: row.clientName ?? '',
         totalAmount: Number(row.totalAmount || 0),
         expected,
@@ -3829,6 +3834,10 @@ export class DatabaseStorage implements IStorage {
     sessionBillingIds: number[];
     createdBy: number;
   }): Promise<TherapistPayout & { allocations: TherapistPayoutAllocationDetail[] }> {
+    // Ensure the persistent (audited) earning ledger is up to date before paying
+    // against it. Uses a distinct advisory lock from the payout lock below, so
+    // it must run BEFORE opening the payout transaction (no nested/competing lock).
+    await this.syncTherapistEarnings(input.therapistId);
     return await db.transaction(async (tx) => {
       // Serialize payout creation per therapist (shared with the lump path) so a
       // concurrent itemized/lump payout can't allocate against the same stale
@@ -4089,6 +4098,10 @@ export class DatabaseStorage implements IStorage {
     const amount = Math.round(Number(input.amount) * 100) / 100;
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero');
 
+    // Ensure the persistent (audited) earning ledger is up to date before paying
+    // against it. Uses a distinct advisory lock from the payout lock below, so
+    // it must run BEFORE opening the payout transaction (no nested/competing lock).
+    await this.syncTherapistEarnings(input.therapistId);
     return await db.transaction(async (tx) => {
       // Serialize payout creation per therapist: hold a per-therapist advisory
       // lock for the life of this transaction so a concurrent payout can't
@@ -4173,6 +4186,99 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Materialize the PERSISTENT earning ledger for a therapist (idempotent).
+  // For each rule-resolved, collected session it ensures a stored earning row
+  // exists whose summed amountEarned equals the live computed earning. The first
+  // earning for a billing is written as an 'earning' row; if more is later
+  // collected (e.g. insurance pays after a client copay) an 'adjustment' row is
+  // appended for the delta rather than mutating history, so the ledger is
+  // append-only and never shifts retroactively. Every newly-written row is
+  // recorded in the audit log (action 'therapist_earning_recorded'). Returns the
+  // count of collected sessions that have NO resolvable pay rule (surfaced in the
+  // statement so the owner knows they need a rule before they can be paid).
+  // Serialized per therapist via an advisory lock so concurrent reads can't
+  // double-insert the same earning.
+  private async syncTherapistEarnings(therapistId: number): Promise<{ unresolvedCount: number }> {
+    const SYSTEM_USER_ID = 6; // system actor for derived (non-user) audit events
+    const earnings = await this.computeTherapistEarnings(therapistId);
+    let unresolvedCount = 0;
+    return await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('therapist_earning'), ${therapistId})`,
+      );
+      const existing = await tx
+        .select({
+          sessionBillingId: therapistEarnings.sessionBillingId,
+          amountEarned: therapistEarnings.amountEarned,
+        })
+        .from(therapistEarnings)
+        .where(eq(therapistEarnings.therapistId, therapistId));
+      const persistedByBilling = new Map<number, number>();
+      for (const r of existing) {
+        const bid = Number(r.sessionBillingId);
+        persistedByBilling.set(
+          bid,
+          Math.round(((persistedByBilling.get(bid) || 0) + Number(r.amountEarned)) * 100) / 100,
+        );
+      }
+
+      const toInsert: (typeof therapistEarnings.$inferInsert)[] = [];
+      for (const e of earnings) {
+        if (!e.hasRule) {
+          if (e.collectedAmount > 0) unresolvedCount++;
+          continue;
+        }
+        if (e.collectedAmount <= 0) continue;
+        const had = persistedByBilling.has(e.billingId);
+        const persisted = persistedByBilling.get(e.billingId) || 0;
+        const delta = Math.round((e.amountEarned - persisted) * 100) / 100;
+        if (delta === 0) continue; // already fully recorded
+        const earnedDateStr = e.sessionDate
+          ? new Date(e.sessionDate).toISOString().slice(0, 10)
+          : null;
+        toInsert.push({
+          therapistId,
+          sessionBillingId: e.billingId,
+          sessionId: e.sessionId,
+          clientId: e.clientId ?? null,
+          clientName: e.clientName ?? '',
+          serviceCode: e.serviceCode ?? null,
+          serviceName: e.serviceName ?? null,
+          entryType: had ? 'adjustment' : 'earning',
+          amountEarned: delta.toString(),
+          collectedSnapshot: e.collectedAmount.toString(),
+          earnedDate: earnedDateStr,
+        });
+      }
+
+      if (toInsert.length > 0) {
+        await tx.insert(therapistEarnings).values(toInsert);
+        await tx.insert(auditLogs).values(
+          toInsert.map((t) => ({
+            userId: SYSTEM_USER_ID,
+            username: 'system',
+            action: 'therapist_earning_recorded' as const,
+            result: 'success' as const,
+            resourceType: 'therapist_earning',
+            resourceId: String(t.sessionBillingId),
+            clientId: t.clientId ?? null,
+            details: JSON.stringify({
+              therapistId,
+              sessionBillingId: t.sessionBillingId,
+              sessionId: t.sessionId,
+              entryType: t.entryType,
+              amountEarned: t.amountEarned,
+              collectedSnapshot: t.collectedSnapshot,
+            }),
+            hipaaRelevant: true,
+          })),
+        );
+      }
+
+      return { unresolvedCount };
+    });
+  }
+
   // Build a therapist's running statement (ledger): a chronological list of
   // earning lines (collected sessions) and payment lines (payouts), with a
   // running balance of what the practice owed the therapist after each line.
@@ -4183,28 +4289,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, therapistId))
       .limit(1);
 
-    const earnings = await this.computeTherapistEarnings(therapistId);
+    // Persist any newly-collected earnings (audited) before reading, then build
+    // the statement's earning lines FROM the stored ledger rows so historical
+    // lines are durable and never recomputed/shifted retroactively.
+    const { unresolvedCount } = await this.syncTherapistEarnings(therapistId);
 
     type RawEntry = Omit<TherapistStatementEntry, 'runningBalance'> & { sortKey: number };
     const raw: RawEntry[] = [];
 
-    let unresolvedCount = 0;
-    for (const e of earnings) {
-      if (e.collectedAmount <= 0) continue;
-      if (!e.hasRule) {
-        unresolvedCount++;
-        continue; // no resolvable earning amount; surfaced via unresolvedCount
-      }
-      const d = e.sessionDate ? new Date(e.sessionDate) : new Date(0);
+    const earningRows = await db
+      .select()
+      .from(therapistEarnings)
+      .where(eq(therapistEarnings.therapistId, therapistId));
+    for (const er of earningRows) {
+      const dateStr =
+        typeof er.earnedDate === 'string'
+          ? er.earnedDate
+          : er.earnedDate
+            ? new Date(er.earnedDate as any).toISOString().slice(0, 10)
+            : '1970-01-01';
       raw.push({
-        date: d.toISOString().slice(0, 10),
+        date: dateStr,
         type: 'earning',
-        description: `${e.clientName || 'Client'} — ${e.serviceName || e.serviceCode || 'Session'}`,
-        reference: e.serviceCode ?? null,
-        earned: e.amountEarned,
+        description: `${er.clientName || 'Client'} — ${er.serviceName || er.serviceCode || 'Session'}`,
+        reference: er.serviceCode ?? null,
+        earned: Number(er.amountEarned),
         paid: 0,
-        sessionId: e.sessionId,
-        sortKey: d.getTime(),
+        sessionId: er.sessionId ?? undefined,
+        sortKey: new Date(dateStr).getTime(),
       });
     }
 
@@ -4300,11 +4412,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, therapistId))
       .limit(1);
 
+    // Persist any newly-collected earnings (audited) before computing the report.
+    await this.syncTherapistEarnings(therapistId);
     const earnings = await this.computeTherapistEarnings(therapistId);
 
-    // Opening balance = earnings before the month minus payments before it.
+    // Opening/earned amounts come FROM the persisted earning ledger (durable,
+    // audited) bucketed by earnedDate, so the monthly numbers reconcile with the
+    // running statement and don't shift if billing later changes.
+    const earningRows = await db
+      .select()
+      .from(therapistEarnings)
+      .where(eq(therapistEarnings.therapistId, therapistId));
     let openingEarned = 0;
     let earnedInMonth = 0;
+    for (const er of earningRows) {
+      const ds =
+        typeof er.earnedDate === 'string'
+          ? er.earnedDate
+          : er.earnedDate
+            ? new Date(er.earnedDate as any).toISOString().slice(0, 10)
+            : null;
+      const d = ds ? new Date(ds) : null;
+      const amt = Number(er.amountEarned);
+      if (d != null && d < monthStart) {
+        openingEarned = Math.round((openingEarned + amt) * 100) / 100;
+      } else if (d != null && d >= monthStart && d < monthEnd) {
+        earnedInMonth = Math.round((earnedInMonth + amt) * 100) / 100;
+      }
+    }
+
     const sessions: TherapistMonthlySessionRow[] = [];
     let totalExpected = 0;
     let totalCollected = 0;
@@ -4313,11 +4449,6 @@ export class DatabaseStorage implements IStorage {
     for (const e of earnings) {
       const d = e.sessionDate ? new Date(e.sessionDate) : null;
       const inMonth = d != null && d >= monthStart && d < monthEnd;
-      const before = d != null && d < monthStart;
-      if (e.hasRule && e.collectedAmount > 0) {
-        if (before) openingEarned = Math.round((openingEarned + e.amountEarned) * 100) / 100;
-        if (inMonth) earnedInMonth = Math.round((earnedInMonth + e.amountEarned) * 100) / 100;
-      }
       if (inMonth) {
         const uncollected = Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
         sessions.push({

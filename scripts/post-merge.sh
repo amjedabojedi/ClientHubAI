@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 npm install
-npm run db:push
+# Apply additive, idempotent schema FIRST, before db:push. This repo has known
+# practice_configuration drift that can make an unguarded `db:push` prompt or
+# fail; running these additive scripts first guarantees the feature tables/enums
+# exist even if a later db:push aborts on that unrelated drift (the task's
+# "do not rely on db:push for these additive changes" constraint).
+#
 # Reconcile the Postgres audit enums (audit_action / audit_result) with the
 # values the app writes (db:push does not manage these pg ENUMs). Idempotent.
 npx tsx scripts/ensure-audit-enums.ts
@@ -12,5 +17,8 @@ npx tsx scripts/verify-audit-enums.ts
 # on db:push for these tables given known practice_configuration drift).
 npx tsx scripts/ensure-report-tables.ts
 # Ensure the therapist running-statement schema exists (therapist_payment_allocations
-# table + therapist_payouts ledger columns). Idempotent additive DDL.
+# + therapist_earnings tables + therapist_payouts ledger columns). Idempotent DDL.
 npx tsx scripts/ensure-therapist-ledger.ts
+# Finally reconcile the rest of the schema via Drizzle. Runs last so the additive
+# feature schema above is already in place if this aborts on known drift.
+npm run db:push

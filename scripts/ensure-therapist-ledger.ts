@@ -51,8 +51,33 @@ async function main() {
     sql`CREATE INDEX IF NOT EXISTS therapist_payment_allocations_billing_idx ON therapist_payment_allocations(session_billing_id)`,
   );
 
+  // ----- therapist_earnings (persistent, append-only earning ledger) -----
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS therapist_earnings (
+      id SERIAL PRIMARY KEY,
+      therapist_id INTEGER NOT NULL REFERENCES users(id),
+      session_billing_id INTEGER NOT NULL REFERENCES session_billing(id),
+      session_id INTEGER REFERENCES sessions(id),
+      client_id INTEGER REFERENCES clients(id),
+      client_name TEXT,
+      service_code VARCHAR(50),
+      service_name VARCHAR(255),
+      entry_type VARCHAR(16) NOT NULL DEFAULT 'earning',
+      amount_earned DECIMAL(10,2) NOT NULL,
+      collected_snapshot DECIMAL(10,2) NOT NULL DEFAULT '0',
+      earned_date DATE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS therapist_earnings_therapist_idx ON therapist_earnings(therapist_id)`,
+  );
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS therapist_earnings_billing_idx ON therapist_earnings(session_billing_id)`,
+  );
+
   console.log(
-    "[therapist-ledger] Ensured therapist_payment_allocations table and therapist_payouts ledger columns.",
+    "[therapist-ledger] Ensured therapist_payment_allocations, therapist_earnings tables and therapist_payouts ledger columns.",
   );
 }
 

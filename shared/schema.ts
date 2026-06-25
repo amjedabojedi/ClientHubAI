@@ -795,6 +795,48 @@ export const insertTherapistPaymentAllocationSchema = createInsertSchema(therapi
 export type InsertTherapistPaymentAllocation = z.infer<typeof insertTherapistPaymentAllocationSchema>;
 export type TherapistPaymentAllocation = typeof therapistPaymentAllocations.$inferSelect;
 
+// Therapist earnings ledger - a PERSISTENT, append-only record of every earning
+// a therapist accrues as sessions get collected (money owed to them). Earnings
+// were previously only computed on the fly from session_billing; persisting them
+// here gives a durable, audited history that does NOT shift retroactively when
+// underlying billing later changes. Each row is derived from a collected
+// session_billing using the same pay-rule math as the live "owed" calculation,
+// so old and new numbers reconcile. As more is collected for a session (e.g. a
+// client copay then an insurance payment), an additional 'adjustment' row is
+// appended for the delta rather than mutating the original 'earning' row, keeping
+// the ledger append-only. The summed amountEarned per billing equals the current
+// computed earning, so the running statement balance stays correct.
+export const therapistEarnings = pgTable("therapist_earnings", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  sessionBillingId: integer("session_billing_id").notNull().references(() => sessionBilling.id),
+  sessionId: integer("session_id").references(() => sessions.id),
+  clientId: integer("client_id").references(() => clients.id),
+  clientName: text("client_name"),
+  serviceCode: varchar("service_code", { length: 50 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  // 'earning' = the first earning recorded for a billing; 'adjustment' = a later
+  // delta (positive or negative) as the collected amount changed.
+  entryType: varchar("entry_type", { length: 16 }).notNull().default('earning'),
+  amountEarned: decimal("amount_earned", { precision: 10, scale: 2 }).notNull(),
+  // Snapshot of the total collected for the billing when this row was written.
+  collectedSnapshot: decimal("collected_snapshot", { precision: 10, scale: 2 }).notNull().default('0'),
+  // The date the earning is attributed to (the session date), so monthly buckets
+  // match the running statement.
+  earnedDate: date("earned_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  therapistIdx: index("therapist_earnings_therapist_idx").on(table.therapistId),
+  billingIdx: index("therapist_earnings_billing_idx").on(table.sessionBillingId),
+}));
+
+export const insertTherapistEarningSchema = createInsertSchema(therapistEarnings).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTherapistEarning = z.infer<typeof insertTherapistEarningSchema>;
+export type TherapistEarning = typeof therapistEarnings.$inferSelect;
+
 // Insurance statements - an uploaded insurance payment statement (an EOB/ERA),
 // either a PDF (read by AI) or an Excel/CSV file. Each statement holds many
 // line items, one per claim/service the insurer paid (or denied). status:
@@ -1623,6 +1665,7 @@ export const AUDIT_ACTIONS = [
   'therapist_pay_rule_deleted',
   'therapist_payout_created',
   'therapist_payment_allocated',
+  'therapist_earning_recorded',
   'therapist_payout_voided',
   'therapist_statement_exported',
 
