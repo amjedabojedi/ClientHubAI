@@ -4341,6 +4341,20 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(therapistEarnings)
       .where(eq(therapistEarnings.therapistId, therapistId));
+    // The ledger is append-only: a session can have an original 'earning' row plus
+    // later 'adjustment' rows (e.g. when its collected amount changed). For the
+    // statement we collapse all rows for the same session/billing into ONE earning
+    // line showing the NET earned, so each session shows a single row instead of a
+    // confusing stack of partial lines. The underlying rows are untouched (audit).
+    type EarnGroup = {
+      billingId: number;
+      dateStr: string;
+      description: string;
+      reference: string | null;
+      earned: number;
+      sessionId?: number;
+    };
+    const earnGroups = new Map<number, EarnGroup>();
     for (const er of earningRows) {
       const dateStr =
         typeof er.earnedDate === 'string'
@@ -4348,15 +4362,35 @@ export class DatabaseStorage implements IStorage {
           : er.earnedDate
             ? new Date(er.earnedDate as any).toISOString().slice(0, 10)
             : '1970-01-01';
+      const bid = Number(er.sessionBillingId);
+      const existing = earnGroups.get(bid);
+      if (existing) {
+        existing.earned = Math.round((existing.earned + Number(er.amountEarned)) * 100) / 100;
+        // Keep the earliest (session) date for the consolidated line.
+        if (dateStr < existing.dateStr) existing.dateStr = dateStr;
+      } else {
+        earnGroups.set(bid, {
+          billingId: bid,
+          dateStr,
+          description: `${er.clientName || 'Client'} — ${er.serviceName || er.serviceCode || 'Session'}`,
+          reference: er.serviceCode ?? null,
+          earned: Number(er.amountEarned),
+          sessionId: er.sessionId ?? undefined,
+        });
+      }
+    }
+    for (const g of Array.from(earnGroups.values())) {
+      // Drop fully-reversed sessions (net 0) so they don't clutter the ledger.
+      if (Math.abs(g.earned) < 0.005) continue;
       raw.push({
-        date: dateStr,
+        date: g.dateStr,
         type: 'earning',
-        description: `${er.clientName || 'Client'} — ${er.serviceName || er.serviceCode || 'Session'}`,
-        reference: er.serviceCode ?? null,
-        earned: Number(er.amountEarned),
+        description: g.description,
+        reference: g.reference,
+        earned: g.earned,
         paid: 0,
-        sessionId: er.sessionId ?? undefined,
-        sortKey: new Date(dateStr).getTime(),
+        sessionId: g.sessionId,
+        sortKey: new Date(g.dateStr).getTime(),
       });
     }
 
