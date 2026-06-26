@@ -353,6 +353,14 @@ async function main() {
       "1: per-line billing-# input is absent on a voided statement's line",
     );
 
+    // The terminal state is explained: a non-actionable notice tells staff the
+    // statement is voided/locked and what to do instead.
+    assertEqual(
+      await exists(page, '[data-testid="notice-voided-statement"]'),
+      true,
+      "1: voided-statement explanatory notice is present on a voided statement",
+    );
+
     // -------------------------------------------------------------------
     // Test 2: DRAFT statement shows those same controls, ENABLED — proving
     // the gate is conditional on the voided status, not always-off.
@@ -384,6 +392,14 @@ async function main() {
       await exists(page, `[data-testid="input-billing-${draft.lineId}"]`),
       true,
       "2: per-line billing-# input is present on a draft line",
+    );
+
+    // The voided-statement notice is conditional on the voided status — it must
+    // NOT appear on a draft statement.
+    assertEqual(
+      await exists(page, '[data-testid="notice-voided-statement"]'),
+      false,
+      "2: voided-statement explanatory notice is absent on a draft statement",
     );
   } finally {
     if (browser) await browser.close().catch(() => {});

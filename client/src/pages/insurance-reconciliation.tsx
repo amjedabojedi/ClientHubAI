@@ -542,6 +542,20 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
         </div>
       </div>
 
+      {isVoided && (
+        <div
+          className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2"
+          data-testid="notice-voided-statement"
+        >
+          <Ban className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            This statement is voided — its payments were reversed and it can no
+            longer be edited. Use “Re-open to fix &amp; re-post” above to make
+            changes, or upload a new statement to post fresh payments.
+          </span>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <SummaryCard label="Statement total" value={money(statement.totalPaid ?? linesTotalPaid)} />
