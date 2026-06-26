@@ -4034,6 +4034,23 @@ export class DatabaseStorage implements IStorage {
 
     if (!payout) return undefined;
 
+    // Reflect post-payout COLLECTION corrections in the detail view. The stored
+    // rows keep a frozen snapshot of each session's basis/earned at payout time,
+    // so a collection that was later corrected (e.g. a double-counted insurance
+    // payment that was fixed) never showed up here. Re-derive each session's
+    // basis from the current collected amount, keyed by session billing id.
+    // IMPORTANT: only the collected basis is refreshed — the pay RULE
+    // (payType/payValue) stays the historical snapshot, and earned is recomputed
+    // from that snapshot rule, so editing a therapist's rule later never mutates
+    // this receipt. The amount actually PAID (amountAllocated) is real money and
+    // is never changed, so any over/under payment caused by a later collection
+    // correction stays visible.
+    const liveEarnings = await this.computeTherapistEarnings(payout.therapistId);
+    const liveCollectedByBilling = new Map<number, number>();
+    for (const e of liveEarnings) {
+      liveCollectedByBilling.set(e.billingId, e.collectedAmount);
+    }
+
     const itemRows = await db
       .select({
         id: therapistPayoutItems.id,
@@ -4110,6 +4127,17 @@ export class DatabaseStorage implements IStorage {
         amountEarned: Number(r.amountEarned || 0),
         amountAllocated: Number(r.amountAllocated || 0),
       });
+    }
+
+    for (const it of items) {
+      const collected = liveCollectedByBilling.get(it.sessionBillingId);
+      if (collected === undefined) continue;
+      it.basisAmount = collected;
+      // Recompute earned from the stored historical rule, not the current rule.
+      it.amountEarned =
+        it.payType === 'percentage'
+          ? Math.round(collected * it.payValue) / 100
+          : it.payValue;
     }
 
     return { ...(payout as any), items };

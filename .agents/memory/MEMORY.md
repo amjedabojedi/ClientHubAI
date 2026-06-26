@@ -32,6 +32,7 @@
 - [Backend reload trap](backend-reload-trap.md) — a committed server fix that emits ZERO logs/audit rows is likely a stale tsx process; restart "Start application" before chasing a logic bug.
 - [Therapist earning ledger](therapist-earning-ledger.md) — earnings persisted lazily (sync at read/payout, NOT collection path) into append-only audited therapist_earnings; delta 'adjustment' rows, distinct advisory lock.
 - [Therapist payout credit](therapist-payout-credit.md) — owed calc must subtract over-payment credit (sum unappliedAmount) oldest-first or new sessions get double-paid; both payout paths lock per-therapist + recompute owed inside the txn.
+- [Payout detail live basis](payout-detail-live-basis.md) — getTherapistPayoutById overlays live collected basis (corrections show as over/under paid) but keeps the frozen pay-rule snapshot; amountAllocated never changes.
 - [apiRequest arg order](apiRequest-arg-order.md) — apiRequest is (url, method, data) returning a raw Response; handles CSRF+FormData. Swapping method/url is silent (both strings).
 - [Date-only timezone shift](date-only-timezone-shift.md) — date-only cols (sessionDate) shift month/day via new Date() in non-UTC zones; bucket+display from literal "YYYY-MM-DD".
 - [queryClient key→URL trap](queryclient-key-url-trap.md) — default queryFn drops a non-object 2nd queryKey segment (e.g. a number id) and hits the base URL; use explicit queryFn for `/api/x/:id`.

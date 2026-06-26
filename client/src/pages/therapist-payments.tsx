@@ -966,6 +966,9 @@ function PayoutItems({ payoutId }: { payoutId: number }) {
                 {it.amountAllocated < it.amountEarned && (
                   <span className="ml-1 block text-xs font-normal text-gray-500">of {money(it.amountEarned)} earned</span>
                 )}
+                {it.amountAllocated > it.amountEarned && (
+                  <span className="ml-1 block text-xs font-normal text-amber-600">{money(it.amountAllocated - it.amountEarned)} over (earned {money(it.amountEarned)})</span>
+                )}
               </TableCell>
             </TableRow>
           ))}
