@@ -4935,8 +4935,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(insuranceStatementLines.statementId, statementId));
 
     for (const line of lines) {
-      // Never disturb a line the user already confirmed/posted/skipped.
-      if (line.matchStatus === 'confirmed' || line.matchStatus === 'posted' || line.matchStatus === 'skipped') {
+      // Never disturb a line the user already confirmed/posted/skipped, or a
+      // line that was reversed by a void (terminal state — re-matching it would
+      // resurrect the misleading "re-postable" appearance this guards against).
+      if (
+        line.matchStatus === 'confirmed' ||
+        line.matchStatus === 'posted' ||
+        line.matchStatus === 'skipped' ||
+        line.matchStatus === 'reversed'
+      ) {
         continue;
       }
       const match = await this.findBillingMatchForLine(line);
@@ -5314,10 +5321,15 @@ export class DatabaseStorage implements IStorage {
         .set({ adoptedByLineId: null })
         .where(eq(paymentTransactions.adoptedByLineId, line.id));
 
-      // Return the line to confirmed so it could be re-posted if needed.
+      // Move the line to the terminal 'reversed' state. A voided statement can
+      // never be re-posted (postInsuranceStatement hard-blocks it); the only
+      // re-post path is uploading a NEW statement. Leaving the line as
+      // 'confirmed' made it look re-postable and was dead, misleading state, so
+      // we mark it 'reversed' to reflect that its posting was undone. postedAmount
+      // is cleared since nothing is posted anymore.
       await db
         .update(insuranceStatementLines)
-        .set({ matchStatus: 'confirmed', postedAmount: null })
+        .set({ matchStatus: 'reversed', postedAmount: null })
         .where(eq(insuranceStatementLines.id, line.id));
     }
 

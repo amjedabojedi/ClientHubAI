@@ -893,7 +893,9 @@ export type InsuranceStatement = typeof insuranceStatements.$inferSelect;
 // amounts the insurer reported and the session_billing record it matched to.
 // matchStatus: 'unmatched' (no candidate found), 'suggested' (auto-matched,
 // needs confirmation), 'confirmed' (user accepted the match, ready to post),
-// 'posted' (insurance payment recorded), 'skipped' (user chose to ignore it).
+// 'posted' (insurance payment recorded), 'skipped' (user chose to ignore it),
+// 'reversed' (was posted then the statement was voided — terminal/dead state,
+// not re-postable; the only re-post path is uploading a new statement).
 export const insuranceStatementLines = pgTable("insurance_statement_lines", {
   id: serial("id").primaryKey(),
   statementId: integer("statement_id").notNull().references(() => insuranceStatements.id, { onDelete: 'cascade' }),

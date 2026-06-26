@@ -21,7 +21,7 @@ import {
   Check, X, RefreshCw, Link2Off,
 } from "lucide-react";
 
-type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped";
+type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped" | "reversed";
 type StatementStatus = "draft" | "posted" | "voided";
 
 interface StatementSummary {
@@ -104,6 +104,12 @@ function matchBadge(line: StatementLine) {
       );
     case "skipped":
       return <Badge variant="secondary">Skipped</Badge>;
+    case "reversed":
+      return (
+        <Badge variant="outline" className="border-red-400 text-red-700">
+          Reversed
+        </Badge>
+      );
     default:
       return (
         <Badge variant="outline" className="border-gray-400 text-gray-600">

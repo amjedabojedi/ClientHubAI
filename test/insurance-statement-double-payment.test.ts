@@ -286,7 +286,11 @@ async function scenarioFullCover(userId: number) {
     .from(insuranceStatementLines)
     .where(eq(insuranceStatementLines.id, lineId))
     .limit(1);
-  assertEqual(voidedLine.matchStatus, "confirmed", "A: void returns the line to confirmed");
+  assertEqual(
+    voidedLine.matchStatus,
+    "reversed",
+    "A: void moves the line to the terminal 'reversed' state (not the re-postable 'confirmed')",
+  );
 
   // Re-post is a FRESH statement against the same billing (a voided statement
   // can never be posted again). The released manual row must be re-adopted by

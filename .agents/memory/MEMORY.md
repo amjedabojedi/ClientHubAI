@@ -45,3 +45,4 @@
 - [Therapist statement earning de-dup](therapist-statement-earning-dedup.md) — running statement must SUM therapist_earnings per billing into one net line; ledger is append-only adjustments.
 - [Insurance claim-line name match](insurance-claim-name-match.md) — statement carries full legal name vs abbreviated stored name; match when one name-token set is a SUBSET of the other, single-candidate gate keeps it safe.
 - [Insurance statement double-count guard](insurance-statement-double-count.md) — posting a line must add max(0, lineAmount - billing.insurancePaidAmount); deduping only vs unadopted manual rows let a 2nd statement re-count & inflate pay.
+- [Insurance void terminal state](insurance-void-terminal-state.md) — voiding sets posted lines to 'reversed' (terminal), not 're-postable' 'confirmed'; voided statements can never re-post, only new uploads can.
