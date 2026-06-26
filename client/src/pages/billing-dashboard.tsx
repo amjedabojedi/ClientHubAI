@@ -120,6 +120,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   const [paymentNotes, setPaymentNotes] = useState('');
   const [confirmOverpay, setConfirmOverpay] = useState(false);
+  const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const { toast } = useToast();
@@ -180,6 +181,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       setInsReference('');
       setPaymentNotes('');
       setConfirmOverpay(false);
+      setConfirmDuplicateInsurance(false);
     }
   }, [isOpen, billingRecord]);
 
@@ -187,6 +189,23 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
     enabled: isOpen && !!billingRecord?.id,
   });
+
+  // Insurance payments already posted from an uploaded statement (an EOB).
+  // Keying a manual insurance amount that matches one of these usually means
+  // someone is re-entering money the statement already recorded, which would
+  // double-count collected insurance. Used to surface an advisory duplicate
+  // warning at entry time.
+  const postedStatementInsuranceTxns = useMemo(
+    () =>
+      (transactions || []).filter(
+        (t: any) =>
+          !t.voidedAt &&
+          t.source === 'insurance' &&
+          t.sourceStatementId &&
+          Math.abs(Number(t.amount) || 0) > 0,
+      ),
+    [transactions],
+  );
 
   const voidMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
@@ -233,6 +252,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const hasClientPayment = clientAmountNum > 0;
   const hasInsPayment = insAmountNum > 0;
 
+  // Advisory duplicate detection: if the manual insurance amount being entered
+  // closely matches an insurance payment ALREADY posted from an uploaded
+  // statement, it is very likely the same EOB being keyed a second time.
+  // Tolerance is intentionally tight (within ~5% / $1) so genuine top-up
+  // payments of a different amount are NOT flagged.
+  const duplicateStatementMatch = useMemo(() => {
+    if (!hasInsPayment) return null;
+    for (const t of postedStatementInsuranceTxns) {
+      const amt = Math.abs(Number(t.amount) || 0);
+      const tol = Math.max(1, amt * 0.05);
+      if (Math.abs(insAmountNum - amt) <= tol) return t;
+    }
+    return null;
+  }, [postedStatementInsuranceTxns, insAmountNum, hasInsPayment]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clientId = billingRecord?.session?.clientId;
@@ -250,6 +284,10 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     }
     if (hasInsPayment && (!insMethod || !insDate)) {
       toast({ title: "Insurance payment incomplete", description: "Method and date are required.", variant: "destructive" });
+      return;
+    }
+    if (duplicateStatementMatch && !confirmDuplicateInsurance) {
+      toast({ title: "Possible duplicate insurance payment", description: "This amount matches a payment already posted from a statement. Confirm it's intentional before saving.", variant: "destructive" });
       return;
     }
 
@@ -582,6 +620,30 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 ⚠ No insurance is on file for this client. Recording an insurance payment anyway — please confirm.
               </p>
             )}
+            {duplicateStatementMatch && (
+              <div
+                className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800"
+                data-testid="duplicate-statement-warning"
+              >
+                <input
+                  type="checkbox"
+                  id="confirmDuplicateInsurance"
+                  checked={confirmDuplicateInsurance}
+                  onChange={(e) => setConfirmDuplicateInsurance(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 cursor-pointer"
+                  data-testid="confirm-duplicate-insurance-checkbox"
+                />
+                <label htmlFor="confirmDuplicateInsurance" className="text-xs text-amber-900 dark:text-amber-200 cursor-pointer leading-relaxed">
+                  <span className="font-semibold">Looks like a duplicate of an already-posted statement payment.</span>{' '}
+                  ${Math.abs(Number(duplicateStatementMatch.amount) || 0).toFixed(2)} was already recorded for this session from
+                  insurance statement #{duplicateStatementMatch.sourceStatementId}
+                  {duplicateStatementMatch.statementPayerName ? ` (${duplicateStatementMatch.statementPayerName})` : ''}
+                  {duplicateStatementMatch.statementCheckNumber ? ` · check ${duplicateStatementMatch.statementCheckNumber}` : ''}.
+                  Keying it again here will double-count the insurance collected. Check this box only if this is a separate,
+                  additional payment.
+                </label>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="insAmount" className="text-xs">Amount</Label>
@@ -710,7 +772,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                     disabled={
                       isSubmitting ||
                       (!hasClientPayment && !hasInsPayment) ||
-                      (isOverpay && !confirmOverpay)
+                      (isOverpay && !confirmOverpay) ||
+                      (!!duplicateStatementMatch && !confirmDuplicateInsurance)
                     }
                     variant={isOverpay ? 'destructive' : 'default'}
                     data-testid="record-payment-submit"
