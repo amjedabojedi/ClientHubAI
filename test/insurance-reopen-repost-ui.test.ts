@@ -355,6 +355,109 @@ async function main() {
       "draft",
       "Persisted statement row is back to 'draft' after the UI re-open",
     );
+
+    // --- Re-post through the UI and verify the money lands correctly --------
+    // The whole point of re-open is to fix-and-re-post. The Post button has no
+    // confirm dialog — clicking it fires POST /post directly. We click it, wait
+    // for the POST to 200, and then prove the statement re-posts the correct
+    // SINGLE $100 (never the doubled $200) both in the UI and in the billing row.
+    const [postResp] = await Promise.all([
+      page.waitForResponse(
+        (res: any) =>
+          res.url().includes(`/api/insurance/statements/${statementId}/post`) &&
+          res.request().method() === "POST",
+        { timeout: 30_000 },
+      ),
+      clickTestId(page, "button-post-statement"),
+    ]);
+    assertEqual(
+      postResp.status(),
+      200,
+      "Clicking Post after re-open fires POST /post that returns 200",
+    );
+
+    // After re-posting, the statement flips to 'posted': the Void button (posted-
+    // only) reappears and the status badge reads "Posted".
+    await page.waitForSelector('[data-testid="button-void-statement"]', {
+      timeout: 30_000,
+    });
+    const voidBtnAfterRepost = await page.$(
+      '[data-testid="button-void-statement"]',
+    );
+    assert(
+      voidBtnAfterRepost !== null,
+      "After re-posting, the Void button reappears (statement is posted again)",
+    );
+
+    // The "Posted total" card shows the correct SINGLE $100 — not $0 (which the
+    // old postedAmount-based tile showed once a payment was adopted) and not a
+    // doubled $200.
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector(
+          '[data-testid="text-posted-total"]',
+        );
+        return !!el && (el.textContent || "").trim() === "$100.00";
+      },
+      { timeout: 30_000 },
+    );
+    const postedTotalText = await page.$eval(
+      '[data-testid="text-posted-total"]',
+      (el: Element) => (el.textContent || "").trim(),
+    );
+    assertEqual(
+      postedTotalText,
+      "$100.00",
+      "The 'Posted total' card shows the correct single $100 after re-posting",
+    );
+
+    // The status badge now reads "Posted" (in the detail header, not the card).
+    const headerStatus = await page.$eval(
+      '[data-testid="view-statement-detail"] h1',
+      (el: Element) => el.textContent || "",
+    );
+    assert(
+      /Posted/.test(headerStatus),
+      "The statement detail header now shows the 'Posted' status badge",
+    );
+
+    // Persisted statement row is 'posted' again.
+    const [stmtReposted] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, statementId))
+      .limit(1);
+    assertEqual(
+      stmtReposted.status,
+      "posted",
+      "Persisted statement row is back to 'posted' after the UI re-post",
+    );
+
+    // The matched line is 'posted' again.
+    const [lineReposted] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId!))
+      .limit(1);
+    assertEqual(
+      lineReposted.matchStatus,
+      "posted",
+      "The matched claim line is 'posted' again after the UI re-post",
+    );
+
+    // CRITICAL money check: the billing's collected insurance is the correct
+    // single $100, NOT doubled to $200. This is the end-to-end UI proof that the
+    // re-post records the right money without double-counting.
+    const [billingAfter] = await db
+      .select()
+      .from(sessionBilling)
+      .where(eq(sessionBilling.id, billingId!))
+      .limit(1);
+    assertEqual(
+      Number(billingAfter.insurancePaidAmount),
+      100,
+      "Billing's collected insurance is the correct single $100 after re-post (not doubled)",
+    );
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;

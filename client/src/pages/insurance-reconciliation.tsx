@@ -589,7 +589,12 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
           value={String(unmatchedCount)}
           tone={unmatchedCount > 0 ? "warn" : "default"}
         />
-        <SummaryCard label="Posted total" value={money(postedTotal)} tone="good" />
+        <SummaryCard
+          label="Posted total"
+          value={money(postedTotal)}
+          tone="good"
+          testId="text-posted-total"
+        />
       </div>
 
       {denialCount > 0 && (
@@ -869,10 +874,12 @@ function SummaryCard({
   label,
   value,
   tone = "default",
+  testId,
 }: {
   label: string;
   value: string;
   tone?: "default" | "good" | "warn";
+  testId?: string;
 }) {
   const toneClass =
     tone === "good" ? "text-green-600" : tone === "warn" ? "text-amber-600" : "text-foreground";
@@ -880,7 +887,9 @@ function SummaryCard({
     <Card>
       <CardContent className="pt-6">
         <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-        <div className={`text-xl font-bold mt-1 ${toneClass}`}>{value}</div>
+        <div className={`text-xl font-bold mt-1 ${toneClass}`} data-testid={testId}>
+          {value}
+        </div>
       </CardContent>
     </Card>
   );
