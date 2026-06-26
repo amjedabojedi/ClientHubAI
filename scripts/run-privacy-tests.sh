@@ -71,6 +71,7 @@ SUITES=(
   "test/therapist-statement-monthly-running-agree.test.ts"
   "test/therapist-earning-self-correct.test.ts"
   "test/insurance-void-repost-corrects-pay.test.ts"
+  "test/insurance-reopen-repost-ui.test.ts"
 )
 
 PASSED=()
