@@ -656,6 +656,13 @@ export const paymentTransactions = pgTable("payment_transactions", {
   // versa). Null for payments keyed manually. Both are additive/nullable.
   sourceStatementId: integer("source_statement_id").references(() => insuranceStatements.id),
   sourceStatementLineId: integer("source_statement_line_id").references(() => insuranceStatementLines.id),
+  // Set when this MANUAL insurance payment has been "adopted" by an insurance
+  // statement line — i.e. the statement reconciles the same real-world payment a
+  // staff member already keyed in manually. This stops the statement post from
+  // recording the payment a second time, and stops a later statement from
+  // re-adopting the same payment. Cleared if the adopting statement is voided.
+  // Nullable/additive.
+  adoptedByLineId: integer("adopted_by_line_id").references(() => insuranceStatementLines.id),
   voidedAt: timestamp("voided_at"),
   voidedBy: integer("voided_by").references(() => users.id),
   voidReason: text("void_reason"),

@@ -5054,33 +5054,80 @@ export class DatabaseStorage implements IStorage {
         continue;
       }
 
-      // recordPayment expects the NEW CUMULATIVE insurance amount for the
-      // billing, so add this line's payment to whatever insurance already paid.
-      const [billing] = await db
-        .select({ insurancePaid: sessionBilling.insurancePaidAmount })
-        .from(sessionBilling)
-        .where(eq(sessionBilling.id, line.matchedSessionBillingId))
-        .limit(1);
-      if (!billing) continue;
-      const currentInsurance = Number(billing.insurancePaid) || 0;
-      const newCumulative = +(currentInsurance + lineAmount).toFixed(2);
+      // Double-count guardrail. If staff already recorded this insurance payment
+      // MANUALLY (a payment_transactions row not linked to, nor already adopted by,
+      // any statement line), the statement line is the SAME real-world payment, not
+      // an extra one. We "adopt" those manual rows — stamping them with this line's
+      // id so no later statement can claim them again — and only post the SHORTFALL
+      // (line amount minus what the adopted manual rows already cover). The manual
+      // rows keep their amount, so collections are never inflated. On void the
+      // stamp is cleared, so a re-post re-adopts instead of stacking a duplicate.
+      const manualRows = await db
+        .select({ id: paymentTransactions.id, amt: paymentTransactions.amount })
+        .from(paymentTransactions)
+        .where(
+          and(
+            eq(paymentTransactions.sessionBillingId, line.matchedSessionBillingId),
+            eq(paymentTransactions.source, 'insurance'),
+            isNull(paymentTransactions.sourceStatementLineId),
+            isNull(paymentTransactions.adoptedByLineId),
+            isNull(paymentTransactions.voidedAt),
+          ),
+        )
+        .orderBy(asc(paymentTransactions.recordedAt));
 
-      await this.recordPayment(line.matchedSessionBillingId, {
-        status: 'paid',
-        amount: newCumulative,
-        date: paymentDate,
-        method: 'insurance',
-        source: 'insurance',
-        reference: statement.checkNumber || undefined,
-        notes: `Insurance statement #${statement.id}${statement.payerName ? ` (${statement.payerName})` : ''}`,
-        recordedBy: userId,
-        sourceStatementId: statement.id,
-        sourceStatementLineId: line.id,
-      });
+      let remaining = lineAmount;
+      let adoptedSum = 0;
+      const adoptIds: number[] = [];
+      for (const r of manualRows) {
+        if (remaining <= 0) break;
+        adoptIds.push(r.id);
+        const amt = Number(r.amt) || 0;
+        adoptedSum = +(adoptedSum + amt).toFixed(2);
+        remaining = +(remaining - amt).toFixed(2);
+      }
+      if (adoptIds.length > 0) {
+        await db
+          .update(paymentTransactions)
+          .set({ adoptedByLineId: line.id })
+          .where(inArray(paymentTransactions.id, adoptIds));
+      }
+      const additional = +Math.max(0, +(lineAmount - adoptedSum).toFixed(2)).toFixed(2);
 
+      // Only add the shortfall to the billing's cumulative insurance. When the
+      // manual entry fully covers the line, `additional` is 0 and nothing new is
+      // recorded — the duplicate is prevented.
+      if (additional > 0) {
+        const [billing] = await db
+          .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.id, line.matchedSessionBillingId))
+          .limit(1);
+        if (!billing) continue;
+        const currentInsurance = Number(billing.insurancePaid) || 0;
+        const newCumulative = +(currentInsurance + additional).toFixed(2);
+
+        await this.recordPayment(line.matchedSessionBillingId, {
+          status: 'paid',
+          amount: newCumulative,
+          date: paymentDate,
+          method: 'insurance',
+          source: 'insurance',
+          reference: statement.checkNumber || undefined,
+          notes: `Insurance statement #${statement.id}${statement.payerName ? ` (${statement.payerName})` : ''}`,
+          recordedBy: userId,
+          sourceStatementId: statement.id,
+          sourceStatementLineId: line.id,
+        });
+      }
+
+      // postedAmount = the net-new amount actually added to the billing's
+      // cumulative (the shortfall), so a later void subtracts exactly that and
+      // leaves the adopted manual payment in place. postedTotal still reports the
+      // statement's full insurer-paid amount for the user-facing summary.
       await db
         .update(insuranceStatementLines)
-        .set({ matchStatus: 'posted', postedAmount: lineAmount.toFixed(2) })
+        .set({ matchStatus: 'posted', postedAmount: additional.toFixed(2) })
         .where(eq(insuranceStatementLines.id, line.id));
       postedCount += 1;
       postedTotal = +(postedTotal + lineAmount).toFixed(2);
@@ -5139,6 +5186,16 @@ export class DatabaseStorage implements IStorage {
           });
         }
       }
+      // Release any MANUAL payments this line had adopted, so they go back to
+      // being unattributed manual payments and can be re-adopted if the statement
+      // is re-posted. (Statement-created shortfall rows carry sourceStatementLineId,
+      // not adoptedByLineId, so they are untouched here and reversed via postedAmount
+      // above.)
+      await db
+        .update(paymentTransactions)
+        .set({ adoptedByLineId: null })
+        .where(eq(paymentTransactions.adoptedByLineId, line.id));
+
       // Return the line to confirmed so it could be re-posted if needed.
       await db
         .update(insuranceStatementLines)
