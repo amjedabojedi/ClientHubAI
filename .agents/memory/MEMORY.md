@@ -5,6 +5,7 @@
 - [routes.ts monolith split](routes-monolith-split.md) — only module-level helpers (above registerRoutes) are safe to extract; the 327 routes share inner closures → bulk-splitting them is high-risk.
 - [Scheduled email idempotency](scheduled-email-idempotency.md) — recurring outbound emails claim a unique (recipient, day) row to 'processing' BEFORE sending, then mark 'sent'; never send-then-record.
 - [Privacy test concurrency](privacy-test-concurrency.md) — app-level privacy/transcription tsx tests must run serially; createClient races on CL-<year>-<MAX+1>.
+- [Browser tests local DB starvation](browser-tests-local-db-starvation.md) — dev-server-spawning suites can't reach green locally; polluted dev DB + DAILY-SCHEDULE flood starve seeding. Verify via CI/sibling mirror.
 - [External client privacy](external-client-privacy.md) — anything leaving SmartHub (feeds, emails) must use clientInitials() "J.D." only; not the internal formatClientInitial "John D."
 - [Notification pref delivery](notification-pref-delivery.md) — enableInApp/enableEmail booleans are the source of truth (deliveryMethods is fragile legacy); no row => both channels ON.
 - [Quiet hours global prefs](quiet-hours-global-prefs.md) — quiet hours + weekend muting live on one reserved "__global__" pref row per user; gate EMAIL only, in PRACTICE_TZ, windows wrap midnight.

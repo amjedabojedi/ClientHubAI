@@ -429,7 +429,19 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
       toast({ title: "Statement voided", description: "Posted payments were reversed." });
     },
     onError: (err: Error) => {
-      toast({ title: "Could not void", description: err.message, variant: "destructive" });
+      // A 400 "Statement already voided" means the statement is no longer posted
+      // server-side — almost always because someone else already voided it while
+      // this page still shows the stale posted view. Tell the user that
+      // specifically and how to recover, instead of a generic "server error"
+      // that hides the real cause. Mirrors the re-open treatment below.
+      const alreadyVoided = /already voided/i.test(err.message);
+      toast({
+        title: alreadyVoided ? "Already voided" : "Could not void",
+        description: alreadyVoided
+          ? "This statement was already voided — someone else may have voided it. Refresh to see its current state."
+          : err.message,
+        variant: "destructive",
+      });
     },
   });
 
