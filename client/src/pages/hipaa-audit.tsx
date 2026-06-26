@@ -199,6 +199,7 @@ const AUDIT_ACTION_LABELS = {
   insurance_statement_posted: 'Insurance Statement Posted',
   insurance_statement_voided: 'Insurance Statement Voided',
   insurance_statement_reopened: 'Insurance Statement Re-opened',
+  insurance_statement_therapist_assigned: 'Insurance Statement Therapist Assigned',
 } satisfies Record<AuditAction, string>;
 
 // Fallback: turn any unmapped snake_case action into Title Case words.

@@ -381,9 +381,27 @@ export interface TherapistMonthlyStatement {
 // Row shape for the insurance statements list (counts rolled up per statement).
 export interface InsuranceStatementSummary extends InsuranceStatement {
   uploadedByName: string | null;
+  therapistName: string | null; // the one therapist this statement belongs to
   lineCount: number;
   matchedCount: number; // suggested or confirmed
   postedCount: number;
+}
+
+// One flat transaction row for the cross-statement "Transactions" list: a single
+// statement line enriched with its statement + therapist + matched-client info.
+export interface InsuranceTransactionRow {
+  lineId: number;
+  statementId: number;
+  statementFileName: string;
+  statementStatus: string;
+  payerName: string | null;
+  therapistName: string | null;
+  serviceDate: string | null;
+  clientName: string | null;     // matched session client, else the statement's raw name
+  serviceCode: string | null;
+  insurancePaidAmount: string;
+  matchStatus: string;
+  remarkCode: string | null;
 }
 
 // A statement line enriched with the matched billing's display fields so the
@@ -400,6 +418,7 @@ export interface InsuranceStatementLineDetail extends InsuranceStatementLine {
 
 export interface InsuranceStatementDetail {
   statement: InsuranceStatement;
+  therapistName: string | null; // resolved name for statement.therapistId
   lines: InsuranceStatementLineDetail[];
 }
 
@@ -483,6 +502,14 @@ export interface IStorage {
   autoMatchStatementLines(statementId: number): Promise<void>;
   getInsuranceStatements(): Promise<InsuranceStatementSummary[]>;
   getInsuranceStatementById(id: number): Promise<InsuranceStatementDetail | undefined>;
+  // All statement lines across every statement, flattened for the Transactions
+  // list (with statement, therapist and matched-client info for search/filter).
+  getAllInsuranceLines(): Promise<InsuranceTransactionRow[]>;
+  // Assign (or clear, with null) the single therapist a statement belongs to.
+  updateInsuranceStatementTherapist(
+    id: number,
+    therapistId: number | null,
+  ): Promise<InsuranceStatementDetail>;
   // Manually set a line's match (confirm a suggestion, point it at a different
   // billing, or skip it). Pass matchedSessionBillingId=null to clear the match.
   updateStatementLineMatch(
@@ -5011,19 +5038,24 @@ export class DatabaseStorage implements IStorage {
       .groupBy(insuranceStatementLines.statementId);
     const countMap = new Map(counts.map((c) => [c.statementId, c]));
 
-    const uploaderIds = Array.from(
-      new Set(stmts.map((s) => s.uploadedBy).filter((x): x is number => x != null)),
+    const userIds = Array.from(
+      new Set(
+        stmts
+          .flatMap((s) => [s.uploadedBy, s.therapistId])
+          .filter((x): x is number => x != null),
+      ),
     );
-    const uploaders = uploaderIds.length
-      ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, uploaderIds))
+    const people = userIds.length
+      ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, userIds))
       : [];
-    const userMap = new Map(uploaders.map((u) => [u.id, u.fullName]));
+    const userMap = new Map(people.map((u) => [u.id, u.fullName]));
 
     return stmts.map((s) => {
       const c = countMap.get(s.id);
       return {
         ...s,
         uploadedByName: s.uploadedBy != null ? userMap.get(s.uploadedBy) ?? null : null,
+        therapistName: s.therapistId != null ? userMap.get(s.therapistId) ?? null : null,
         lineCount: c?.lineCount ?? 0,
         matchedCount: c?.matchedCount ?? 0,
         postedCount: c?.postedCount ?? 0,
@@ -5069,7 +5101,74 @@ export class DatabaseStorage implements IStorage {
       matchedClientPaid: r.clientPaid != null ? Number(r.clientPaid) : null,
     }));
 
-    return { statement, lines };
+    let therapistName: string | null = null;
+    if (statement.therapistId != null) {
+      const [t] = await db
+        .select({ fullName: users.fullName })
+        .from(users)
+        .where(eq(users.id, statement.therapistId))
+        .limit(1);
+      therapistName = t?.fullName ?? null;
+    }
+
+    return { statement, therapistName, lines };
+  }
+
+  async getAllInsuranceLines(): Promise<InsuranceTransactionRow[]> {
+    const rows = await db
+      .select({
+        lineId: insuranceStatementLines.id,
+        statementId: insuranceStatementLines.statementId,
+        serviceDate: insuranceStatementLines.serviceDate,
+        clientNameRaw: insuranceStatementLines.clientNameRaw,
+        lineServiceCode: insuranceStatementLines.serviceCode,
+        insurancePaidAmount: insuranceStatementLines.insurancePaidAmount,
+        matchStatus: insuranceStatementLines.matchStatus,
+        remarkCode: insuranceStatementLines.remarkCode,
+        statementFileName: insuranceStatements.fileName,
+        statementStatus: insuranceStatements.status,
+        payerName: insuranceStatements.payerName,
+        statementCreatedAt: insuranceStatements.createdAt,
+        therapistName: users.fullName,
+        matchedClientName: clients.fullName,
+      })
+      .from(insuranceStatementLines)
+      .innerJoin(insuranceStatements, eq(insuranceStatementLines.statementId, insuranceStatements.id))
+      .leftJoin(users, eq(insuranceStatements.therapistId, users.id))
+      .leftJoin(sessionBilling, eq(insuranceStatementLines.matchedSessionBillingId, sessionBilling.id))
+      .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .orderBy(desc(insuranceStatements.createdAt), asc(insuranceStatementLines.id));
+
+    return rows.map((r) => ({
+      lineId: r.lineId,
+      statementId: r.statementId,
+      statementFileName: r.statementFileName,
+      statementStatus: r.statementStatus,
+      payerName: r.payerName ?? null,
+      therapistName: r.therapistName ?? null,
+      serviceDate: r.serviceDate ?? null,
+      clientName: r.matchedClientName ?? r.clientNameRaw ?? null,
+      serviceCode: r.lineServiceCode ?? null,
+      insurancePaidAmount: r.insurancePaidAmount,
+      matchStatus: r.matchStatus,
+      remarkCode: r.remarkCode ?? null,
+    }));
+  }
+
+  async updateInsuranceStatementTherapist(
+    id: number,
+    therapistId: number | null,
+  ): Promise<InsuranceStatementDetail> {
+    const [updated] = await db
+      .update(insuranceStatements)
+      .set({ therapistId })
+      .where(eq(insuranceStatements.id, id))
+      .returning();
+    if (!updated) throw new Error('Statement not found');
+    const detail = await this.getInsuranceStatementById(id);
+    if (!detail) throw new Error('Statement not found');
+    return detail;
   }
 
   async updateStatementLineMatch(

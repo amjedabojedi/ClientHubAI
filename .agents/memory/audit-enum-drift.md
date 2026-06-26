@@ -40,3 +40,9 @@ of trusting db:push" approach to schema drift.
 **How to apply:** add new values only to `AUDIT_ACTIONS` / `AUDIT_RESULTS` in
 `shared/schema.ts`; the reconcile + guard pick them up automatically. A DB-failed
 audit write is now surfaced (fallback file + logs), not silently dropped.
+
+**Frontend label map also gates the build:** `client/src/pages/hipaa-audit.tsx`
+has an action→label object typed `satisfies Record<AuditAction, string>`, so
+adding any new value to `AUDIT_ACTIONS` makes `npm run check` fail until you add a
+matching human-readable label there too. Easy to miss — the error names the
+missing action property, not the schema.

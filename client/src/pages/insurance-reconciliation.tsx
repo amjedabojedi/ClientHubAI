@@ -17,8 +17,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from "@/components/ui/tabs";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from "@/components/ui/select";
+import {
   FileText, Upload, Loader2, ArrowLeft, CheckCircle2, Ban, AlertTriangle,
-  Check, X, RefreshCw, Link2Off,
+  Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks,
 } from "lucide-react";
 
 type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped" | "reversed";
@@ -33,6 +39,8 @@ interface StatementSummary {
   statementDate: string | null;
   totalPaid: string | null;
   status: StatementStatus;
+  therapistId: number | null;
+  therapistName: string | null;
   uploadedByName: string | null;
   createdAt: string;
   lineCount: number;
@@ -65,7 +73,28 @@ interface StatementLine {
 
 interface StatementDetail {
   statement: StatementSummary;
+  therapistName: string | null;
   lines: StatementLine[];
+}
+
+interface TherapistOption {
+  id: number;
+  fullName: string;
+}
+
+interface TransactionRow {
+  lineId: number;
+  statementId: number;
+  statementFileName: string;
+  statementStatus: StatementStatus;
+  payerName: string | null;
+  therapistName: string | null;
+  serviceDate: string | null;
+  clientName: string | null;
+  serviceCode: string | null;
+  insurancePaidAmount: string;
+  matchStatus: MatchStatus;
+  remarkCode: string | null;
 }
 
 const money = (v: string | number | null | undefined) => {
@@ -122,10 +151,40 @@ function matchBadge(line: StatementLine) {
 export default function InsuranceReconciliationPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  if (selectedId === null) {
-    return <StatementList onOpen={setSelectedId} />;
+  if (selectedId !== null) {
+    return <StatementDetailView id={selectedId} onBack={() => setSelectedId(null)} />;
   }
-  return <StatementDetailView id={selectedId} onBack={() => setSelectedId(null)} />;
+
+  return (
+    <div className="p-6 space-y-6" data-testid="page-insurance-reconciliation">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <FileText className="h-6 w-6" /> Insurance Reconciliation
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Upload an insurance payment statement (PDF or Excel/CSV). We read the
+          paid lines, match them to sessions, and record the insurance payments.
+        </p>
+      </div>
+
+      <Tabs defaultValue="statements">
+        <TabsList>
+          <TabsTrigger value="statements" data-testid="tab-statements">
+            <FileText className="h-4 w-4 mr-2" /> Statements
+          </TabsTrigger>
+          <TabsTrigger value="transactions" data-testid="tab-transactions">
+            <ListChecks className="h-4 w-4 mr-2" /> Transactions
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="statements" className="mt-4">
+          <StatementList onOpen={setSelectedId} />
+        </TabsContent>
+        <TabsContent value="transactions" className="mt-4">
+          <TransactionsList onOpen={setSelectedId} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -148,9 +207,15 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
   // When the server thinks the file is a re-upload, we hold the file here and
   // ask the user whether to upload it anyway.
   const [duplicate, setDuplicate] = useState<{ info: DuplicateInfo; file: File } | null>(null);
+  // Optional: the one therapist this statement belongs to, chosen before upload.
+  const [therapistId, setTherapistId] = useState<string>("");
 
   const { data: statements, isLoading } = useQuery<StatementSummary[]>({
     queryKey: ["/api/insurance/statements"],
+  });
+
+  const { data: therapists } = useQuery<TherapistOption[]>({
+    queryKey: ["/api/therapists"],
   });
 
   const uploadMutation = useMutation({
@@ -158,6 +223,7 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
       const formData = new FormData();
       formData.append("file", file);
       if (force) formData.append("force", "true");
+      if (therapistId) formData.append("therapistId", therapistId);
       const res = await apiRequest("/api/insurance/statements", "POST", formData);
       let body: StatementDetail | { duplicate: DuplicateInfo };
       try {
@@ -197,16 +263,28 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
   };
 
   return (
-    <div className="p-6 space-y-6" data-testid="page-insurance-reconciliation">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="h-6 w-6" /> Insurance Reconciliation
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Upload an insurance payment statement (PDF or Excel/CSV). We read the
-            paid lines, match them to sessions, and record the insurance payments.
-          </p>
+    <div className="space-y-6">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">
+            Therapist for this statement (optional)
+          </Label>
+          <Select
+            value={therapistId || "none"}
+            onValueChange={(v) => setTherapistId(v === "none" ? "" : v)}
+          >
+            <SelectTrigger className="w-[260px]" data-testid="select-upload-therapist">
+              <SelectValue placeholder="No therapist" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No therapist</SelectItem>
+              {therapists?.map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  {t.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <input
@@ -251,6 +329,7 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>File</TableHead>
+                  <TableHead>Therapist</TableHead>
                   <TableHead>Payer</TableHead>
                   <TableHead>Statement Date</TableHead>
                   <TableHead className="text-right">Total Paid</TableHead>
@@ -271,6 +350,9 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
                         </Badge>
                         {s.fileName}
                       </span>
+                    </TableCell>
+                    <TableCell data-testid={`text-statement-therapist-${s.id}`}>
+                      {s.therapistName || "—"}
                     </TableCell>
                     <TableCell>{s.payerName || "—"}</TableCell>
                     <TableCell>{fmtDate(s.statementDate)}</TableCell>
@@ -368,6 +450,26 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
 
   const queryKey = [`/api/insurance/statements/${id}`];
   const { data, isLoading } = useQuery<StatementDetail>({ queryKey });
+
+  const { data: therapists } = useQuery<TherapistOption[]>({
+    queryKey: ["/api/therapists"],
+  });
+
+  const therapistMutation = useMutation({
+    mutationFn: async (newTherapistId: number | null) =>
+      apiRequest(`/api/insurance/statements/${id}/therapist`, "PATCH", {
+        therapistId: newTherapistId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/transactions"] });
+      toast({ title: "Therapist updated" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not update therapist", description: err.message, variant: "destructive" });
+    },
+  });
 
   const lineMutation = useMutation({
     mutationFn: async (vars: {
@@ -538,6 +640,29 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
             {statement.checkNumber ? `Ref ${statement.checkNumber} · ` : ""}
             {fmtDate(statement.statementDate)}
           </p>
+          <div className="flex items-center gap-2 mt-3">
+            <UserIcon className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-xs text-muted-foreground">Therapist:</Label>
+            <Select
+              value={statement.therapistId != null ? String(statement.therapistId) : "none"}
+              onValueChange={(v) =>
+                therapistMutation.mutate(v === "none" ? null : Number(v))
+              }
+              disabled={therapistMutation.isPending}
+            >
+              <SelectTrigger className="w-[240px] h-8" data-testid="select-detail-therapist">
+                <SelectValue placeholder="No therapist" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No therapist</SelectItem>
+                {therapists?.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    {t.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {!isVoided && (
@@ -894,6 +1019,177 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Transactions tab — flat searchable list of every line across all statements
+// ---------------------------------------------------------------------------
+type TxFilter = "all" | "confirmed" | "not_confirmed" | "posted" | "denied";
+
+function txMatchBadge(status: string) {
+  switch (status) {
+    case "posted":
+      return <Badge className="bg-green-600 hover:bg-green-600">Posted</Badge>;
+    case "confirmed":
+      return <Badge className="bg-blue-600 hover:bg-blue-600">Confirmed</Badge>;
+    case "suggested":
+      return (
+        <Badge variant="outline" className="border-amber-500 text-amber-700">Suggested</Badge>
+      );
+    case "skipped":
+      return <Badge variant="secondary">Skipped</Badge>;
+    case "reversed":
+      return (
+        <Badge variant="outline" className="border-red-400 text-red-700">Reversed</Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="border-gray-400 text-gray-600">No match</Badge>
+      );
+  }
+}
+
+function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<TxFilter>("all");
+
+  const { data: rows, isLoading } = useQuery<TransactionRow[]>({
+    queryKey: ["/api/insurance/transactions"],
+  });
+
+  const filtered = (rows ?? []).filter((r) => {
+    // Status filter. "Confirmed" groups confirmed+posted; "Not confirmed"
+    // groups everything still needing attention; "Denied" = has a remark code.
+    if (filter === "confirmed" && !(r.matchStatus === "confirmed" || r.matchStatus === "posted"))
+      return false;
+    if (
+      filter === "not_confirmed" &&
+      !(r.matchStatus === "unmatched" || r.matchStatus === "suggested" || r.matchStatus === "skipped")
+    )
+      return false;
+    if (filter === "posted" && r.matchStatus !== "posted") return false;
+    if (filter === "denied" && !r.remarkCode) return false;
+
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return [
+      r.therapistName,
+      r.clientName,
+      r.serviceCode,
+      r.payerName,
+      r.statementFileName,
+      r.remarkCode,
+      r.insurancePaidAmount,
+    ]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q));
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Transactions</CardTitle>
+        <CardDescription>
+          Every line from every statement. Search by therapist, client, code, or
+          amount. Click a row to open its statement.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search therapist, client, code, amount…"
+              className="pl-8"
+              data-testid="input-search-transactions"
+            />
+          </div>
+          <Select value={filter} onValueChange={(v) => setFilter(v as TxFilter)}>
+            <SelectTrigger className="w-[180px]" data-testid="select-transaction-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="not_confirmed">Not confirmed</SelectItem>
+              <SelectItem value="posted">Posted</SelectItem>
+              <SelectItem value="denied">Denied</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+          </div>
+        ) : !filtered.length ? (
+          <div className="text-center py-10 text-muted-foreground" data-testid="text-no-transactions">
+            No transactions match your search.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Therapist</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Service Date</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead className="text-right">Insurance Paid</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Payer / File</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((r) => (
+                <TableRow
+                  key={r.lineId}
+                  className="cursor-pointer"
+                  onClick={() => onOpen(r.statementId)}
+                  data-testid={`row-transaction-${r.lineId}`}
+                >
+                  <TableCell>{r.therapistName || "—"}</TableCell>
+                  <TableCell>{r.clientName || "—"}</TableCell>
+                  <TableCell>{fmtDate(r.serviceDate)}</TableCell>
+                  <TableCell>{r.serviceCode || "—"}</TableCell>
+                  <TableCell className="text-right">{money(r.insurancePaidAmount)}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1">
+                      {txMatchBadge(r.matchStatus)}
+                      {r.remarkCode && (
+                        <Badge variant="outline" className="border-red-400 text-red-700">
+                          Denied
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={r.statementFileName}>
+                    {r.payerName ? `${r.payerName} · ` : ""}
+                    {r.statementFileName}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpen(r.statementId);
+                      }}
+                      data-testid={`button-open-transaction-${r.lineId}`}
+                    >
+                      Open
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -12837,6 +12837,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
           }
         }
 
+        // Optional: assign the one therapist this statement belongs to. Sent as a
+        // multipart form field; ignore anything that isn't a positive integer.
+        const therapistIdRaw = req.body?.therapistId;
+        const parsedTherapistId =
+          therapistIdRaw != null && therapistIdRaw !== ''
+            ? parseInt(String(therapistIdRaw), 10)
+            : NaN;
+        let therapistId: number | null = null;
+        if (Number.isInteger(parsedTherapistId) && parsedTherapistId > 0) {
+          const therapistUser = await storage.getUser(parsedTherapistId);
+          if (!therapistUser || therapistUser.role !== 'therapist') {
+            return res.status(400).json({ message: "Selected user is not a therapist" });
+          }
+          therapistId = parsedTherapistId;
+        }
+
         const statement = await storage.createInsuranceStatement(
           {
             fileName: originalname,
@@ -12847,6 +12863,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             statementDate: extracted.statementDate,
             totalPaid: extracted.totalPaid != null ? extracted.totalPaid.toFixed(2) : null,
             status: 'draft',
+            therapistId,
             uploadedBy: req.user!.id,
           },
           extracted.lines.map((l) => ({
@@ -12893,6 +12910,59 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const statements = await storage.getInsuranceStatements();
       res.json(statements);
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Flat list of every statement line across all statements, for the
+  // searchable/filterable "Transactions" tab.
+  app.get("/api/insurance/transactions", requireAuth, requireTherapistPayAccess, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const rows = await storage.getAllInsuranceLines();
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assign (or clear) the single therapist a statement belongs to.
+  app.patch("/api/insurance/statements/:id/therapist", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+
+      const raw = (req.body ?? {}).therapistId;
+      let therapistId: number | null = null;
+      if (raw != null && raw !== '') {
+        const parsed = parseInt(String(raw), 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          return res.status(400).json({ message: "Invalid therapist ID" });
+        }
+        const user = await storage.getUser(parsed);
+        if (!user || user.role !== 'therapist') {
+          return res.status(400).json({ message: "Selected user is not a therapist" });
+        }
+        therapistId = parsed;
+      }
+
+      const detail = await storage.updateInsuranceStatementTherapist(id, therapistId);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_therapist_assigned',
+        result: 'success',
+        resourceType: 'insurance_statement',
+        resourceId: String(id),
+        details: JSON.stringify({ therapistId }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.json(detail);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
       res.status(500).json({ message: "Internal server error" });
     }
   });

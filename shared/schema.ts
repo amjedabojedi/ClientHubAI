@@ -866,6 +866,10 @@ export const insuranceStatements = pgTable("insurance_statements", {
   statementDate: date("statement_date"),
   totalPaid: decimal("total_paid", { precision: 12, scale: 2 }), // total the statement says was paid (for reconciliation)
   status: varchar("status", { length: 20 }).notNull().default('draft'), // 'draft' | 'posted' | 'voided'
+  // Each uploaded statement belongs to ONE therapist (many of that therapist's
+  // clients inside). Optional fallback/label used to attribute and filter the
+  // statement's lines — especially lines not yet matched to a session.
+  therapistId: integer("therapist_id").references(() => users.id),
   uploadedBy: integer("uploaded_by").references(() => users.id),
   postedAt: timestamp("posted_at"),
   postedBy: integer("posted_by").references(() => users.id),
@@ -1689,6 +1693,7 @@ export const AUDIT_ACTIONS = [
   'insurance_statement_posted',
   'insurance_statement_voided',
   'insurance_statement_reopened',
+  'insurance_statement_therapist_assigned',
 
   // Consent / compliance
   'consent_granted',

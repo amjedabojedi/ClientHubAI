@@ -26,6 +26,12 @@ npx tsx scripts/ensure-statement-payment-link.ts
 # recovered from the statement id the app wrote into each transaction's notes.
 # Idempotent (only fills NULLs); safe no-op once everything is linked.
 npx tsx scripts/backfill-statement-payment-link.ts
+# Ensure insurance_statements has the per-statement therapist tag (therapist_id).
+# Idempotent additive DDL.
+npx tsx scripts/ensure-insurance-statement-therapist.ts
+# Backfill the therapist tag for statements uploaded before the column existed,
+# inferred from their matched sessions (only when unambiguous). Idempotent.
+npx tsx scripts/backfill-insurance-statement-therapist.ts
 # Finally reconcile the rest of the schema via Drizzle. Runs last so the additive
 # feature schema above is already in place if this aborts on known drift.
 npm run db:push
