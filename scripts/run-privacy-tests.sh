@@ -64,6 +64,7 @@ SUITES=(
   "test/record-drawer-real-ui.test.ts"
   "test/session-edit-drawers-ui.test.ts"
   "test/insurance-statement-double-payment.test.ts"
+  "test/insurance-statement-second-payment-banked.test.ts"
   "test/insurance-voided-statement-locked.test.ts"
   "test/insurance-reconciliation-voided-ui.test.ts"
   "test/insurance-reconciliation-posted-line-ui.test.ts"
