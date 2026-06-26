@@ -4811,13 +4811,19 @@ export class DatabaseStorage implements IStorage {
     if (hasDate) {
       conds.push(sql`${sessions.sessionDate}::date = ${line.serviceDate}::date`);
     }
-    // Token-based name match so "Doe, John" still matches "John Doe": every
-    // alphabetic token in the statement name must appear in the client's name.
+    // Token-based name match that tolerates one name being a shortened form of
+    // the other. Insurance statements often carry the full legal name (e.g. a
+    // middle name and a second surname: "Rivas Fernandez Gerson Mar") while the
+    // stored client name is abbreviated ("Gerson Rivas"). Requiring *every*
+    // statement token to appear in the stored name breaks those. Instead we
+    // pre-filter on any shared token in SQL, then keep only candidates whose
+    // name tokens are a subset of the statement's (or vice-versa).
     const nameTokens = (line.clientNameRaw || '').toLowerCase().match(/[a-z]{2,}/g) || [];
-    for (const t of nameTokens) {
-      conds.push(ilike(clients.fullName, `%${t}%`));
-    }
     const hasName = nameTokens.length > 0;
+    if (hasName) {
+      const tokenConds = nameTokens.map((t) => ilike(clients.fullName, `%${t}%`));
+      conds.push(or(...tokenConds));
+    }
     if (!hasDate && !hasName) return null;
 
     const rows = await db
@@ -4825,6 +4831,7 @@ export class DatabaseStorage implements IStorage {
         billingId: sessionBilling.id,
         sessionId: sessions.id,
         clientId: clients.id,
+        clientName: clients.fullName,
         serviceCode: services.serviceCode,
       })
       .from(sessionBilling)
@@ -4832,15 +4839,33 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(and(...conds))
-      .limit(10);
+      .limit(25);
 
     if (!rows.length) return null;
 
     let candidates = rows;
+
+    // Name compatibility: one name's token set must be a (non-empty) subset of
+    // the other's. "Gerson Rivas" ⊆ "Gerson Mar Rivas Fernandez" matches; a
+    // genuinely different name ("John Smith" vs "John Doe") does not. Ambiguity
+    // is still resolved by the single-candidate gate below.
+    if (hasName) {
+      const stmtSet = new Set(nameTokens);
+      const nameCompatible = candidates.filter((r) => {
+        const clientTokens = (r.clientName || '').toLowerCase().match(/[a-z]{2,}/g) || [];
+        if (!clientTokens.length) return false;
+        const clientSet = new Set(clientTokens);
+        const clientInStmt = clientTokens.every((t) => stmtSet.has(t));
+        const stmtInClient = nameTokens.every((t) => clientSet.has(t));
+        return clientInStmt || stmtInClient;
+      });
+      if (!nameCompatible.length) return null;
+      candidates = nameCompatible;
+    }
     let codeMatched = false;
     if (line.serviceCode) {
       const lc = line.serviceCode.toLowerCase();
-      const byCode = rows.filter((r) => r.serviceCode && r.serviceCode.toLowerCase() === lc);
+      const byCode = candidates.filter((r) => r.serviceCode && r.serviceCode.toLowerCase() === lc);
       if (byCode.length) {
         candidates = byCode;
         codeMatched = true;

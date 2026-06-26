@@ -40,3 +40,4 @@
 - [Date.UTC calendar validation](date-utc-calendar-validation.md) — regex YYYY-MM-DD isn't enough: Date.UTC rolls over Feb 30 / month 13, so range reports bucket the wrong period & return 200 not 400; round-trip the parsed Y/M/D.
 - [Not-billed billing filter](not-billed-billing-filter.md) — getBillingReports status='not_billed' = sessions w/ NO session_billing row; excludes only FUTURE scheduled, keeps past-scheduled as real gaps.
 - [Therapist statement earning de-dup](therapist-statement-earning-dedup.md) — running statement must SUM therapist_earnings per billing into one net line; ledger is append-only adjustments.
+- [Insurance claim-line name match](insurance-claim-name-match.md) — statement carries full legal name vs abbreviated stored name; match when one name-token set is a SUBSET of the other, single-candidate gate keeps it safe.
