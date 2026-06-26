@@ -300,18 +300,26 @@ async function run() {
       "Void moves the line to the terminal 'reversed' state",
     );
 
-    // 2b. Reset the line back to 'confirmed' and clear the statement's void
-    //     fields so it is re-postable (the real cleanup recipe). There is no
-    //     storage method for this reset, so it is a direct edit of the
-    //     statement/line bookkeeping state — NOT of the collected amount.
-    await db
-      .update(insuranceStatementLines)
-      .set({ matchStatus: "confirmed", postedAmount: null })
-      .where(eq(insuranceStatementLines.id, lineId));
-    await db
-      .update(insuranceStatements)
-      .set({ status: "draft", voidedAt: null, voidedBy: null, voidReason: null })
-      .where(eq(insuranceStatements.id, statementId));
+    // 2b. Re-open the voided statement via the first-class storage method. This
+    //     moves the reversed line back to 'confirmed' and clears the statement's
+    //     void fields so it is re-postable — NO raw column surgery, and it never
+    //     touches the collected amount.
+    await storage.reopenInsuranceStatement(statementId, sysUserId);
+
+    const [reopenedStatement] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, statementId))
+      .limit(1);
+    assertEqual(reopenedStatement.status, "draft", "Re-open returns the statement to a re-postable 'draft'");
+    assertEqual(reopenedStatement.voidedAt, null, "Re-open clears voidedAt");
+    assertEqual(reopenedStatement.voidReason, null, "Re-open clears voidReason");
+    const [reopenedLine] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    assertEqual(reopenedLine.matchStatus, "confirmed", "Re-open moves the reversed line back to 'confirmed'");
 
     // 2c. Re-post. The guard ADOPTS the still-unadopted manual $100 and posts a
     //     $0 shortfall, so collected stays on the correct single $100.

@@ -1688,6 +1688,7 @@ export const AUDIT_ACTIONS = [
   'insurance_statement_uploaded',
   'insurance_statement_posted',
   'insurance_statement_voided',
+  'insurance_statement_reopened',
 
   // Consent / compliance
   'consent_granted',

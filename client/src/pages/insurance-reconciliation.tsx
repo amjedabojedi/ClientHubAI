@@ -354,6 +354,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
   const { toast } = useToast();
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [reopenOpen, setReopenOpen] = useState(false);
   const [rematchBillingId, setRematchBillingId] = useState<Record<number, string>>({});
 
   const queryKey = [`/api/insurance/statements/${id}`];
@@ -420,6 +421,23 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
     },
     onError: (err: Error) => {
       toast({ title: "Could not void", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest(`/api/insurance/statements/${id}/reopen`, "POST", {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      setReopenOpen(false);
+      toast({
+        title: "Statement re-opened",
+        description: "Fix the lines and post again to re-record payments.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not re-open", description: err.message, variant: "destructive" });
     },
   });
 
@@ -510,6 +528,15 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
               data-testid="button-void-statement"
             >
               <Ban className="h-4 w-4 mr-2" /> Void
+            </Button>
+          )}
+          {isVoided && (
+            <Button
+              variant="outline"
+              onClick={() => setReopenOpen(true)}
+              data-testid="button-reopen-statement"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" /> Re-open to fix &amp; re-post
             </Button>
           )}
         </div>
@@ -763,6 +790,36 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                 <Ban className="h-4 w-4 mr-2" />
               )}
               Void statement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Re-open this voided statement?</DialogTitle>
+            <DialogDescription>
+              This moves the reversed lines back to confirmed and clears the void
+              so you can fix and post the statement again. Re-posting won't
+              double-count payments that are already recorded.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReopenOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={reopenMutation.isPending}
+              onClick={() => reopenMutation.mutate()}
+              data-testid="button-confirm-reopen"
+            >
+              {reopenMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Re-open statement
             </Button>
           </DialogFooter>
         </DialogContent>

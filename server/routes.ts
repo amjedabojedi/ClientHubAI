@@ -12994,6 +12994,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Re-open a voided statement so it can be fixed and re-posted (lines back to
+  // 'confirmed', void fields cleared, status returned to a re-postable 'draft').
+  app.post("/api/insurance/statements/:id/reopen", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+
+      const statement = await storage.reopenInsuranceStatement(id, req.user!.id);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_reopened',
+        result: 'success',
+        resourceType: 'insurance_statement',
+        resourceId: String(id),
+        details: JSON.stringify({ previousVoidReason: statement.voidReason ?? null }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      const detail = await storage.getInsuranceStatementById(id);
+      res.json(detail ?? statement);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Only a voided')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get filtered services based on user role
   app.get("/api/services/filtered", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {

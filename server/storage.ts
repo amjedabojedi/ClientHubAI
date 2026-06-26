@@ -500,6 +500,10 @@ export interface IStorage {
   ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number }>;
   // Reverse every posted line's insurance payment and mark the statement voided.
   voidInsuranceStatement(id: number, userId: number, reason: string): Promise<InsuranceStatement>;
+  // Re-open a voided statement: move its lines back to 'confirmed', clear the
+  // void fields, and set a re-postable 'draft' status so it can go back through
+  // the normal adoption-aware post flow.
+  reopenInsuranceStatement(id: number, userId: number): Promise<InsuranceStatement>;
 
   // ===== DAILY SCHEDULE EMAILS (8 AM ET therapist digest) =====
   // All daily-email tracking rows for a given Eastern calendar day (yyyy-MM-dd).
@@ -5361,6 +5365,48 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(insuranceStatements)
       .set({ status: 'voided', voidedAt: new Date(), voidedBy: userId, voidReason: reason })
+      .where(eq(insuranceStatements.id, id))
+      .returning();
+    return updated;
+  }
+
+  async reopenInsuranceStatement(id: number, userId: number): Promise<InsuranceStatement> {
+    const [statement] = await db
+      .select()
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, id))
+      .limit(1);
+    if (!statement) throw new Error('Statement not found');
+    if (statement.status !== 'voided') {
+      throw new Error('Only a voided statement can be re-opened.');
+    }
+
+    const lines = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.statementId, id));
+
+    // Move the lines that voiding sent to the terminal 'reversed' state back to a
+    // re-postable state, clearing the frozen postedAmount so the next post
+    // recomputes the shortfall from scratch through the adoption guard. A
+    // 'reversed' line that still points at a billing returns to 'confirmed' (ready
+    // to re-post); one with no billing target falls back to 'unmatched' so it can
+    // be re-matched first. Lines that were never posted are left untouched.
+    for (const line of lines) {
+      if (line.matchStatus !== 'reversed') continue;
+      const nextStatus = line.matchedSessionBillingId ? 'confirmed' : 'unmatched';
+      await db
+        .update(insuranceStatementLines)
+        .set({ matchStatus: nextStatus, postedAmount: null })
+        .where(eq(insuranceStatementLines.id, line.id));
+    }
+
+    // Clear the void bookkeeping and return the statement to a re-postable
+    // 'draft'. Re-posting then runs the normal adoption-aware flow, so the
+    // double-count guard still prevents collected from re-stacking.
+    const [updated] = await db
+      .update(insuranceStatements)
+      .set({ status: 'draft', voidedAt: null, voidedBy: null, voidReason: null })
       .where(eq(insuranceStatements.id, id))
       .returning();
     return updated;
