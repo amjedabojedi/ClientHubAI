@@ -587,9 +587,26 @@ async function scenarioVoidIsTerminal(userId: number) {
   );
   assertEqual(await ledgerInsurance(billing.id), 0, "D: live ledger insurance stays 0 after the refused re-post");
 
-  // 2. Re-running auto-match (the /rematch path) must NOT touch the reversed
-  //    line — it stays 'reversed', never flips back to a re-postable status.
-  await storage.autoMatchStatementLines(statementId);
+  // 2. Re-running auto-match (the /rematch path) on a voided statement must be
+  //    REFUSED outright. The whole statement is terminal, so the guard throws
+  //    rather than silently walking its (reversed) lines — this is the surest
+  //    way to guarantee a reversed line can never be flipped back to a
+  //    re-postable ('suggested'/'confirmed'/'unmatched') status.
+  let rematchThrew = false;
+  let rematchMessage = "";
+  try {
+    await storage.autoMatchStatementLines(statementId);
+  } catch (err: any) {
+    rematchThrew = true;
+    rematchMessage = err?.message ?? String(err);
+  }
+  assert(rematchThrew, "D: autoMatchStatementLines on a voided statement throws");
+  assertEqual(
+    rematchMessage,
+    "Cannot rematch a voided statement.",
+    "D: the refusal message is exactly 'Cannot rematch a voided statement.'",
+  );
+
   const [afterRematch] = await db
     .select()
     .from(insuranceStatementLines)
@@ -598,10 +615,10 @@ async function scenarioVoidIsTerminal(userId: number) {
   assertEqual(
     afterRematch.matchStatus,
     "reversed",
-    "D: autoMatchStatementLines leaves the 'reversed' line untouched",
+    "D: the reversed line is left untouched after the refused rematch",
   );
-  // The billing link is irrelevant to the guarantee, but auto-match must not
-  // have re-pointed or cleared it either (it skipped the line entirely).
+  // The billing link is irrelevant to the guarantee, but the refused rematch
+  // must not have re-pointed or cleared it either.
   assertEqual(
     afterRematch.matchedSessionBillingId,
     voidedLine.matchedSessionBillingId,

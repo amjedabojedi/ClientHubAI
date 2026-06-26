@@ -17,8 +17,14 @@ which made the dead lines look re-postable and could mislead staff and future co
 - `matchStatus` is a free `varchar(20)`; valid values are documented in
   `shared/schema.ts` on `insuranceStatementLines` (unmatched / suggested / confirmed /
   posted / skipped / reversed). No DB migration is needed to add a value.
-- `autoMatchStatementLines` must skip `'reversed'` lines (alongside confirmed/posted/skipped)
-  so the `/rematch` route can't resurrect the re-postable appearance.
+- A voided statement is HARD-BLOCKED at the top of both edit paths (not just per-line
+  skipping): `autoMatchStatementLines` throws "Cannot rematch a voided statement." and
+  `updateStatementLineMatch` throws "Cannot change a line on a voided statement." when the
+  parent `status = 'voided'`. Both surface as HTTP 400 via their routes. The per-line
+  `'reversed'` skip inside `autoMatchStatementLines` is now belt-and-suspenders behind the
+  early throw. **Gotcha:** the early throw means you can no longer call
+  `autoMatchStatementLines` on a voided statement expecting it to no-op — it throws. A test
+  written before the throw (double-payment Scenario D) silently broke on this.
 - The client (`insurance-reconciliation.tsx`) renders `'reversed'` as a red outline badge;
   `canEdit` already disables actions when the parent statement is voided.
 - Double-payment guard behavior is unchanged: void still reverses exactly the posted
