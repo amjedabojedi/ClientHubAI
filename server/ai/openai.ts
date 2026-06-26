@@ -584,7 +584,84 @@ function insNumOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Large statements are split into smaller text chunks so each AI call stays fast
+// and its JSON output is never cut off by the model's output-token limit. Each
+// chunk keeps whole text lines together. A small statement is a single chunk and
+// behaves exactly as before.
+const INSURANCE_CHUNK_CHAR_BUDGET = 12000;
+// How many chunk extractions to run at once. Keeps big files fast (parallel)
+// without firing dozens of OpenAI calls simultaneously.
+const INSURANCE_CHUNK_CONCURRENCY = 4;
+
+function chunkInsuranceText(text: string): string[] {
+  const whole = text || "";
+  if (whole.length <= INSURANCE_CHUNK_CHAR_BUDGET) return [whole];
+  const textLines = whole.split(/\r?\n/);
+  const chunks: string[] = [];
+  let current = "";
+  for (const ln of textLines) {
+    if (current.length + ln.length + 1 > INSURANCE_CHUNK_CHAR_BUDGET && current.length > 0) {
+      chunks.push(current);
+      current = "";
+    }
+    current += (current ? "\n" : "") + ln;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+// Run an async mapper over items with a bounded concurrency, preserving order.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 export async function extractInsuranceStatementFromText(
+  text: string,
+): Promise<ExtractedInsuranceStatement> {
+  const chunks = chunkInsuranceText(text);
+  const results = await mapWithConcurrency(
+    chunks,
+    INSURANCE_CHUNK_CONCURRENCY,
+    (chunk) => extractInsuranceStatementChunk(chunk),
+  );
+
+  // Header fields (payer, check #, date, total) come from the first chunk that
+  // actually has them; line items are concatenated across all chunks in order.
+  const merged: ExtractedInsuranceStatement = {
+    payerName: null,
+    checkNumber: null,
+    statementDate: null,
+    totalPaid: null,
+    lines: [],
+  };
+  for (const r of results) {
+    if (merged.payerName == null && r.payerName) merged.payerName = r.payerName;
+    if (merged.checkNumber == null && r.checkNumber) merged.checkNumber = r.checkNumber;
+    if (merged.statementDate == null && r.statementDate) merged.statementDate = r.statementDate;
+    if (merged.totalPaid == null && r.totalPaid != null) merged.totalPaid = r.totalPaid;
+    merged.lines.push(...r.lines);
+  }
+  return merged;
+}
+
+async function extractInsuranceStatementChunk(
   text: string,
 ): Promise<ExtractedInsuranceStatement> {
   const systemPrompt =
@@ -626,8 +703,16 @@ ${text}
     ],
     response_format: { type: "json_object" },
     temperature: 0,
-    max_tokens: 4000,
+    max_tokens: 8000,
   });
+
+  // If the model stopped because it hit the output limit, the JSON is cut off
+  // and unreliable. Fail clearly rather than importing partial/garbled lines.
+  if (response.choices[0].finish_reason === 'length') {
+    throw new Error(
+      "This statement has too many lines packed together to read reliably. Please split it into smaller files (for example by page) and upload them separately.",
+    );
+  }
 
   const parsed = JSON.parse(response.choices[0].message.content || '{}');
   const rawLines = Array.isArray(parsed.lines) ? parsed.lines : [];

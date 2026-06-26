@@ -1,8 +1,7 @@
 {
-  "updated": "2026-06-26T16:59:48Z",
+  "updated": "2026-06-26T17:48:05Z",
   "suites": {
     "test/communications-transcribe-privacy.test.ts": [
-      7,
       16,
       12,
       11,
@@ -11,10 +10,10 @@
       11,
       15,
       21,
-      13
+      13,
+      17
     ],
     "test/communications-transcribe-recovery.test.ts": [
-      8,
       9,
       9,
       10,
@@ -22,11 +21,11 @@
       9,
       9,
       8,
+      9,
       9,
       9
     ],
     "test/session-transcribe-privacy.test.ts": [
-      9,
       8,
       8,
       7,
@@ -35,10 +34,10 @@
       7,
       10,
       8,
-      10
+      10,
+      9
     ],
     "test/assessment-report-privacy.test.ts": [
-      13,
       7,
       6,
       7,
@@ -46,11 +45,11 @@
       6,
       7,
       6,
+      7,
       7,
       7
     ],
     "test/client-report-privacy.test.ts": [
-      23,
       28,
       28,
       28,
@@ -59,10 +58,10 @@
       27,
       31,
       29,
-      30
+      30,
+      28
     ],
     "test/client-report-source-selection.test.ts": [
-      11,
       10,
       10,
       12,
@@ -71,10 +70,10 @@
       9,
       10,
       10,
+      9,
       9
     ],
     "test/client-report-template-defaults.test.ts": [
-      6,
       6,
       6,
       10,
@@ -83,10 +82,10 @@
       7,
       9,
       7,
+      6,
       6
     ],
     "test/supporting-files-authz.test.ts": [
-      9,
       9,
       10,
       11,
@@ -95,10 +94,10 @@
       9,
       10,
       9,
-      9
+      9,
+      11
     ],
     "test/supporting-files-download-authz.test.ts": [
-      7,
       8,
       7,
       9,
@@ -107,10 +106,10 @@
       8,
       7,
       9,
+      8,
       8
     ],
     "test/supporting-files-download-audit.test.ts": [
-      7,
       6,
       6,
       9,
@@ -119,22 +118,22 @@
       6,
       6,
       7,
-      5
-    ],
-    "test/supporting-files-delete-denial-audit.test.ts": [
       5,
-      7,
-      6,
-      7,
-      6,
-      6,
-      6,
-      6,
-      6,
       6
     ],
-    "test/supporting-files-upload-validation.test.ts": [
+    "test/supporting-files-delete-denial-audit.test.ts": [
+      7,
       6,
+      7,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      5
+    ],
+    "test/supporting-files-upload-validation.test.ts": [
       9,
       8,
       7,
@@ -143,10 +142,10 @@
       6,
       6,
       4,
-      5
+      5,
+      9
     ],
     "test/daily-schedule-email-privacy.test.ts": [
-      1,
       2,
       2,
       2,
@@ -155,10 +154,10 @@
       1,
       1,
       2,
-      2
+      2,
+      1
     ],
     "test/daily-schedule-email-idempotency.test.ts": [
-      5,
       6,
       6,
       6,
@@ -167,10 +166,10 @@
       6,
       6,
       6,
-      5
+      5,
+      6
     ],
     "test/daily-schedule-email-preference.test.ts": [
-      338,
       336,
       336,
       345,
@@ -179,10 +178,10 @@
       352,
       379,
       375,
-      374
+      374,
+      384
     ],
     "test/daily-schedule-email-preference-api.test.ts": [
-      224,
       231,
       228,
       226,
@@ -191,10 +190,10 @@
       241,
       266,
       271,
-      244
+      244,
+      260
     ],
     "test/notification-preferences-ui.test.ts": [
-      38,
       42,
       43,
       41,
@@ -203,7 +202,8 @@
       45,
       52,
       50,
-      45
+      45,
+      43
     ],
     "test/notification-preferences-mute.test.ts": [
       4,
@@ -213,12 +213,11 @@
       4,
       4,
       4,
-      4,
       5,
-      3
+      3,
+      5
     ],
     "test/notification-specific-users.test.ts": [
-      3,
       4,
       3,
       4,
@@ -227,27 +226,28 @@
       4,
       4,
       3,
-      4
+      4,
+      3
     ],
     "test/deferred-summary-email.test.ts": [
       5,
       5,
       5,
       5,
-      5,
       7,
       4,
+      5,
       5,
       5,
       5
     ],
     "test/quiet-hours-suppression.test.ts": [
-      7,
       5,
       6,
       6,
       6,
       8,
+      6,
       6,
       6,
       6,
@@ -255,30 +255,29 @@
     ],
     "test/quiet-hours-settings-save.test.ts": [
       5,
-      5,
       4,
       4,
       5,
       6,
+      5,
+      5,
+      5,
+      4,
+      4
+    ],
+    "test/defer-summary-settings-save.test.ts": [
+      8,
+      5,
+      5,
+      4,
+      6,
+      4,
       5,
       5,
       5,
       4
     ],
-    "test/defer-summary-settings-save.test.ts": [
-      4,
-      8,
-      5,
-      5,
-      4,
-      6,
-      4,
-      5,
-      5,
-      5
-    ],
     "test/quiet-hours-summary-toggle-ui.test.ts": [
-      5,
       7,
       6,
       6,
@@ -287,34 +286,34 @@
       8,
       8,
       10,
-      7
+      7,
+      8
     ],
     "test/quiet-hours-window-inputs-ui.test.ts": [
       5,
       5,
-      5,
       6,
       5,
       10,
       5,
       6,
       6,
-      5
+      5,
+      6
     ],
     "test/quiet-hours-summary-toggle-save-ui.test.ts": [
-      6,
       7,
       6,
       5,
       6,
       8,
+      6,
       6,
       6,
       6,
       6
     ],
     "test/portal-document-download-ui.test.ts": [
-      19,
       21,
       21,
       21,
@@ -323,10 +322,10 @@
       21,
       21,
       23,
-      20
+      20,
+      21
     ],
     "test/client-detail-drawers-ui.test.ts": [
-      34,
       33,
       33,
       35,
@@ -335,10 +334,10 @@
       36,
       34,
       37,
-      31
+      31,
+      30
     ],
     "test/client-detail-drawers-submit.test.ts": [
-      37,
       36,
       37,
       34,
@@ -347,10 +346,10 @@
       35,
       36,
       36,
-      33
+      33,
+      32
     ],
     "test/record-drawer-back-button-ui.test.ts": [
-      32,
       29,
       30,
       28,
@@ -359,10 +358,10 @@
       29,
       31,
       27,
+      24,
       24
     ],
     "test/record-drawer-real-ui.test.ts": [
-      25,
       33,
       29,
       27,
@@ -371,10 +370,10 @@
       27,
       30,
       28,
+      26,
       26
     ],
     "test/session-edit-drawers-ui.test.ts": [
-      22,
       29,
       25,
       25,
@@ -383,10 +382,10 @@
       24,
       29,
       25,
-      27
+      27,
+      29
     ],
     "test/sms-notification-privacy.test.ts": [
-      4,
       8,
       4,
       4,
@@ -394,6 +393,7 @@
       4,
       4,
       9,
+      4,
       4,
       4
     ],
@@ -402,15 +402,14 @@
       5,
       5,
       5,
-      5,
       7,
       6,
       6,
       6,
+      5,
       5
     ],
     "test/sms-inbound-optout.test.ts": [
-      5,
       7,
       6,
       6,
@@ -419,10 +418,10 @@
       5,
       6,
       5,
-      5
+      5,
+      6
     ],
     "test/sms-log-privacy.test.ts": [
-      5,
       6,
       6,
       6,
@@ -431,10 +430,10 @@
       6,
       6,
       7,
+      6,
       6
     ],
     "test/communications-log-privacy.test.ts": [
-      5,
       7,
       6,
       5,
@@ -443,10 +442,10 @@
       6,
       6,
       6,
-      5
+      5,
+      6
     ],
     "test/sms-log-search-privacy.test.ts": [
-      7,
       8,
       7,
       7,
@@ -455,10 +454,10 @@
       7,
       9,
       7,
-      8
+      8,
+      7
     ],
     "test/sms-log-export-privacy.test.ts": [
-      8,
       8,
       8,
       8,
@@ -467,10 +466,10 @@
       8,
       8,
       9,
+      8,
       8
     ],
     "test/sms-log-export-audit.test.ts": [
-      4,
       5,
       5,
       5,
@@ -479,10 +478,10 @@
       5,
       5,
       6,
-      4
+      4,
+      6
     ],
     "test/sms-log-export-count.test.ts": [
-      7,
       7,
       7,
       7,
@@ -491,10 +490,10 @@
       7,
       7,
       7,
-      8
+      8,
+      7
     ],
     "test/phone-e164-derive-privacy.test.ts": [
-      2,
       2,
       3,
       2,
@@ -503,10 +502,10 @@
       2,
       2,
       3,
-      2
+      2,
+      3
     ],
     "test/sms-series-notification-privacy.test.ts": [
-      5,
       5,
       5,
       5,
@@ -515,10 +514,10 @@
       5,
       5,
       5,
+      5,
       5
     ],
     "test/email-series-notification-privacy.test.ts": [
-      3,
       4,
       4,
       4,
@@ -527,10 +526,10 @@
       3,
       4,
       3,
+      4,
       4
     ],
     "test/email-single-notification-privacy.test.ts": [
-      3,
       4,
       3,
       3,
@@ -539,25 +538,37 @@
       4,
       4,
       5,
+      3,
       3
     ],
     "test/insurance-statement-double-payment.test.ts": [
       25,
-      24
+      24,
+      25
     ],
     "test/therapist-statement-earning-dedup.test.ts": [
       3,
-      4
+      4,
+      3
     ],
     "test/therapist-statement-monthly-running-agree.test.ts": [
       5,
-      6
+      6,
+      4
     ],
     "test/therapist-earning-self-correct.test.ts": [
+      4,
       4
     ],
     "test/insurance-void-repost-corrects-pay.test.ts": [
-      9
+      9,
+      8
+    ],
+    "test/insurance-voided-statement-locked.test.ts": [
+      11
+    ],
+    "test/insurance-reconciliation-voided-ui.test.ts": [
+      30
     ]
   }
 }

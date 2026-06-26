@@ -12772,13 +12772,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
     },
   });
 
+  // Multer runs before the route handler, so its errors (file too large, wrong
+  // type) bypass the route's try/catch. Wrap it to always return clean JSON with
+  // a clear message instead of a generic 500 / cut-off response.
+  const insuranceUploadSingle = (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    insuranceUpload.single('file')(req, res, (err: any) => {
+      if (err) {
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            message:
+              "This file is too large (max 15 MB). Please split a long statement into smaller files and upload them separately.",
+          });
+        }
+        return res.status(400).json({
+          message: err.message || "Could not read the uploaded file.",
+        });
+      }
+      next();
+    });
+  };
+
   // Upload an insurance statement: extract its lines (AI for PDF, direct parse
   // for Excel/CSV), persist, and auto-match each line to a session billing.
   app.post(
     "/api/insurance/statements",
     requireAuth,
     requireTherapistPayAccess,
-    insuranceUpload.single('file'),
+    insuranceUploadSingle,
     async (req: AuthenticatedRequest, res) => {
       try {
         if (!req.file) return res.status(400).json({ message: "No file uploaded" });

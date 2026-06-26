@@ -159,7 +159,16 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
       formData.append("file", file);
       if (force) formData.append("force", "true");
       const res = await apiRequest("/api/insurance/statements", "POST", formData);
-      const body = (await res.json()) as StatementDetail | { duplicate: DuplicateInfo };
+      let body: StatementDetail | { duplicate: DuplicateInfo };
+      try {
+        body = (await res.json()) as StatementDetail | { duplicate: DuplicateInfo };
+      } catch {
+        // An empty/cut-off response usually means the file was too large or took
+        // too long to process. Show a clear message instead of a JSON error.
+        throw new Error(
+          "This file was too large or took too long to process. Try a smaller file, or split a long statement into separate uploads.",
+        );
+      }
       return { body, file };
     },
     onSuccess: ({ body, file }) => {
