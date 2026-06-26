@@ -526,6 +526,90 @@ async function scenarioTwoStatements(userId: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario D: a voided statement is terminal. Once voided:
+//   1. postInsuranceStatement must REFUSE to post it again ("Cannot post a
+//      voided statement.") — it can never be resurrected, only a fresh upload
+//      can re-post.
+//   2. autoMatchStatementLines (the /rematch path) must leave 'reversed' lines
+//      untouched — never flipping them back to a re-postable 'suggested'/
+//      'confirmed'/'unmatched' status.
+// Together these prove the terminal-void invariant that the existing scenarios
+// only assert indirectly (they re-post a FRESH statement instead of the voided
+// one, and never re-run auto-match over a reversed line).
+// ---------------------------------------------------------------------------
+async function scenarioVoidIsTerminal(userId: number) {
+  console.log(
+    "\n🧪 Scenario D: a voided statement is terminal (no re-post, no re-match)\n",
+  );
+
+  const { billing } = await seedBilling("E");
+
+  // Post a confirmed $100 line, then void it.
+  const { statementId, lineId } = await createConfirmedStatement(billing.id, "100.00", "E");
+  await storage.postInsuranceStatement(statementId, userId);
+  await storage.voidInsuranceStatement(statementId, userId, "test terminal void");
+
+  // Precondition: the void left the line in the terminal 'reversed' state.
+  const [voidedLine] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, lineId))
+    .limit(1);
+  assertEqual(
+    voidedLine.matchStatus,
+    "reversed",
+    "D: void leaves the line in the terminal 'reversed' state",
+  );
+
+  // 1. Re-posting the SAME voided statement must throw and change nothing.
+  let threw = false;
+  let message = "";
+  try {
+    await storage.postInsuranceStatement(statementId, userId);
+  } catch (err: any) {
+    threw = true;
+    message = err?.message ?? String(err);
+  }
+  assert(threw, "D: postInsuranceStatement on a voided statement throws");
+  assertEqual(
+    message,
+    "Cannot post a voided statement.",
+    "D: the refusal message is exactly 'Cannot post a voided statement.'",
+  );
+
+  // Collections must be unchanged by the rejected re-post (void already
+  // reversed the posted shortfall back to 0).
+  const b = await getBilling(billing.id);
+  assertEqual(
+    Number(b.insurancePaidAmount),
+    0,
+    "D: collected insurance stays 0 after the refused re-post",
+  );
+  assertEqual(await ledgerInsurance(billing.id), 0, "D: live ledger insurance stays 0 after the refused re-post");
+
+  // 2. Re-running auto-match (the /rematch path) must NOT touch the reversed
+  //    line — it stays 'reversed', never flips back to a re-postable status.
+  await storage.autoMatchStatementLines(statementId);
+  const [afterRematch] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, lineId))
+    .limit(1);
+  assertEqual(
+    afterRematch.matchStatus,
+    "reversed",
+    "D: autoMatchStatementLines leaves the 'reversed' line untouched",
+  );
+  // The billing link is irrelevant to the guarantee, but auto-match must not
+  // have re-pointed or cleared it either (it skipped the line entirely).
+  assertEqual(
+    afterRematch.matchedSessionBillingId,
+    voidedLine.matchedSessionBillingId,
+    "D: auto-match did not disturb the reversed line's matched billing",
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 async function run() {
@@ -545,6 +629,7 @@ async function run() {
     await scenarioFullCover(sysUser.id);
     await scenarioShortfall(sysUser.id);
     await scenarioTwoStatements(sysUser.id);
+    await scenarioVoidIsTerminal(sysUser.id);
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;
