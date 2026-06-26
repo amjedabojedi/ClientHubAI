@@ -65,6 +65,7 @@ SUITES=(
   "test/session-edit-drawers-ui.test.ts"
   "test/insurance-statement-double-payment.test.ts"
   "test/therapist-statement-earning-dedup.test.ts"
+  "test/therapist-statement-monthly-running-agree.test.ts"
 )
 
 PASSED=()
