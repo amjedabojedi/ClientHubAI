@@ -1323,22 +1323,61 @@ function MonthlyReportTab({
   therapistName: string;
   toast: ReturnType<typeof useToast>["toast"];
 }) {
-  const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  // Default to the current calendar month, but any date range can be picked.
+  const defaultRange = (() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return { start: toYmd(first), end: toYmd(last) };
+  })();
+  const [startDate, setStartDate] = useState<string>(defaultRange.start);
+  const [endDate, setEndDate] = useState<string>(defaultRange.end);
+  const [collFilter, setCollFilter] = useState<"all" | "collected" | "uncollected" | "unbilled">("all");
+
+  const validRange =
+    /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(endDate) &&
+    startDate <= endDate;
 
   const { data, isLoading, isError } = useQuery<MonthlyStatementResponse>({
-    queryKey: ["/api/therapist-pay/monthly-statement", therapistId, month],
+    queryKey: ["/api/therapist-pay/monthly-statement", therapistId, startDate, endDate],
     queryFn: async () => {
-      const res = await apiRequest(`/api/therapist-pay/monthly-statement/${therapistId}?month=${month}`, "GET");
+      const res = await apiRequest(
+        `/api/therapist-pay/monthly-statement/${therapistId}?startDate=${startDate}&endDate=${endDate}`,
+        "GET",
+      );
       return res.json();
     },
-    enabled: /^\d{4}-\d{2}$/.test(month),
+    enabled: validRange,
   });
 
   const name = data?.therapistName || therapistName;
+  const periodLabel = `${fmtDate(startDate)} – ${fmtDate(endDate)}`;
+  const periodKey = `${startDate}_to_${endDate}`;
+
+  // Collected / Uncollected / Not-billed view filter. The table AND the exports
+  // follow it, so "what you see is what you download" — but the summary totals
+  // above stay period-wide (they describe the whole range, not the filter).
+  const matchesFilter = (s: MonthlySessionRow) => {
+    if (collFilter === "all") return true;
+    if (collFilter === "unbilled") return !s.billed;
+    if (collFilter === "collected") return s.billed && s.uncollected <= 0;
+    if (collFilter === "uncollected") return s.billed && s.uncollected > 0;
+    return true;
+  };
+  const filterLabel: Record<typeof collFilter, string> = {
+    all: "All sessions",
+    collected: "Collected only",
+    uncollected: "Uncollected only",
+    unbilled: "Not billed only",
+  };
+  const visibleSessions = (data?.sessions ?? []).filter(matchesFilter);
 
   const exportCsv = async () => {
     if (!data) return;
-    const rows = data.sessions.map((s) => [
+    const rows = visibleSessions.map((s) => [
       ymd(s.sessionDate),
       s.clientName,
       s.serviceName || s.serviceCode || "",
@@ -1354,10 +1393,11 @@ function MonthlyReportTab({
       rows,
     );
     const header =
-      `Monthly report,${name},${fmtMonth(month)}\r\n` +
+      `Report,${name},${periodLabel}\r\n` +
+      `Filter,${filterLabel[collFilter]}\r\n` +
       `Opening balance,${data.openingBalance.toFixed(2)}\r\n` +
-      `Earned in month,${data.earnedInMonth.toFixed(2)}\r\n` +
-      `Paid in month,${data.paidInMonth.toFixed(2)}\r\n` +
+      `Earned in period,${data.earnedInMonth.toFixed(2)}\r\n` +
+      `Paid in period,${data.paidInMonth.toFixed(2)}\r\n` +
       `Closing balance,${data.closingBalance.toFixed(2)}\r\n` +
       `Total expected,${data.totalExpected.toFixed(2)}\r\n` +
       `Total collected,${data.totalCollected.toFixed(2)}\r\n` +
@@ -1365,18 +1405,18 @@ function MonthlyReportTab({
       `Not billed (sessions),${data.unbilledCount}\r\n` +
       `Not billed but completed,${data.unbilledCompletedCount}\r\n\r\n`;
     try {
-      await auditExport({ therapistId, reportType: "monthly", format: "csv", month });
+      await auditExport({ therapistId, reportType: "monthly", format: "csv", month: periodKey });
     } catch {
       toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
       return;
     }
-    downloadFile(`monthly-${name.replace(/\s+/g, "_")}-${month}.csv`, header + csv);
+    downloadFile(`statement-${name.replace(/\s+/g, "_")}-${periodKey}.csv`, header + csv);
     toast({ title: "Report exported", description: "CSV downloaded." });
   };
 
   const exportPrint = async () => {
     if (!data) return;
-    const rowsHtml = data.sessions.map((s) => `
+    const rowsHtml = visibleSessions.map((s) => `
       <tr>
         <td>${fmtDate(s.sessionDate)}</td>
         <td>${escapeHtml(s.clientName)}</td>
@@ -1388,12 +1428,12 @@ function MonthlyReportTab({
         <td class="num">${!s.billed ? "—" : s.hasRule ? money(s.earned) : "no rule"}</td>
       </tr>`).join("");
     const body = `
-      <h1>Monthly Report — ${escapeHtml(name)}</h1>
-      <div class="muted">${fmtMonth(month)} · generated ${new Date().toLocaleString()}</div>
+      <h1>Statement — ${escapeHtml(name)}</h1>
+      <div class="muted">${escapeHtml(periodLabel)} · ${escapeHtml(filterLabel[collFilter])} · generated ${new Date().toLocaleString()}</div>
       <div class="cards">
         <div class="card"><div class="label">Opening balance</div><div class="value">${money(data.openingBalance)}</div></div>
-        <div class="card"><div class="label">Earned in month</div><div class="value">${money(data.earnedInMonth)}</div></div>
-        <div class="card"><div class="label">Paid in month</div><div class="value">${money(data.paidInMonth)}</div></div>
+        <div class="card"><div class="label">Earned in period</div><div class="value">${money(data.earnedInMonth)}</div></div>
+        <div class="card"><div class="label">Paid in period</div><div class="value">${money(data.paidInMonth)}</div></div>
         <div class="card"><div class="label">Closing balance</div><div class="value">${money(data.closingBalance)}</div></div>
       </div>
       <div class="cards">
@@ -1411,12 +1451,12 @@ function MonthlyReportTab({
         <tbody>${rowsHtml}</tbody>
       </table>`;
     try {
-      await auditExport({ therapistId, reportType: "monthly", format: "pdf", month });
+      await auditExport({ therapistId, reportType: "monthly", format: "pdf", month: periodKey });
     } catch {
       toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
       return;
     }
-    const ok = printHtml(`Monthly Report — ${name} — ${month}`, body);
+    const ok = printHtml(`Statement — ${name} — ${periodLabel}`, body);
     if (!ok) {
       toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
     }
@@ -1425,9 +1465,15 @@ function MonthlyReportTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="w-48">
-          <Label htmlFor="reportMonth" className="mb-1 block text-xs">Month</Label>
-          <Input id="reportMonth" type="month" value={month} onChange={(e) => setMonth(e.target.value)} data-testid="input-report-month" />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-40">
+            <Label htmlFor="reportFrom" className="mb-1 block text-xs">From</Label>
+            <Input id="reportFrom" type="date" value={startDate} max={endDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-report-from" />
+          </div>
+          <div className="w-40">
+            <Label htmlFor="reportTo" className="mb-1 block text-xs">To</Label>
+            <Input id="reportTo" type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-report-to" />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportCsv} disabled={!data} data-testid="button-monthly-csv">
@@ -1439,16 +1485,20 @@ function MonthlyReportTab({
         </div>
       </div>
 
+      {!validRange && (
+        <Card><CardContent className="py-3 text-center text-sm text-amber-600">Please choose a “From” date on or before the “To” date.</CardContent></Card>
+      )}
+
       {isLoading ? (
         <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading report…</div>
       ) : isError || !data ? (
-        <Card><CardContent className="py-12 text-center text-gray-500">Could not load the report for this month.</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-gray-500">Could not load the report for this date range.</CardContent></Card>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SummaryCard label="Opening balance" value={money(data.openingBalance)} testId="text-opening" />
-            <SummaryCard label="Earned in month" value={money(data.earnedInMonth)} testId="text-earned-month" />
-            <SummaryCard label="Paid in month" value={money(data.paidInMonth)} testId="text-paid-month" />
+            <SummaryCard label="Earned in period" value={money(data.earnedInMonth)} testId="text-earned-month" />
+            <SummaryCard label="Paid in period" value={money(data.paidInMonth)} testId="text-paid-month" />
             <SummaryCard label="Closing balance" value={money(data.closingBalance)} testId="text-closing" />
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1461,11 +1511,41 @@ function MonthlyReportTab({
             <SummaryCard label="Not billed but completed" value={String(data.unbilledCompletedCount)} testId="text-unbilled-completed" highlight={data.unbilledCompletedCount > 0} />
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500">Show:</span>
+            {([
+              ["all", "All"],
+              ["collected", "Collected"],
+              ["uncollected", "Uncollected"],
+              ["unbilled", "Not billed"],
+            ] as const).map(([key, label]) => (
+              <Button
+                key={key}
+                size="sm"
+                variant={collFilter === key ? "default" : "outline"}
+                onClick={() => setCollFilter(key)}
+                data-testid={`button-filter-${key}`}
+              >
+                {label}
+              </Button>
+            ))}
+            <span className="ml-auto text-xs text-gray-500" data-testid="text-filter-count">
+              {visibleSessions.length} of {data.sessions.length} sessions
+            </span>
+          </div>
+
           {data.sessions.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
-                No sessions for {fmtMonth(month)}.
+                No sessions for {periodLabel}.
+              </CardContent>
+            </Card>
+          ) : visibleSessions.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
+                No {filterLabel[collFilter].toLowerCase()} for {periodLabel}.
               </CardContent>
             </Card>
           ) : (
@@ -1485,7 +1565,7 @@ function MonthlyReportTab({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.sessions.map((s) => (
+                    {visibleSessions.map((s) => (
                       <TableRow
                         key={`${s.billed ? "b" : "u"}-${s.sessionId}`}
                         data-testid={`monthly-row-${s.sessionId}`}

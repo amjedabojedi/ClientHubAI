@@ -37,4 +37,5 @@
 - [queryClient key→URL trap](queryclient-key-url-trap.md) — default queryFn drops a non-object 2nd queryKey segment (e.g. a number id) and hits the base URL; use explicit queryFn for `/api/x/:id`.
 - [Drizzle correlated subquery](drizzle-correlated-subquery.md) — a sql`` correlated count subquery in .select() silently returns 0 on neon; use a grouped count query + JS Map join, verify against real data.
 - [AI transcribe authz](ai-transcribe-authz.md) — AI on UNSAVED notes (no sessionNoteId) must authorize by sessionId via assertSessionAccess + derive clientId from the session; never trust body clientId, consent != authz (IDOR).
+- [Date.UTC calendar validation](date-utc-calendar-validation.md) — regex YYYY-MM-DD isn't enough: Date.UTC rolls over Feb 30 / month 13, so range reports bucket the wrong period & return 200 not 400; round-trip the parsed Y/M/D.
 - [Not-billed billing filter](not-billed-billing-filter.md) — getBillingReports status='not_billed' = sessions w/ NO session_billing row; excludes only FUTURE scheduled, keeps past-scheduled as real gaps.

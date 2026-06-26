@@ -452,6 +452,7 @@ export interface IStorage {
   voidTherapistPayout(id: number, voidedBy: number, reason: string): Promise<TherapistPayout>;
   getTherapistStatement(therapistId: number): Promise<TherapistStatement>;
   getTherapistMonthlyStatement(therapistId: number, month: string): Promise<TherapistMonthlyStatement>;
+  getTherapistPeriodStatement(therapistId: number, startDate: string, endDate: string): Promise<TherapistMonthlyStatement>;
 
   // ===== INSURANCE STATEMENT RECONCILIATION =====
   // Persist an uploaded statement and its extracted lines, then auto-match each
@@ -4439,11 +4440,48 @@ export class DatabaseStorage implements IStorage {
   ): Promise<TherapistMonthlyStatement> {
     const m = /^(\d{4})-(\d{2})$/.exec(month);
     if (!m) throw new Error('month must be in YYYY-MM format');
-    const year = Number(m[1]);
     const mon = Number(m[2]);
     if (mon < 1 || mon > 12) throw new Error('month must be in YYYY-MM format');
-    const monthStart = new Date(Date.UTC(year, mon - 1, 1));
-    const monthEnd = new Date(Date.UTC(year, mon, 1)); // exclusive
+    // A single calendar month is just a date range from the 1st to the last day.
+    const lastDay = new Date(Date.UTC(Number(m[1]), mon, 0)).getUTCDate();
+    const startDate = `${m[1]}-${m[2]}-01`;
+    const endDate = `${m[1]}-${m[2]}-${String(lastDay).padStart(2, '0')}`;
+    const res = await this.getTherapistPeriodStatement(therapistId, startDate, endDate);
+    return { ...res, month };
+  }
+
+  // Generalized statement over an arbitrary inclusive [startDate, endDate] day
+  // range (YYYY-MM-DD). The monthly statement above is just the special case of
+  // a single calendar month. Opening balance = ledger balance strictly BEFORE
+  // startDate; "earned/paid in period" are bucketed within the range; closing =
+  // opening + earned − paid. Session rows are every session in the range (billed
+  // or not), so unbilled gaps still surface.
+  async getTherapistPeriodStatement(
+    therapistId: number,
+    startDate: string, // YYYY-MM-DD inclusive
+    endDate: string,   // YYYY-MM-DD inclusive
+  ): Promise<TherapistMonthlyStatement> {
+    const sm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate);
+    const em = /^(\d{4})-(\d{2})-(\d{2})$/.exec(endDate);
+    if (!sm || !em) throw new Error('startDate and endDate must be in YYYY-MM-DD format');
+    // Parse to a UTC date AND verify it round-trips to the same Y/M/D. Date.UTC
+    // silently normalizes impossible dates (2026-02-30 -> Mar 2, month 13 -> next
+    // year), so a regex-only check would accept them and bucket the wrong period.
+    const parseYmd = (m: RegExpExecArray): Date => {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      const dt = new Date(Date.UTC(y, mo - 1, d));
+      if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) {
+        throw new Error('startDate and endDate must be valid dates in YYYY-MM-DD format');
+      }
+      return dt;
+    };
+    const monthStart = parseYmd(sm);
+    const endInclusive = parseYmd(em);
+    // exclusive end = the day AFTER endDate, so the whole end day is included.
+    const monthEnd = new Date(endInclusive.getTime() + 24 * 60 * 60 * 1000);
+    if (monthEnd <= monthStart) throw new Error('endDate must be on or after startDate');
 
     const [therapist] = await db
       .select({ fullName: users.fullName })
@@ -4620,7 +4658,7 @@ export class DatabaseStorage implements IStorage {
     return {
       therapistId,
       therapistName: therapist?.fullName || '',
-      month,
+      month: `${startDate}..${endDate}`,
       openingBalance,
       earnedInMonth,
       paidInMonth,

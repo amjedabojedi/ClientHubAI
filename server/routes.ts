@@ -12691,14 +12691,28 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const therapistId = parseInt(req.params.therapistId);
       if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
       const month = String(req.query.month || '').trim();
-      if (!/^\d{4}-\d{2}$/.test(month)) {
-        return res.status(400).json({ message: "month query is required (YYYY-MM)" });
+      const startDate = String(req.query.startDate || '').trim();
+      const endDate = String(req.query.endDate || '').trim();
+      let statement;
+      if (startDate || endDate) {
+        // Arbitrary date range (inclusive). Both bounds required when ranging.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+          return res.status(400).json({ message: "startDate and endDate are required (YYYY-MM-DD)" });
+        }
+        statement = await storage.getTherapistPeriodStatement(therapistId, startDate, endDate);
+      } else {
+        // Backward-compatible single-month path.
+        if (!/^\d{4}-\d{2}$/.test(month)) {
+          return res.status(400).json({ message: "Provide month=YYYY-MM or startDate & endDate=YYYY-MM-DD" });
+        }
+        statement = await storage.getTherapistMonthlyStatement(therapistId, month);
       }
-      const statement = await storage.getTherapistMonthlyStatement(therapistId, month);
       res.json(statement);
     } catch (error: any) {
       const msg = error?.message || "Internal server error";
-      if (msg.includes('YYYY-MM')) return res.status(400).json({ message: msg });
+      if (msg.includes('YYYY') || msg.includes('startDate') || msg.includes('endDate')) {
+        return res.status(400).json({ message: msg });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
