@@ -436,9 +436,15 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
   const isVoided = statement.status === "voided";
 
   const confirmedCount = lines.filter((l) => l.matchStatus === "confirmed").length;
+  // "Posted total" = the insurance amount actually settled by posted lines, i.e.
+  // each line's full insurer-paid amount. Do NOT sum `postedAmount` here:
+  // postedAmount is the NET-NEW delta added to the billing (kept for exact void
+  // reversal), so it is $0 whenever a line's insurance was already recorded
+  // manually and got adopted at post time — which made this tile read $0 even
+  // though the statement genuinely settled that payment.
   const postedTotal = lines
     .filter((l) => l.matchStatus === "posted")
-    .reduce((sum, l) => sum + (Number(l.postedAmount) || 0), 0);
+    .reduce((sum, l) => sum + (Number(l.insurancePaidAmount) || 0), 0);
   const unmatchedCount = lines.filter((l) => l.matchStatus === "unmatched").length;
   const denialCount = lines.filter((l) => !!l.remarkCode).length;
   const linesTotalPaid = lines.reduce((sum, l) => sum + (Number(l.insurancePaidAmount) || 0), 0);
