@@ -400,6 +400,128 @@ async function scenarioShortfall(userId: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario C: two DIFFERENT statements posted against the SAME billing for the
+// SAME real-world insurer payment. The first statement adopts the manual entry;
+// the second must NOT re-count it (a duplicate EOB re-uploaded and posted).
+// This is the core invariant for this task: a second, still-posted statement
+// only ever adds a genuine incremental amount, never re-claims already-counted
+// money. We test both a full-cover duplicate (adds 0) and an incremental case
+// (a higher second line adds only the difference), and we never void in between
+// — both statements stay posted at once.
+// ---------------------------------------------------------------------------
+async function scenarioTwoStatements(userId: number) {
+  console.log(
+    "\n🧪 Scenario C: two posted statements, same billing, same payment (no inflation)\n",
+  );
+
+  // --- C1: manual fully covers; statement #1 adopts it, statement #2 is a
+  //         duplicate of the SAME $100 and must add nothing. -----------------
+  const { billing } = await seedBilling("C");
+
+  // Staff manually record the $100 insurer payment.
+  await storage.recordPayment(billing.id, {
+    status: "billed",
+    amount: 100,
+    date: new Date().toISOString().slice(0, 10),
+    method: "insurance",
+    source: "insurance",
+    recordedBy: userId,
+    notes: "Manual insurance entry",
+  });
+
+  // Statement #1 ($100) adopts the manual, posts a 0 shortfall.
+  const first = await createConfirmedStatement(billing.id, "100.00", "C1");
+  await storage.postInsuranceStatement(first.statementId, userId);
+
+  let b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "C: collected is 100 after statement #1 (manual adopted)");
+  let manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual[0].adoptedByLineId, first.lineId, "C: manual row adopted by statement #1's line");
+
+  // Statement #2 — a SECOND, still-posted statement for the SAME $100 payment.
+  // It cannot re-adopt the (already adopted) manual row; the guard must still
+  // refuse to add the $100 again.
+  const second = await createConfirmedStatement(billing.id, "100.00", "C2");
+  const res2 = await storage.postInsuranceStatement(second.statementId, userId);
+
+  b = await getBilling(billing.id);
+  assertEqual(
+    Number(b.insurancePaidAmount),
+    100,
+    "C: collected stays 100 after statement #2 — NOT inflated to 200",
+  );
+  assertEqual(await ledgerInsurance(billing.id), 100, "C: live ledger insurance stays 100 after statement #2");
+
+  const [line2] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, second.lineId))
+    .limit(1);
+  assertEqual(line2.matchStatus, "posted", "C: statement #2's line is marked posted");
+  assertEqual(Number(line2.postedAmount), 0, "C: statement #2 posts a 0 shortfall (nothing new)");
+  assertEqual(res2.postedCount, 1, "C: statement #2 reports the one handled line");
+
+  // The manual row must remain a single row, still owned by statement #1 (the
+  // second statement never re-stamped or duplicated it).
+  manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual.length, 1, "C: exactly one manual insurance row after statement #2 (not duplicated)");
+  assertEqual(Number(manual[0].amount), 100, "C: manual row amount unchanged at 100");
+  assertEqual(manual[0].adoptedByLineId, first.lineId, "C: manual row still adopted by statement #1 (not re-claimed)");
+
+  // Statement #2 must NOT have created any statement-sourced payment row.
+  const sourced2 = await db
+    .select()
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billing.id),
+        eq(paymentTransactions.sourceStatementLineId, second.lineId),
+      ),
+    );
+  assertEqual(sourced2.length, 0, "C: statement #2 created no payment row (fully covered already)");
+
+  // --- C2: NO manual entry. Statement #1 ($100) posts the real $100, then a
+  //         duplicate statement #2 ($100) adds nothing; a richer statement #3
+  //         ($150) for the same billing adds ONLY the $50 increment. ---------
+  console.log(
+    "\n🧪 Scenario C (cont.): duplicate then incremental statement, no manual entry\n",
+  );
+  const { billing: b2 } = await seedBilling("D");
+
+  const d1 = await createConfirmedStatement(b2.id, "100.00", "D1");
+  await storage.postInsuranceStatement(d1.statementId, userId);
+  let bb = await getBilling(b2.id);
+  assertEqual(Number(bb.insurancePaidAmount), 100, "C: statement #1 (no manual) records the real 100");
+
+  // Duplicate of the same $100 — must add nothing.
+  const d2 = await createConfirmedStatement(b2.id, "100.00", "D2");
+  await storage.postInsuranceStatement(d2.statementId, userId);
+  bb = await getBilling(b2.id);
+  assertEqual(Number(bb.insurancePaidAmount), 100, "C: duplicate statement #2 adds nothing (stays 100, not 200)");
+  assertEqual(await ledgerInsurance(b2.id), 100, "C: live ledger insurance stays 100 after duplicate");
+  const [dline2] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, d2.lineId))
+    .limit(1);
+  assertEqual(Number(dline2.postedAmount), 0, "C: duplicate statement #2 posts a 0 shortfall");
+
+  // A genuinely larger statement ($150) for the same billing — adds only the
+  // $50 increment over the already-counted $100.
+  const d3 = await createConfirmedStatement(b2.id, "150.00", "D3");
+  await storage.postInsuranceStatement(d3.statementId, userId);
+  bb = await getBilling(b2.id);
+  assertEqual(Number(bb.insurancePaidAmount), 150, "C: a larger statement #3 adds only the 50 increment (to 150)");
+  assertEqual(await ledgerInsurance(b2.id), 150, "C: live ledger insurance equals 150 after the increment");
+  const [dline3] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, d3.lineId))
+    .limit(1);
+  assertEqual(Number(dline3.postedAmount), 50, "C: statement #3 posts exactly the 50 incremental shortfall");
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 async function run() {
@@ -418,6 +540,7 @@ async function run() {
   try {
     await scenarioFullCover(sysUser.id);
     await scenarioShortfall(sysUser.id);
+    await scenarioTwoStatements(sysUser.id);
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;

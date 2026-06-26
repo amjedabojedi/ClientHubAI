@@ -5159,14 +5159,32 @@ export class DatabaseStorage implements IStorage {
         continue;
       }
 
-      // Double-count guardrail. If staff already recorded this insurance payment
-      // MANUALLY (a payment_transactions row not linked to, nor already adopted by,
-      // any statement line), the statement line is the SAME real-world payment, not
-      // an extra one. We "adopt" those manual rows — stamping them with this line's
-      // id so no later statement can claim them again — and only post the SHORTFALL
-      // (line amount minus what the adopted manual rows already cover). The manual
-      // rows keep their amount, so collections are never inflated. On void the
-      // stamp is cleared, so a re-post re-adopts instead of stacking a duplicate.
+      // Double-count guardrail. A statement line records the SAME real-world
+      // insurer payment that may ALREADY be reflected on the billing — either
+      // because staff keyed it MANUALLY first, or because an EARLIER statement
+      // already posted/adopted coverage for this same billing. Either way it is
+      // the same money, not an extra payment, so we must never inflate collections
+      // (which would inflate therapist pay).
+      //
+      // Read the billing's current cumulative insurance first; that number already
+      // includes every live manual row AND every shortfall a prior statement
+      // posted for this billing. We then:
+      //   1. "Adopt" any matching MANUAL insurance rows (source='insurance', not
+      //      statement-sourced, not yet adopted) — stamping them with this line's
+      //      id so no later statement can claim them again and so a void can
+      //      release them for a clean re-post.
+      //   2. Post ONLY the SHORTFALL by which this line exceeds the insurance
+      //      already counted on the billing. When the billing already covers the
+      //      line, `additional` is 0 and nothing new is recorded — so a second
+      //      statement for the same payment can never double the total.
+      const [billing] = await db
+        .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+        .from(sessionBilling)
+        .where(eq(sessionBilling.id, line.matchedSessionBillingId))
+        .limit(1);
+      if (!billing) continue;
+      const currentInsurance = Number(billing.insurancePaid) || 0;
+
       const manualRows = await db
         .select({ id: paymentTransactions.id, amt: paymentTransactions.amount })
         .from(paymentTransactions)
@@ -5182,14 +5200,11 @@ export class DatabaseStorage implements IStorage {
         .orderBy(asc(paymentTransactions.recordedAt));
 
       let remaining = lineAmount;
-      let adoptedSum = 0;
       const adoptIds: number[] = [];
       for (const r of manualRows) {
         if (remaining <= 0) break;
         adoptIds.push(r.id);
-        const amt = Number(r.amt) || 0;
-        adoptedSum = +(adoptedSum + amt).toFixed(2);
-        remaining = +(remaining - amt).toFixed(2);
+        remaining = +(remaining - (Number(r.amt) || 0)).toFixed(2);
       }
       if (adoptIds.length > 0) {
         await db
@@ -5197,19 +5212,17 @@ export class DatabaseStorage implements IStorage {
           .set({ adoptedByLineId: line.id })
           .where(inArray(paymentTransactions.id, adoptIds));
       }
-      const additional = +Math.max(0, +(lineAmount - adoptedSum).toFixed(2)).toFixed(2);
+
+      // Shortfall = the amount this line adds ON TOP of insurance already counted
+      // on the billing (manual rows just adopted are already in `currentInsurance`,
+      // as is anything an earlier statement posted). Never negative: dedup only
+      // ever prevents inflation, it never reduces a previously recorded amount.
+      const additional = +Math.max(0, +(lineAmount - currentInsurance).toFixed(2)).toFixed(2);
 
       // Only add the shortfall to the billing's cumulative insurance. When the
-      // manual entry fully covers the line, `additional` is 0 and nothing new is
-      // recorded — the duplicate is prevented.
+      // billing already covers the line (manual entry or an earlier statement),
+      // `additional` is 0 and nothing new is recorded — the duplicate is prevented.
       if (additional > 0) {
-        const [billing] = await db
-          .select({ insurancePaid: sessionBilling.insurancePaidAmount })
-          .from(sessionBilling)
-          .where(eq(sessionBilling.id, line.matchedSessionBillingId))
-          .limit(1);
-        if (!billing) continue;
-        const currentInsurance = Number(billing.insurancePaid) || 0;
         const newCumulative = +(currentInsurance + additional).toFixed(2);
 
         await this.recordPayment(line.matchedSessionBillingId, {
