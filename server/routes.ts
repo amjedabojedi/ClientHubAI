@@ -12895,7 +12895,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const detail = await storage.getInsuranceStatementById(id);
       if (!detail) return res.status(404).json({ message: "Statement not found" });
       res.json(detail);
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Cannot')) return res.status(400).json({ message: msg });
       res.status(500).json({ message: "Internal server error" });
     }
   });

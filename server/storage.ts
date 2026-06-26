@@ -4929,6 +4929,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async autoMatchStatementLines(statementId: number): Promise<void> {
+    // A voided statement is terminal: its lines were reversed and must never be
+    // re-matched, which would resurrect the misleading "re-postable" appearance
+    // the terminal state was meant to remove.
+    const [statement] = await db
+      .select({ status: insuranceStatements.status })
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, statementId))
+      .limit(1);
+    if (!statement) throw new Error('Statement not found');
+    if (statement.status === 'voided') {
+      throw new Error('Cannot rematch a voided statement.');
+    }
+
     const lines = await db
       .select()
       .from(insuranceStatementLines)
@@ -5070,6 +5083,18 @@ export class DatabaseStorage implements IStorage {
     if (!existing) throw new Error('Statement line not found');
     if (existing.matchStatus === 'posted') {
       throw new Error('Cannot change a line that has already been posted. Void the statement first.');
+    }
+
+    // A voided statement is terminal: none of its lines may be edited, otherwise
+    // a direct API call could flip a 'reversed' line back to a re-postable
+    // status, resurrecting the misleading "re-postable" appearance.
+    const [parent] = await db
+      .select({ status: insuranceStatements.status })
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, existing.statementId))
+      .limit(1);
+    if (parent?.status === 'voided') {
+      throw new Error('Cannot change a line on a voided statement.');
     }
 
     const setData: any = { matchStatus: update.matchStatus };
