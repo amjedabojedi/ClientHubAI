@@ -74,6 +74,7 @@ SUITES=(
   "test/therapist-statement-corrected-pay-ui.test.ts"
   "test/therapist-owed-corrected-pay-ui.test.ts"
   "test/therapist-statement-corrected-pay-monthly-ui.test.ts"
+  "test/therapist-statement-corrected-pay-monthly-csv.test.ts"
   "test/insurance-reopen-repost-ui.test.ts"
   "test/insurance-repost-doublecount-ui.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
