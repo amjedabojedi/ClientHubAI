@@ -650,6 +650,12 @@ export const paymentTransactions = pgTable("payment_transactions", {
   notes: text("notes"),
   isHistoricalLump: boolean("is_historical_lump").notNull().default(false),
   paymentDate: date("payment_date"),
+  // Provenance: when this payment was recorded by posting a line from an uploaded
+  // insurance statement (EOB/ERA), these point back to that statement and line so
+  // the client's payment history can be traced to its source document (and vice
+  // versa). Null for payments keyed manually. Both are additive/nullable.
+  sourceStatementId: integer("source_statement_id").references(() => insuranceStatements.id),
+  sourceStatementLineId: integer("source_statement_line_id").references(() => insuranceStatementLines.id),
   voidedAt: timestamp("voided_at"),
   voidedBy: integer("voided_by").references(() => users.id),
   voidReason: text("void_reason"),

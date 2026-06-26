@@ -380,6 +380,15 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                           {tx.isHistoricalLump && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Historical total</span>
                           )}
+                          {tx.sourceStatementId && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                              title={`Posted from uploaded insurance statement #${tx.sourceStatementId}${tx.statementCheckNumber ? ` · check ${tx.statementCheckNumber}` : ''}`}
+                              data-testid={`tx-statement-source-${tx.id}`}
+                            >
+                              From statement #{tx.sourceStatementId}{tx.statementPayerName ? ` · ${tx.statementPayerName}` : ''}
+                            </span>
+                          )}
                           {voided && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800" title={tx.voidReason || ''}>Voided</span>
                           )}

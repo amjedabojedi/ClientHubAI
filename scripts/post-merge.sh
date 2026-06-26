@@ -19,6 +19,9 @@ npx tsx scripts/ensure-report-tables.ts
 # Ensure the therapist running-statement schema exists (therapist_payment_allocations
 # + therapist_earnings tables + therapist_payouts ledger columns). Idempotent DDL.
 npx tsx scripts/ensure-therapist-ledger.ts
+# Ensure payment_transactions has the insurance-statement provenance columns
+# (source_statement_id / source_statement_line_id). Idempotent DDL.
+npx tsx scripts/ensure-statement-payment-link.ts
 # Finally reconcile the rest of the schema via Drizzle. Runs last so the additive
 # feature schema above is already in place if this aborts on known drift.
 npm run db:push

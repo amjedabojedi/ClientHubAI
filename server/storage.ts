@@ -3378,6 +3378,8 @@ export class DatabaseStorage implements IStorage {
     notes?: string;
     source?: 'client' | 'insurance';
     recordedBy?: number;
+    sourceStatementId?: number;
+    sourceStatementLineId?: number;
   }): Promise<SelectSessionBilling> {
     return await db.transaction(async (tx) => {
       // Lock the row so concurrent payments can't race each other
@@ -3450,6 +3452,8 @@ export class DatabaseStorage implements IStorage {
           isHistoricalLump: false,
           paymentDate: paymentData.date || null,
           recordedBy: paymentData.recordedBy || null,
+          sourceStatementId: paymentData.sourceStatementId ?? null,
+          sourceStatementLineId: paymentData.sourceStatementLineId ?? null,
         });
       }
 
@@ -3541,12 +3545,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Fetch the transaction history for a billing record
-  async getPaymentTransactions(billingId: number): Promise<PaymentTransaction[]> {
-    return db
-      .select()
+  async getPaymentTransactions(
+    billingId: number,
+  ): Promise<(PaymentTransaction & { statementPayerName: string | null; statementCheckNumber: string | null })[]> {
+    const rows = await db
+      .select({
+        tx: paymentTransactions,
+        statementPayerName: insuranceStatements.payerName,
+        statementCheckNumber: insuranceStatements.checkNumber,
+      })
       .from(paymentTransactions)
+      .leftJoin(insuranceStatements, eq(paymentTransactions.sourceStatementId, insuranceStatements.id))
       .where(eq(paymentTransactions.sessionBillingId, billingId))
       .orderBy(desc(paymentTransactions.recordedAt));
+    return rows.map((r) => ({
+      ...r.tx,
+      statementPayerName: r.statementPayerName ?? null,
+      statementCheckNumber: r.statementCheckNumber ?? null,
+    }));
   }
 
   // Update billing record discount
@@ -4928,6 +4944,8 @@ export class DatabaseStorage implements IStorage {
         reference: statement.checkNumber || undefined,
         notes: `Insurance statement #${statement.id}${statement.payerName ? ` (${statement.payerName})` : ''}`,
         recordedBy: userId,
+        sourceStatementId: statement.id,
+        sourceStatementLineId: line.id,
       });
 
       await db
@@ -4986,6 +5004,8 @@ export class DatabaseStorage implements IStorage {
             reference: statement.checkNumber || undefined,
             notes: `Void of insurance statement #${statement.id}: ${reason}`,
             recordedBy: userId,
+            sourceStatementId: statement.id,
+            sourceStatementLineId: line.id,
           });
         }
       }
