@@ -104,6 +104,18 @@ const money = (v: string | number | null | undefined) => {
   return `$${n.toFixed(2)}`;
 };
 
+// A line is genuinely DENIED only when the insurer paid nothing AND attached a
+// remark/denial code. A remark code on a PAID line is just an informational note
+// (e.g. contractual adjustment), NOT a denial — so it must not be flagged.
+const isDeniedLine = (
+  paidAmount: string | number | null | undefined,
+  remarkCode: string | null | undefined,
+): boolean => {
+  if (!remarkCode) return false;
+  const n = typeof paidAmount === "number" ? paidAmount : Number(paidAmount);
+  return Number.isFinite(n) && n <= 0;
+};
+
 // Render a literal YYYY-MM-DD without constructing a Date (avoids timezone shift).
 const fmtDate = (d: string | null | undefined) => {
   if (!d) return "—";
@@ -622,7 +634,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
     .filter((l) => l.matchStatus === "posted")
     .reduce((sum, l) => sum + (Number(l.insurancePaidAmount) || 0), 0);
   const unmatchedCount = lines.filter((l) => l.matchStatus === "unmatched").length;
-  const denialCount = lines.filter((l) => !!l.remarkCode).length;
+  const denialCount = lines.filter((l) => isDeniedLine(l.insurancePaidAmount, l.remarkCode)).length;
   const linesTotalPaid = lines.reduce((sum, l) => sum + (Number(l.insurancePaidAmount) || 0), 0);
 
   return (
@@ -752,7 +764,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
       {denialCount > 0 && (
         <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           <AlertTriangle className="h-4 w-4" />
-          {denialCount} line(s) have a remark/denial code — review them before posting.
+          {denialCount} line(s) appear denied (insurer paid $0 with a denial code) — review them before posting.
         </div>
       )}
 
@@ -1053,14 +1065,21 @@ function txMatchBadge(status: string) {
 function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TxFilter>("all");
+  const [therapist, setTherapist] = useState<string>("all");
 
   const { data: rows, isLoading } = useQuery<TransactionRow[]>({
     queryKey: ["/api/insurance/transactions"],
   });
 
+  // Distinct therapist names present in the data, for the therapist picker.
+  const therapistNames = Array.from(
+    new Set((rows ?? []).map((r) => r.therapistName).filter((n): n is string => !!n)),
+  ).sort((a, b) => a.localeCompare(b));
+
   const filtered = (rows ?? []).filter((r) => {
+    if (therapist !== "all" && r.therapistName !== therapist) return false;
     // Status filter. "Confirmed" groups confirmed+posted; "Not confirmed"
-    // groups everything still needing attention; "Denied" = has a remark code.
+    // groups everything still needing attention; "Denied" = insurer paid $0 with a denial code.
     if (filter === "confirmed" && !(r.matchStatus === "confirmed" || r.matchStatus === "posted"))
       return false;
     if (
@@ -1069,7 +1088,7 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
     )
       return false;
     if (filter === "posted" && r.matchStatus !== "posted") return false;
-    if (filter === "denied" && !r.remarkCode) return false;
+    if (filter === "denied" && !isDeniedLine(r.insurancePaidAmount, r.remarkCode)) return false;
 
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
@@ -1091,8 +1110,8 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
       <CardHeader>
         <CardTitle>Transactions</CardTitle>
         <CardDescription>
-          Every line from every statement. Search by therapist, client, code, or
-          amount. Click a row to open its statement.
+          Every line from every statement. Pick a therapist, search by client,
+          code, or amount, then click a row to open its statement.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1107,6 +1126,19 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
               data-testid="input-search-transactions"
             />
           </div>
+          <Select value={therapist} onValueChange={setTherapist}>
+            <SelectTrigger className="w-[200px]" data-testid="select-transaction-therapist">
+              <SelectValue placeholder="All therapists" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All therapists</SelectItem>
+              {therapistNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={filter} onValueChange={(v) => setFilter(v as TxFilter)}>
             <SelectTrigger className="w-[180px]" data-testid="select-transaction-filter">
               <SelectValue />
@@ -1159,7 +1191,7 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
                   <TableCell>
                     <span className="inline-flex items-center gap-1">
                       {txMatchBadge(r.matchStatus)}
-                      {r.remarkCode && (
+                      {isDeniedLine(r.insurancePaidAmount, r.remarkCode) && (
                         <Badge variant="outline" className="border-red-400 text-red-700">
                           Denied
                         </Badge>
