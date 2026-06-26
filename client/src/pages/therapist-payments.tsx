@@ -737,7 +737,11 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {noRule ? "—" : money(i.amountRemaining)}
+                        {noRule ? "—" : (
+                          <span data-testid={`text-owed-amount-${i.sessionBillingId}`}>
+                            {money(i.amountRemaining)}
+                          </span>
+                        )}
                         {!noRule && i.amountAllocated > 0 && (
                           <span className="ml-1 block text-xs font-normal text-gray-500">
                             partial · {money(i.amountAllocated)} paid of {money(i.amountEarned)}
