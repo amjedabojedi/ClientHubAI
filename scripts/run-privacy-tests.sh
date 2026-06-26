@@ -66,6 +66,7 @@ SUITES=(
   "test/insurance-statement-double-payment.test.ts"
   "test/therapist-statement-earning-dedup.test.ts"
   "test/therapist-statement-monthly-running-agree.test.ts"
+  "test/therapist-earning-self-correct.test.ts"
 )
 
 PASSED=()
