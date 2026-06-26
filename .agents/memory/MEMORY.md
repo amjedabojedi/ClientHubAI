@@ -49,3 +49,4 @@
 - [Insurance statement double-count guard](insurance-statement-double-count.md) — posting a line must add max(0, lineAmount - billing.insurancePaidAmount); deduping only vs unadopted manual rows let a 2nd statement re-count & inflate pay.
 - [Insurance void terminal state](insurance-void-terminal-state.md) — voiding sets posted lines to 'reversed' (terminal), not 're-postable' 'confirmed'; voided statements can never re-post, only new uploads can.
 - [Monthly vs running statement agree](monthly-running-statement-agree.md) — monthly earnedInMonth must equal running net earning per session; opening+earned−paid=closing; latest-period closing==running currentOwed.
+- [Insurance post/delete locking](insurance-post-delete-locking.md) — post records payments before flipping status; post+delete share a tx-scoped advisory lock; run whole post on one conn (pool max 2/5) or it deadlocks.

@@ -531,6 +531,11 @@ export interface IStorage {
   // void fields, and set a re-postable 'draft' status so it can go back through
   // the normal adoption-aware post flow.
   reopenInsuranceStatement(id: number, userId: number): Promise<InsuranceStatement>;
+  // Permanently delete a statement and its lines. Only allowed for a statement
+  // that is NOT posted (draft or voided) so we never silently leave billing
+  // balances inflated; a posted statement must be voided first to reverse its
+  // payments. Throws 'A posted statement must be voided' / 'Statement not found'.
+  deleteInsuranceStatement(id: number): Promise<void>;
 
   // ===== DAILY SCHEDULE EMAILS (8 AM ET therapist digest) =====
   // All daily-email tracking rows for a given Eastern calendar day (yyyy-MM-dd).
@@ -3430,8 +3435,12 @@ export class DatabaseStorage implements IStorage {
     recordedBy?: number;
     sourceStatementId?: number;
     sourceStatementLineId?: number;
-  }): Promise<SelectSessionBilling> {
-    return await db.transaction(async (tx) => {
+  }, executor?: any): Promise<SelectSessionBilling> {
+    // When an `executor` (an already-open transaction) is supplied, run on it
+    // instead of opening a new transaction — this lets callers that already hold
+    // a transaction/connection (e.g. postInsuranceStatement under an advisory
+    // lock) keep all work on ONE pooled connection, avoiding pool starvation.
+    const run = async (tx: any) => {
       // Lock the row so concurrent payments can't race each other
       const lockedRows = await tx.execute(
         sql`SELECT id, total_amount, discount_amount, client_paid_amount, insurance_paid_amount
@@ -3508,7 +3517,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       return updated;
-    });
+    };
+    if (executor) return await run(executor);
+    return await db.transaction(run);
   }
 
   // Lightweight billing lookup for authorization (returns the owning client's assignedTherapistId)
@@ -5247,7 +5258,20 @@ export class DatabaseStorage implements IStorage {
     id: number,
     userId: number,
   ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number }> {
-    const [statement] = await db
+    // Serialize posting against a concurrent delete on the SAME statement. Post
+    // records payments BEFORE flipping status to 'posted', so a delete that read
+    // 'draft' mid-post could remove the statement and leave billing balances
+    // inflated. Hold a transaction-scoped advisory lock (the same key delete
+    // takes) for the whole post: delete's matching lock blocks until we commit,
+    // and it auto-releases on commit/rollback — no leak across the pooled
+    // postgres-js connections (a session-level lock could unlock on the wrong
+    // connection and leak forever). The WHOLE body runs on this one transaction
+    // (lockTx) — including recordPayment via its executor arg — so post never
+    // needs a second pooled connection (pool max is small: 2 dev / 5 prod), which
+    // would otherwise deadlock two concurrent posts. Bonus: post is now atomic.
+    return await db.transaction(async (lockTx) => {
+    await lockTx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('insurance_statement'), ${id})`);
+    const [statement] = await lockTx
       .select()
       .from(insuranceStatements)
       .where(eq(insuranceStatements.id, id))
@@ -5255,7 +5279,7 @@ export class DatabaseStorage implements IStorage {
     if (!statement) throw new Error('Statement not found');
     if (statement.status === 'voided') throw new Error('Cannot post a voided statement.');
 
-    const lines = await db
+    const lines = await lockTx
       .select()
       .from(insuranceStatementLines)
       .where(eq(insuranceStatementLines.statementId, id));
@@ -5286,7 +5310,7 @@ export class DatabaseStorage implements IStorage {
       if (lineAmount <= 0) {
         // Nothing to pay (e.g. fully denied) — mark posted with zero so it's
         // reflected as handled without touching the billing record.
-        await db
+        await lockTx
           .update(insuranceStatementLines)
           .set({ matchStatus: 'posted', postedAmount: '0' })
           .where(eq(insuranceStatementLines.id, line.id));
@@ -5312,7 +5336,7 @@ export class DatabaseStorage implements IStorage {
       //      already counted on the billing. When the billing already covers the
       //      line, `additional` is 0 and nothing new is recorded — so a second
       //      statement for the same payment can never double the total.
-      const [billing] = await db
+      const [billing] = await lockTx
         .select({ insurancePaid: sessionBilling.insurancePaidAmount })
         .from(sessionBilling)
         .where(eq(sessionBilling.id, line.matchedSessionBillingId))
@@ -5320,7 +5344,7 @@ export class DatabaseStorage implements IStorage {
       if (!billing) continue;
       const currentInsurance = Number(billing.insurancePaid) || 0;
 
-      const manualRows = await db
+      const manualRows = await lockTx
         .select({ id: paymentTransactions.id, amt: paymentTransactions.amount })
         .from(paymentTransactions)
         .where(
@@ -5342,7 +5366,7 @@ export class DatabaseStorage implements IStorage {
         remaining = +(remaining - (Number(r.amt) || 0)).toFixed(2);
       }
       if (adoptIds.length > 0) {
-        await db
+        await lockTx
           .update(paymentTransactions)
           .set({ adoptedByLineId: line.id })
           .where(inArray(paymentTransactions.id, adoptIds));
@@ -5371,14 +5395,14 @@ export class DatabaseStorage implements IStorage {
           recordedBy: userId,
           sourceStatementId: statement.id,
           sourceStatementLineId: line.id,
-        });
+        }, lockTx);
       }
 
       // postedAmount = the net-new amount actually added to the billing's
       // cumulative (the shortfall), so a later void subtracts exactly that and
       // leaves the adopted manual payment in place. postedTotal still reports the
       // statement's full insurer-paid amount for the user-facing summary.
-      await db
+      await lockTx
         .update(insuranceStatementLines)
         .set({ matchStatus: 'posted', postedAmount: additional.toFixed(2) })
         .where(eq(insuranceStatementLines.id, line.id));
@@ -5386,13 +5410,14 @@ export class DatabaseStorage implements IStorage {
       postedTotal = +(postedTotal + lineAmount).toFixed(2);
     }
 
-    const [updated] = await db
+    const [updated] = await lockTx
       .update(insuranceStatements)
       .set({ status: 'posted', postedAt: new Date(), postedBy: userId })
       .where(eq(insuranceStatements.id, id))
       .returning();
 
     return { statement: updated, postedCount, postedTotal };
+    });
   }
 
   async voidInsuranceStatement(id: number, userId: number, reason: string): Promise<InsuranceStatement> {
@@ -5467,6 +5492,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(insuranceStatements.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteInsuranceStatement(id: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Serialize against a concurrent post on the SAME statement. post() holds
+      // the matching transaction-scoped advisory lock on this key for its whole
+      // run; taking it here makes delete wait until any in-flight post has fully
+      // committed (status now 'posted') before we read state, so we can never
+      // delete a statement that's mid-post.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('insurance_statement'), ${id})`);
+      // Belt-and-suspenders: also lock the row FOR UPDATE so the status read
+      // below reflects any just-committed change.
+      const [statement] = await tx
+        .select()
+        .from(insuranceStatements)
+        .where(eq(insuranceStatements.id, id))
+        .limit(1)
+        .for('update');
+      if (!statement) throw new Error('Statement not found');
+      // A posted statement has recorded insurance payments against billings.
+      // Deleting it directly would leave those balances inflated, so require a
+      // void first (which reverses the payments) before deletion is allowed.
+      if (statement.status === 'posted') {
+        throw new Error('A posted statement must be voided before it can be deleted.');
+      }
+
+      // Detach payment-ledger references so the statement (and its
+      // cascade-deleted lines) can be removed without tripping FK constraints.
+      // Balances are unaffected: a draft never posted any payment, and a voided
+      // statement's payments were already reversed — we only drop the now-stale
+      // links from the surviving ledger rows.
+      const lineRows = await tx
+        .select({ id: insuranceStatementLines.id })
+        .from(insuranceStatementLines)
+        .where(eq(insuranceStatementLines.statementId, id));
+      const lineIds = lineRows.map((r) => r.id);
+      if (lineIds.length) {
+        await tx
+          .update(paymentTransactions)
+          .set({ sourceStatementLineId: null })
+          .where(inArray(paymentTransactions.sourceStatementLineId, lineIds));
+        await tx
+          .update(paymentTransactions)
+          .set({ adoptedByLineId: null })
+          .where(inArray(paymentTransactions.adoptedByLineId, lineIds));
+      }
+      await tx
+        .update(paymentTransactions)
+        .set({ sourceStatementId: null })
+        .where(eq(paymentTransactions.sourceStatementId, id));
+
+      // Lines are removed automatically via the statementId FK cascade.
+      await tx.delete(insuranceStatements).where(eq(insuranceStatements.id, id));
+    });
   }
 
   async reopenInsuranceStatement(id: number, userId: number): Promise<InsuranceStatement> {

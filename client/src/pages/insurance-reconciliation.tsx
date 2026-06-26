@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import {
   FileText, Upload, Loader2, ArrowLeft, CheckCircle2, Ban, AlertTriangle,
-  Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks,
+  Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks, Trash2,
 } from "lucide-react";
 
 type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped" | "reversed";
@@ -221,6 +221,8 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
   const [duplicate, setDuplicate] = useState<{ info: DuplicateInfo; file: File } | null>(null);
   // Optional: the one therapist this statement belongs to, chosen before upload.
   const [therapistId, setTherapistId] = useState<string>("");
+  // The statement the user has asked to delete (drives the confirmation dialog).
+  const [toDelete, setToDelete] = useState<StatementSummary | null>(null);
 
   const { data: statements, isLoading } = useQuery<StatementSummary[]>({
     queryKey: ["/api/insurance/statements"],
@@ -265,6 +267,27 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
     },
     onError: (err: Error) => {
       toast({ title: "Could not upload", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) =>
+      apiRequest(`/api/insurance/statements/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/transactions"] });
+      setToDelete(null);
+      toast({ title: "Statement deleted" });
+    },
+    onError: (err: Error) => {
+      const mustVoid = /must be voided/i.test(err.message);
+      toast({
+        title: mustVoid ? "Void it first" : "Could not delete",
+        description: mustVoid
+          ? "This statement is posted. Open it and void it first (that reverses its payments), then you can delete it."
+          : err.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -374,14 +397,30 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
                     <TableCell className="text-center">{s.postedCount}</TableCell>
                     <TableCell>{statusBadge(s.status)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onOpen(s.id)}
-                        data-testid={`button-open-statement-${s.id}`}
-                      >
-                        Review
-                      </Button>
+                      <div className="inline-flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onOpen(s.id)}
+                          data-testid={`button-open-statement-${s.id}`}
+                        >
+                          Review
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setToDelete(s)}
+                          title={
+                            s.status === "posted"
+                              ? "Void this statement first, then you can delete it"
+                              : "Delete this statement"
+                          }
+                          data-testid={`button-delete-statement-${s.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -390,6 +429,62 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!toDelete} onOpenChange={(o) => { if (!o) setToDelete(null); }}>
+        <DialogContent data-testid="dialog-delete-statement">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              Delete this statement?
+            </DialogTitle>
+            <DialogDescription>
+              {toDelete && (
+                toDelete.status === "posted" ? (
+                  <>
+                    <span className="font-semibold">{toDelete.fileName}</span> is
+                    posted, so its insurance payments are recorded. To keep your
+                    numbers correct, open it and <span className="font-semibold">void</span> it
+                    first (that reverses the payments) — then you can delete it.
+                  </>
+                ) : (
+                  <>
+                    This permanently removes{" "}
+                    <span className="font-semibold">{toDelete.fileName}</span> and
+                    its {toDelete.lineCount} line(s). This can't be undone.
+                    {toDelete.status === "voided"
+                      ? " Its payments were already reversed when it was voided, so your balances won't change."
+                      : " It was never posted, so no payments are affected."}
+                  </>
+                )
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setToDelete(null)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-delete-cancel"
+            >
+              Cancel
+            </Button>
+            {toDelete?.status !== "posted" && (
+              <Button
+                variant="destructive"
+                onClick={() => { if (toDelete) deleteMutation.mutate(toDelete.id); }}
+                disabled={deleteMutation.isPending}
+                data-testid="button-delete-confirm"
+              >
+                {deleteMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!duplicate} onOpenChange={(o) => { if (!o) setDuplicate(null); }}>
         <DialogContent data-testid="dialog-duplicate-statement">

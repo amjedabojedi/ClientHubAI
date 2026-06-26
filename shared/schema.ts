@@ -1693,6 +1693,7 @@ export const AUDIT_ACTIONS = [
   'insurance_statement_posted',
   'insurance_statement_voided',
   'insurance_statement_reopened',
+  'insurance_statement_deleted',
   'insurance_statement_therapist_assigned',
 
   // Consent / compliance

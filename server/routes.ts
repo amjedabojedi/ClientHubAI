@@ -13119,6 +13119,41 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Permanently delete a statement. Allowed only when it is NOT posted (draft or
+  // voided) — a posted statement must be voided first so its payments are
+  // reversed before it can be removed.
+  app.delete("/api/insurance/statements/:id", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid statement ID" });
+
+      const existing = await storage.getInsuranceStatementById(id);
+      await storage.deleteInsuranceStatement(id);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_deleted',
+        result: 'success',
+        resourceType: 'insurance_statement',
+        resourceId: String(id),
+        details: JSON.stringify({
+          fileName: existing?.statement?.fileName ?? null,
+          status: existing?.statement?.status ?? null,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('must be voided')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get filtered services based on user role
   app.get("/api/services/filtered", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
