@@ -460,6 +460,24 @@ export interface IStorage {
     statement: InsertInsuranceStatement,
     lines: Omit<InsertInsuranceStatementLine, 'statementId'>[],
   ): Promise<InsuranceStatement>;
+  // Look for an already-uploaded (non-voided) statement that looks like the same
+  // one, so a re-upload can be flagged before it gets posted twice.
+  findDuplicateStatement(input: {
+    payerName: string | null;
+    statementDate: string | null;
+    totalPaid: string | null;
+    checkNumber: string | null;
+    lineCount: number;
+  }): Promise<{
+    id: number;
+    status: string;
+    fileName: string;
+    payerName: string | null;
+    statementDate: string | null;
+    totalPaid: string | null;
+    createdAt: Date;
+    lineCount: number;
+  } | null>;
   // Re-run auto-matching for every still-unconfirmed line on a statement.
   autoMatchStatementLines(statementId: number): Promise<void>;
   getInsuranceStatements(): Promise<InsuranceStatementSummary[]>;
@@ -4617,6 +4635,80 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ===== INSURANCE STATEMENT RECONCILIATION =====
+
+  async findDuplicateStatement(input: {
+    payerName: string | null;
+    statementDate: string | null;
+    totalPaid: string | null;
+    checkNumber: string | null;
+    lineCount: number;
+  }): Promise<{
+    id: number;
+    status: string;
+    fileName: string;
+    payerName: string | null;
+    statementDate: string | null;
+    totalPaid: string | null;
+    createdAt: Date;
+    lineCount: number;
+  } | null> {
+    // Only consider statements that still "count" (draft or posted). A voided
+    // statement is intentionally undone, so re-uploading it is not a duplicate.
+    const candidates = await db
+      .select({
+        id: insuranceStatements.id,
+        status: insuranceStatements.status,
+        fileName: insuranceStatements.fileName,
+        payerName: insuranceStatements.payerName,
+        statementDate: insuranceStatements.statementDate,
+        totalPaid: insuranceStatements.totalPaid,
+        checkNumber: insuranceStatements.checkNumber,
+        createdAt: insuranceStatements.createdAt,
+      })
+      .from(insuranceStatements)
+      .where(inArray(insuranceStatements.status, ['draft', 'posted']))
+      .orderBy(desc(insuranceStatements.createdAt));
+    if (!candidates.length) return null;
+
+    // How many lines each candidate has (one grouped query, not a correlated
+    // subquery — the latter does not correlate reliably through Drizzle's sql``).
+    const counts = await db
+      .select({ sid: insuranceStatementLines.statementId, n: count() })
+      .from(insuranceStatementLines)
+      .where(inArray(insuranceStatementLines.statementId, candidates.map((c) => c.id)))
+      .groupBy(insuranceStatementLines.statementId);
+    const countMap = new Map(counts.map((c) => [c.sid, Number(c.n)]));
+    const rows = candidates.map((c) => ({ ...c, lineCount: countMap.get(c.id) ?? 0 }));
+
+    const txt = (s: string | null | undefined) => (s == null ? '' : s.trim().toLowerCase());
+    const numEq = (a: string | null, b: string | null) => {
+      if (a == null && b == null) return true;
+      if (a == null || b == null) return false;
+      return Number(a) === Number(b);
+    };
+
+    for (const r of rows) {
+      const lineCount = Number(r.lineCount);
+      // If both statements carry a check/EFT reference, that alone decides it:
+      // same reference + payer = duplicate; different reference = not the same.
+      if (input.checkNumber && r.checkNumber) {
+        if (txt(input.checkNumber) === txt(r.checkNumber) && txt(input.payerName) === txt(r.payerName)) {
+          return { ...r, lineCount } as any;
+        }
+        continue;
+      }
+      // Otherwise fall back to a content fingerprint: same payer, statement date,
+      // total paid, and number of lines.
+      const samePayer = txt(input.payerName) === txt(r.payerName);
+      const sameDate = (input.statementDate || null) === (r.statementDate || null);
+      const sameTotal = numEq(input.totalPaid, r.totalPaid);
+      const sameLines = lineCount === input.lineCount;
+      if (samePayer && sameDate && sameTotal && sameLines) {
+        return { ...r, lineCount } as any;
+      }
+    }
+    return null;
+  }
 
   async createInsuranceStatement(
     statement: InsertInsuranceStatement,

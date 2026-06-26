@@ -12783,6 +12783,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
           });
         }
 
+        // Flag a likely re-upload so it can't be posted twice by accident. The
+        // caller can re-send with force=true to upload it anyway.
+        const force = req.body?.force === 'true' || req.body?.force === true;
+        if (!force) {
+          const duplicate = await storage.findDuplicateStatement({
+            payerName: extracted.payerName ?? null,
+            statementDate: extracted.statementDate ?? null,
+            totalPaid: extracted.totalPaid != null ? extracted.totalPaid.toFixed(2) : null,
+            checkNumber: extracted.checkNumber ?? null,
+            lineCount: extracted.lines.length,
+          });
+          if (duplicate) {
+            return res.status(200).json({ duplicate });
+          }
+        }
+
         const statement = await storage.createInsuranceStatement(
           {
             fileName: originalname,

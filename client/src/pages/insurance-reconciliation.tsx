@@ -125,28 +125,50 @@ export default function InsuranceReconciliationPage() {
 // ---------------------------------------------------------------------------
 // List + upload
 // ---------------------------------------------------------------------------
+interface DuplicateInfo {
+  id: number;
+  status: StatementStatus;
+  fileName: string;
+  payerName: string | null;
+  statementDate: string | null;
+  totalPaid: string | null;
+  createdAt: string;
+  lineCount: number;
+}
+
 function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // When the server thinks the file is a re-upload, we hold the file here and
+  // ask the user whether to upload it anyway.
+  const [duplicate, setDuplicate] = useState<{ info: DuplicateInfo; file: File } | null>(null);
 
   const { data: statements, isLoading } = useQuery<StatementSummary[]>({
     queryKey: ["/api/insurance/statements"],
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, force }: { file: File; force?: boolean }) => {
       const formData = new FormData();
       formData.append("file", file);
+      if (force) formData.append("force", "true");
       const res = await apiRequest("/api/insurance/statements", "POST", formData);
-      return (await res.json()) as StatementDetail;
+      const body = (await res.json()) as StatementDetail | { duplicate: DuplicateInfo };
+      return { body, file };
     },
-    onSuccess: (detail) => {
+    onSuccess: ({ body, file }) => {
+      if ("duplicate" in body) {
+        // Don't navigate — surface the warning and let the user decide.
+        setDuplicate({ info: body.duplicate, file });
+        return;
+      }
+      setDuplicate(null);
       queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
       toast({
         title: "Statement uploaded",
-        description: `Read ${detail.lines.length} line(s). Review and confirm the matches.`,
+        description: `Read ${body.lines.length} line(s). Review and confirm the matches.`,
       });
-      onOpen(detail.statement.id);
+      onOpen(body.statement.id);
     },
     onError: (err: Error) => {
       toast({ title: "Could not upload", description: err.message, variant: "destructive" });
@@ -155,7 +177,7 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) uploadMutation.mutate(file);
+    if (file) uploadMutation.mutate({ file });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -259,6 +281,62 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!duplicate} onOpenChange={(o) => { if (!o) setDuplicate(null); }}>
+        <DialogContent data-testid="dialog-duplicate-statement">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              This looks like a statement you already uploaded
+            </DialogTitle>
+            <DialogDescription>
+              {duplicate && (
+                <>
+                  It matches statement{" "}
+                  <span className="font-semibold">#{duplicate.info.id}</span> (
+                  {duplicate.info.status === "posted"
+                    ? "already posted — its payments are recorded"
+                    : "still in draft"}
+                  ), uploaded {fmtDate(duplicate.info.createdAt)}.
+                  {duplicate.info.status === "posted"
+                    ? " Uploading it again could record the same insurance payments twice."
+                    : " You may already be working on it."}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {duplicate && (
+            <div className="rounded-md border p-3 text-sm space-y-1 bg-muted/40">
+              <div><span className="text-muted-foreground">File:</span> {duplicate.info.fileName}</div>
+              <div><span className="text-muted-foreground">Payer:</span> {duplicate.info.payerName || "—"}</div>
+              <div><span className="text-muted-foreground">Statement date:</span> {fmtDate(duplicate.info.statementDate)}</div>
+              <div><span className="text-muted-foreground">Total paid:</span> {money(duplicate.info.totalPaid)}</div>
+              <div><span className="text-muted-foreground">Lines:</span> {duplicate.info.lineCount}</div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDuplicate(null)}
+              disabled={uploadMutation.isPending}
+              data-testid="button-duplicate-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { if (duplicate) uploadMutation.mutate({ file: duplicate.file, force: true }); }}
+              disabled={uploadMutation.isPending}
+              data-testid="button-duplicate-proceed"
+            >
+              {uploadMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Upload anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
