@@ -722,8 +722,8 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
                       <TableCell>{fmtDate(i.sessionDate)}</TableCell>
                       <TableCell>{i.clientName}</TableCell>
                       <TableCell>
-                        {i.serviceName || "—"}
-                        {i.serviceCode ? <span className="ml-1 text-xs text-gray-500">{i.serviceCode}</span> : null}
+                        {i.serviceName || i.serviceCode || "—"}
+                        {i.serviceCode && i.serviceCode !== i.serviceName ? <span className="ml-1 text-xs text-gray-500">{i.serviceCode}</span> : null}
                       </TableCell>
                       <TableCell className="text-right">{money(i.collectedAmount)}</TableCell>
                       <TableCell>
@@ -956,8 +956,8 @@ function PayoutItems({ payoutId }: { payoutId: number }) {
               <TableCell>{fmtDate(it.sessionDate)}</TableCell>
               <TableCell>{it.clientName}</TableCell>
               <TableCell>
-                {it.serviceName || "—"}
-                {it.serviceCode ? <span className="ml-1 text-xs text-gray-500">{it.serviceCode}</span> : null}
+                {it.serviceName || it.serviceCode || "—"}
+                {it.serviceCode && it.serviceCode !== it.serviceName ? <span className="ml-1 text-xs text-gray-500">{it.serviceCode}</span> : null}
               </TableCell>
               <TableCell className="text-right">{money(it.basisAmount)}</TableCell>
               <TableCell className="text-xs">{describeRule(it.payType, it.payValue)}</TableCell>
@@ -1574,8 +1574,8 @@ function MonthlyReportTab({
                         <TableCell>{fmtDate(s.sessionDate)}</TableCell>
                         <TableCell>{s.clientName}</TableCell>
                         <TableCell>
-                          {s.serviceName || "—"}
-                          {s.serviceCode ? <span className="ml-1 text-xs text-gray-500">{s.serviceCode}</span> : null}
+                          {s.serviceName || s.serviceCode || "—"}
+                          {s.serviceCode && s.serviceCode !== s.serviceName ? <span className="ml-1 text-xs text-gray-500">{s.serviceCode}</span> : null}
                         </TableCell>
                         <TableCell>
                           {s.billed ? (
