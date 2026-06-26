@@ -1334,6 +1334,26 @@ export default function BillingDashboard() {
         </Card>
       </Collapsible>
 
+      {/* Not-billed mode banner: the financial summary cards below are about
+          paid/outstanding money, which doesn't apply to sessions that were never
+          billed, so explain what's being shown instead of leaving $0 cards bare. */}
+      {selectedStatus === 'not_billed' && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="flex items-start gap-3 py-4">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">
+                Showing {summaryStats.totalRecords} session{summaryStats.totalRecords === 1 ? '' : 's'} that were never billed
+              </p>
+              <p className="text-xs text-amber-800">
+                These sessions have no invoice or charge on record for the selected date range and filters.
+                Upcoming (future) appointments are not included. The dollar cards below stay at $0 because no money has been charged for these yet.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -1422,6 +1442,7 @@ export default function BillingDashboard() {
                   <SelectItem value="denied">Denied</SelectItem>
                   <SelectItem value="refunded">Refunded</SelectItem>
                   <SelectItem value="follow_up">Follow Up</SelectItem>
+                  <SelectItem value="not_billed">Not billed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1629,6 +1650,55 @@ export default function BillingDashboard() {
                   const session = record.session || {};
                   const client = record.client || {};
                   const therapist = record.therapist || {};
+                  const isUnbilled = !record.billing;
+                  if (isUnbilled) {
+                    return (
+                      <TableRow key={`u-${session.id}`} className="bg-amber-50 dark:bg-amber-950/30">
+                        <TableCell className="font-medium">
+                          <div>
+                            <span
+                              onClick={() => setLocation(`/clients/${client.id}?from=billing`)}
+                              className="text-primary hover:underline cursor-pointer"
+                            >
+                              {client.fullName || 'Unknown Client'}
+                            </span>
+                            <div className="text-xs text-muted-foreground">{client.referenceNumber}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{record.service?.serviceCode || '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {session.sessionDate ? formatDateDisplay(session.sessionDate) : 'N/A'}
+                            {session.status && (
+                              <Badge className="text-xs px-1.5 py-0 h-5 bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-400 w-fit capitalize">
+                                {session.status.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{therapist.fullName || 'N/A'}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Not billed
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setLocation(`/clients/${client.id}?from=billing`)}
+                            data-testid={`button-view-client-${session.id}`}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View client
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
                   return (
                     <TableRow key={billing.id}>
                       <TableCell className="font-medium">

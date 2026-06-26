@@ -7242,6 +7242,64 @@ export class DatabaseStorage implements IStorage {
     clientType?: string;
     sessionStatus?: string;
   }): Promise<any[]> {
+    // Special case: list every session that was NEVER billed (no session_billing
+    // row at all) so practice owners can see exactly what fell through the cracks
+    // across ALL therapists/clients/months in one place. Money columns don't
+    // exist for these (no fee is established until a session is billed), so the
+    // row is returned with `billing: null` and the frontend renders it plainly.
+    if (params.status === 'not_billed') {
+      // A 'scheduled' session in the FUTURE simply hasn't happened yet — it can
+      // still be billed when it's completed, so it is NOT a billing gap and we
+      // exclude it (otherwise hundreds of upcoming appointments would drown the
+      // list). But a scheduled session whose date has already passed and was
+      // never progressed IS a real gap that fell through the cracks, so we keep
+      // those alongside completed / cancelled / rescheduled / no-show sessions.
+      const ubConditions: any[] = [
+        isNull(sessionBilling.id),
+        sql`NOT (${sessions.status} = 'scheduled' AND ${sessions.sessionDate} >= now())`,
+      ];
+      if (params.startDate) {
+        ubConditions.push(sql`DATE(${sessions.sessionDate}) >= ${params.startDate}`);
+      }
+      if (params.endDate) {
+        ubConditions.push(sql`DATE(${sessions.sessionDate}) <= ${params.endDate}`);
+      }
+      if (params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0) {
+        ubConditions.push(inArray(sessions.therapistId, params.supervisedTherapistIds));
+      } else if (params.therapistId) {
+        ubConditions.push(eq(sessions.therapistId, params.therapistId));
+      }
+      if (params.clientSearch) {
+        ubConditions.push(sql`LOWER(${clients.fullName}) LIKE LOWER(${'%' + params.clientSearch + '%'})`);
+      }
+      if (params.clientType) {
+        ubConditions.push(eq(clients.clientType, params.clientType));
+      }
+      if (params.sessionStatus) {
+        ubConditions.push(eq(sessions.status, params.sessionStatus as any));
+      }
+      if (params.serviceCode) {
+        ubConditions.push(eq(services.serviceCode, params.serviceCode));
+      }
+      const ubResults = await db.select({
+        billing: sessionBilling,
+        session: sessions,
+        client: clients,
+        therapist: users,
+        service: services,
+      })
+        .from(sessions)
+        .leftJoin(sessionBilling, eq(sessionBilling.sessionId, sessions.id))
+        .innerJoin(clients, eq(sessions.clientId, clients.id))
+        .innerJoin(users, eq(sessions.therapistId, users.id))
+        .leftJoin(services, eq(sessions.serviceId, services.id))
+        .where(and(...ubConditions))
+        .orderBy(desc(sessions.sessionDate));
+      // On a left join with no match Drizzle still returns a billing object of
+      // all-null columns; normalize it to a real null so the UI can branch on it.
+      return ubResults.map((r: any) => ({ ...r, billing: null }));
+    }
+
     let query = db.select({
       billing: sessionBilling,
       session: sessions,
