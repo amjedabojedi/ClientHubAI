@@ -4813,11 +4813,11 @@ export class DatabaseStorage implements IStorage {
     }
     // Token-based name match that tolerates one name being a shortened form of
     // the other. Insurance statements often carry the full legal name (e.g. a
-    // middle name and a second surname: "Rivas Fernandez Gerson Mar") while the
-    // stored client name is abbreviated ("Gerson Rivas"). Requiring *every*
-    // statement token to appear in the stored name breaks those. Instead we
-    // pre-filter on any shared token in SQL, then keep only candidates whose
-    // name tokens are a subset of the statement's (or vice-versa).
+    // middle name and a second surname) while the stored client name is
+    // abbreviated (first name + one surname). Requiring *every* statement token
+    // to appear in the stored name breaks those. Instead we pre-filter on any
+    // shared token in SQL, then keep only candidates whose name tokens are a
+    // subset of the statement's (or vice-versa).
     const nameTokens = (line.clientNameRaw || '').toLowerCase().match(/[a-z]{2,}/g) || [];
     const hasName = nameTokens.length > 0;
     if (hasName) {

@@ -433,6 +433,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
   const { statement, lines } = data;
   const isDraft = statement.status === "draft";
   const isPosted = statement.status === "posted";
+  const isVoided = statement.status === "voided";
 
   const confirmedCount = lines.filter((l) => l.matchStatus === "confirmed").length;
   const postedTotal = lines
@@ -459,7 +460,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isDraft && (
+          {!isVoided && (
             <Button
               variant="outline"
               onClick={() => rematchMutation.mutate()}
@@ -474,7 +475,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
               Re-run matching
             </Button>
           )}
-          {isDraft && (
+          {!isVoided && (
             <Button
               onClick={() => postMutation.mutate()}
               disabled={postMutation.isPending || confirmedCount === 0}
@@ -485,7 +486,9 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
               ) : (
                 <CheckCircle2 className="h-4 w-4 mr-2" />
               )}
-              Post {confirmedCount > 0 ? `${confirmedCount} ` : ""}payment(s)
+              {isPosted
+                ? `Post ${confirmedCount > 0 ? `${confirmedCount} ` : ""}more payment(s)`
+                : `Post ${confirmedCount > 0 ? `${confirmedCount} ` : ""}payment(s)`}
             </Button>
           )}
           {isPosted && (
@@ -545,7 +548,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
             </TableHeader>
             <TableBody>
               {lines.map((line) => {
-                const canEdit = line.matchStatus !== "posted" && statement.status === "draft";
+                const canEdit = line.matchStatus !== "posted" && statement.status !== "voided";
                 return (
                   <TableRow key={line.id} data-testid={`row-line-${line.id}`}>
                     <TableCell>{fmtDate(line.serviceDate)}</TableCell>
