@@ -13,6 +13,7 @@ import {
   clientPortalSessions,
   userActivityLog,
   sessions, 
+  sessions as sessionsTable,
   tasks, 
   taskComments,
   notes, 
@@ -347,11 +348,13 @@ export interface TherapistStatement {
 
 export interface TherapistMonthlySessionRow {
   sessionId: number;
-  sessionBillingId: number;
+  sessionBillingId: number | null; // null when the session has no billing record yet
   sessionDate: Date | null;
   clientName: string;
   serviceCode: string | null;
   serviceName: string | null;
+  status: string | null; // session status (scheduled / completed / cancelled / no_show ...)
+  billed: boolean;       // true if a billing record exists; false = not billed yet
   expected: number;    // full fee after discount (what should be collected)
   collected: number;   // client + insurance paid
   uncollected: number; // expected - collected (clamped at >= 0)
@@ -371,6 +374,8 @@ export interface TherapistMonthlyStatement {
   totalExpected: number;
   totalCollected: number;
   totalUncollected: number;
+  unbilledCount: number;          // sessions in the month with NO billing record
+  unbilledCompletedCount: number; // of those, ones already marked completed (the real gap)
 }
 
 // Row shape for the insurance statements list (counts rolled up per statement).
@@ -4441,6 +4446,36 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Pull EVERY session for this therapist in the month (regardless of whether
+    // it was billed) so the audit can flag sessions that fell through the cracks
+    // and were never billed. This is what closes the "scheduled vs billed" gap:
+    // billing rows are only created when a session is marked completed, so a
+    // completed-but-unbilled session would otherwise silently never appear.
+    const monthSessionRows = await db
+      .select({
+        sessionId: sessionsTable.id,
+        status: sessionsTable.status,
+        sessionDate: sessionsTable.sessionDate,
+        clientName: clients.fullName,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+      })
+      .from(sessionsTable)
+      .innerJoin(clients, eq(sessionsTable.clientId, clients.id))
+      .leftJoin(services, eq(sessionsTable.serviceId, services.id))
+      .where(
+        and(
+          eq(sessionsTable.therapistId, therapistId),
+          gte(sessionsTable.sessionDate, monthStart),
+          lt(sessionsTable.sessionDate, monthEnd),
+        ),
+      );
+    // status lookup so billed rows can also show the session's status, and the
+    // set of all sessions that DO have a billing record (across all time).
+    const statusBySession = new Map<number, string | null>();
+    for (const r of monthSessionRows) statusBySession.set(Number(r.sessionId), r.status ?? null);
+    const billedSessionIds = new Set(earnings.map((e) => Number(e.sessionId)));
+
     const sessions: TherapistMonthlySessionRow[] = [];
     let totalExpected = 0;
     let totalCollected = 0;
@@ -4458,6 +4493,8 @@ export class DatabaseStorage implements IStorage {
           clientName: e.clientName,
           serviceCode: e.serviceCode,
           serviceName: e.serviceName,
+          status: statusBySession.get(e.sessionId) ?? 'completed',
+          billed: true,
           expected: e.expected,
           collected: e.collectedAmount,
           uncollected,
@@ -4471,6 +4508,34 @@ export class DatabaseStorage implements IStorage {
         totalCollected = Math.round((totalCollected + e.collectedAmount) * 100) / 100;
         totalUncollected = Math.round((totalUncollected + uncollected) * 100) / 100;
       }
+    }
+
+    // Append the NOT-billed sessions for the month. Money columns are 0 (no fee
+    // is established until a session is billed) and they're excluded from the
+    // collected/expected totals above, which represent billed money only.
+    let unbilledCount = 0;
+    let unbilledCompletedCount = 0;
+    for (const r of monthSessionRows) {
+      const sid = Number(r.sessionId);
+      if (billedSessionIds.has(sid)) continue; // already shown as a billed row
+      const status = r.status ?? null;
+      unbilledCount++;
+      if (status === 'completed') unbilledCompletedCount++;
+      sessions.push({
+        sessionId: sid,
+        sessionBillingId: null,
+        sessionDate: r.sessionDate ? new Date(r.sessionDate) : null,
+        clientName: r.clientName ?? '',
+        serviceCode: r.serviceCode ?? null,
+        serviceName: r.serviceName ?? null,
+        status,
+        billed: false,
+        expected: 0,
+        collected: 0,
+        uncollected: 0,
+        earned: 0,
+        hasRule: false,
+      });
     }
 
     // Payment math uses ledger semantics (mirrors getTherapistStatement) so the
@@ -4515,7 +4580,7 @@ export class DatabaseStorage implements IStorage {
       const ta = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
       const tb = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
       if (ta !== tb) return ta - tb;
-      return a.sessionBillingId - b.sessionBillingId;
+      return a.sessionId - b.sessionId;
     });
 
     return {
@@ -4530,6 +4595,8 @@ export class DatabaseStorage implements IStorage {
       totalExpected,
       totalCollected,
       totalUncollected,
+      unbilledCount,
+      unbilledCompletedCount,
     };
   }
 

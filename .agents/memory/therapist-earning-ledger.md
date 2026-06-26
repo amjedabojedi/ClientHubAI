@@ -14,8 +14,8 @@ payment-collection / recordPayment path.
 **Why:** keeps the money-collection hot path untouched (lowest risk for a
 risk-averse user) while still guaranteeing earnings are persisted and
 audit-logged (action `therapist_earning_recorded`) before any payout allocates
-against them. Reviewer required Step 1 "stored, not only computed" + Step 5
-"audit-log entries for earning creation".
+against them — the audit requires earnings be stored (not only computed live)
+and that earning creation itself produce an audit-log entry.
 
 **How it stays correct (append-only, no drift):**
 - Table `therapist_earnings` is append-only. Per billing, summed `amountEarned`
@@ -33,3 +33,13 @@ own transaction/lock → distinct keys, no lock-order inversion / deadlock.
 **Reconciliation:** statement earning lines come from persisted rows; monthly
 opening/earnedInMonth bucket persisted rows by `earnedDate` (= session date), so
 monthly and running statement agree and don't shift if billing later changes.
+
+**Billed vs not-billed gap:** session_billing rows are created ONLY when a
+session is marked completed (`createBillingRecord`, which also swallows errors
+silently), so earnings/statement/monthly-audit — all sourced from session_billing
+— never show scheduled or completed-but-unbilled sessions. The monthly report
+therefore also queries ALL sessions in the month and appends not-billed ones
+(billed=false, status, zeroed money, excluded from billed-money totals) plus
+`unbilledCount`/`unbilledCompletedCount`. NOTE the function has a local `sessions`
+array that shadows the `sessions` table import — use the `sessionsTable` alias to
+query the table inside it.

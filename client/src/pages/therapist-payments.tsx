@@ -88,11 +88,13 @@ interface StatementResponse {
 }
 interface MonthlySessionRow {
   sessionId: number;
-  sessionBillingId: number;
+  sessionBillingId: number | null;
   sessionDate: string | null;
   clientName: string;
   serviceCode: string | null;
   serviceName: string | null;
+  status: string | null;
+  billed: boolean;
   expected: number;
   collected: number;
   uncollected: number;
@@ -111,6 +113,8 @@ interface MonthlyStatementResponse {
   totalExpected: number;
   totalCollected: number;
   totalUncollected: number;
+  unbilledCount: number;
+  unbilledCompletedCount: number;
 }
 interface PayoutSummary {
   id: number;
@@ -1338,13 +1342,15 @@ function MonthlyReportTab({
       ymd(s.sessionDate),
       s.clientName,
       s.serviceName || s.serviceCode || "",
-      s.expected.toFixed(2),
-      s.collected.toFixed(2),
-      s.uncollected.toFixed(2),
-      s.hasRule ? s.earned.toFixed(2) : "no rule",
+      s.billed ? "Billed" : "Not billed",
+      s.status || "",
+      s.billed ? s.expected.toFixed(2) : "",
+      s.billed ? s.collected.toFixed(2) : "",
+      s.billed ? s.uncollected.toFixed(2) : "",
+      !s.billed ? "" : s.hasRule ? s.earned.toFixed(2) : "no rule",
     ]);
     const csv = toCsv(
-      ["Date", "Client", "Service", "Expected", "Collected", "Uncollected", "Earned"],
+      ["Date", "Client", "Service", "Billing", "Status", "Expected", "Collected", "Uncollected", "Earned"],
       rows,
     );
     const header =
@@ -1355,7 +1361,9 @@ function MonthlyReportTab({
       `Closing balance,${data.closingBalance.toFixed(2)}\r\n` +
       `Total expected,${data.totalExpected.toFixed(2)}\r\n` +
       `Total collected,${data.totalCollected.toFixed(2)}\r\n` +
-      `Total uncollected,${data.totalUncollected.toFixed(2)}\r\n\r\n`;
+      `Total uncollected,${data.totalUncollected.toFixed(2)}\r\n` +
+      `Not billed (sessions),${data.unbilledCount}\r\n` +
+      `Not billed but completed,${data.unbilledCompletedCount}\r\n\r\n`;
     try {
       await auditExport({ therapistId, reportType: "monthly", format: "csv", month });
     } catch {
@@ -1373,10 +1381,11 @@ function MonthlyReportTab({
         <td>${fmtDate(s.sessionDate)}</td>
         <td>${escapeHtml(s.clientName)}</td>
         <td>${escapeHtml(s.serviceName || s.serviceCode || "—")}</td>
-        <td class="num">${money(s.expected)}</td>
-        <td class="num">${money(s.collected)}</td>
-        <td class="num ${s.uncollected > 0 ? "flag" : ""}">${money(s.uncollected)}</td>
-        <td class="num">${s.hasRule ? money(s.earned) : "no rule"}</td>
+        <td class="${s.billed ? "" : "flag"}">${s.billed ? "Billed" : "Not billed"}${s.status ? ` (${escapeHtml(s.status)})` : ""}</td>
+        <td class="num">${s.billed ? money(s.expected) : "—"}</td>
+        <td class="num">${s.billed ? money(s.collected) : "—"}</td>
+        <td class="num ${s.billed && s.uncollected > 0 ? "flag" : ""}">${s.billed ? money(s.uncollected) : "—"}</td>
+        <td class="num">${!s.billed ? "—" : s.hasRule ? money(s.earned) : "no rule"}</td>
       </tr>`).join("");
     const body = `
       <h1>Monthly Report — ${escapeHtml(name)}</h1>
@@ -1392,9 +1401,13 @@ function MonthlyReportTab({
         <div class="card"><div class="label">Total collected</div><div class="value">${money(data.totalCollected)}</div></div>
         <div class="card"><div class="label">Total uncollected</div><div class="value">${money(data.totalUncollected)}</div></div>
       </div>
+      <div class="cards">
+        <div class="card"><div class="label">Not billed (sessions)</div><div class="value">${data.unbilledCount}</div></div>
+        <div class="card"><div class="label">Not billed but completed</div><div class="value">${data.unbilledCompletedCount}</div></div>
+      </div>
       <h2>Sessions</h2>
       <table>
-        <thead><tr><th>Date</th><th>Client</th><th>Service</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
+        <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Billing</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
     try {
@@ -1443,6 +1456,10 @@ function MonthlyReportTab({
             <SummaryCard label="Total collected" value={money(data.totalCollected)} testId="text-total-collected" />
             <SummaryCard label="Total uncollected" value={money(data.totalUncollected)} testId="text-total-uncollected" highlight={data.totalUncollected > 0} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SummaryCard label="Not billed (sessions)" value={String(data.unbilledCount)} testId="text-unbilled-count" highlight={data.unbilledCount > 0} />
+            <SummaryCard label="Not billed but completed" value={String(data.unbilledCompletedCount)} testId="text-unbilled-completed" highlight={data.unbilledCompletedCount > 0} />
+          </div>
 
           {data.sessions.length === 0 ? (
             <Card>
@@ -1460,6 +1477,7 @@ function MonthlyReportTab({
                       <TableHead>Date</TableHead>
                       <TableHead>Client</TableHead>
                       <TableHead>Service</TableHead>
+                      <TableHead>Billing</TableHead>
                       <TableHead className="text-right">Expected</TableHead>
                       <TableHead className="text-right">Collected</TableHead>
                       <TableHead className="text-right">Uncollected</TableHead>
@@ -1468,20 +1486,33 @@ function MonthlyReportTab({
                   </TableHeader>
                   <TableBody>
                     {data.sessions.map((s) => (
-                      <TableRow key={s.sessionBillingId} data-testid={`monthly-row-${s.sessionBillingId}`}>
+                      <TableRow
+                        key={`${s.billed ? "b" : "u"}-${s.sessionId}`}
+                        data-testid={`monthly-row-${s.sessionId}`}
+                        className={cn(!s.billed && s.status === "completed" && "bg-amber-50")}
+                      >
                         <TableCell>{fmtDate(s.sessionDate)}</TableCell>
                         <TableCell>{s.clientName}</TableCell>
                         <TableCell>
                           {s.serviceName || "—"}
                           {s.serviceCode ? <span className="ml-1 text-xs text-gray-500">{s.serviceCode}</span> : null}
                         </TableCell>
-                        <TableCell className="text-right">{money(s.expected)}</TableCell>
-                        <TableCell className="text-right">{money(s.collected)}</TableCell>
-                        <TableCell className={cn("text-right", s.uncollected > 0 && "font-medium text-amber-600")}>
-                          {money(s.uncollected)}
+                        <TableCell>
+                          {s.billed ? (
+                            <Badge variant="outline">Billed</Badge>
+                          ) : (
+                            <Badge variant={s.status === "completed" ? "destructive" : "secondary"}>
+                              Not billed{s.status ? ` · ${s.status}` : ""}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">{s.billed ? money(s.expected) : "—"}</TableCell>
+                        <TableCell className="text-right">{s.billed ? money(s.collected) : "—"}</TableCell>
+                        <TableCell className={cn("text-right", s.billed && s.uncollected > 0 && "font-medium text-amber-600")}>
+                          {s.billed ? money(s.uncollected) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {s.hasRule ? money(s.earned) : <Badge variant="destructive">No rule</Badge>}
+                          {!s.billed ? "—" : s.hasRule ? money(s.earned) : <Badge variant="destructive">No rule</Badge>}
                         </TableCell>
                       </TableRow>
                     ))}
