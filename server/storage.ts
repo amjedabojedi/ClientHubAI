@@ -3800,10 +3800,23 @@ export class DatabaseStorage implements IStorage {
 
     const items: TherapistOwedItem[] = [];
     let unresolvedCount = 0;
+    // Money already paid to a session BEYOND its (possibly later-corrected) earned
+    // amount is an overpayment. This happens when a session was paid in full and
+    // its collected amount was reduced afterwards (e.g. fixing a double-counted
+    // insurance payment), which lowers the earned amount on a session that was
+    // already settled. We pool that excess and apply it as credit against other
+    // outstanding sessions below — exactly like unapplied lump credit — so the
+    // owed list reconciles with the statement's net balance instead of clamping
+    // each overpaid session to zero and silently dropping the excess.
+    let retroOverpayCredit = 0;
     for (const e of earnings) {
       if (e.collectedAmount <= 0) continue;
       const paid = paidByBilling.get(e.billingId) || 0;
       const remaining = Math.round((e.amountEarned - paid) * 100) / 100;
+
+      if (remaining < 0) {
+        retroOverpayCredit = Math.round((retroOverpayCredit + -remaining) * 100) / 100;
+      }
 
       // Fully-settled (via allocations/items), rule-resolved sessions drop off.
       if (e.hasRule && remaining <= 0) continue;
@@ -3830,11 +3843,16 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Apply any over-payment credit (unapplied lump money) to outstanding
-    // rule-resolved earnings, oldest first, so the owed list reconciles with the
-    // statement's net balance. Without this, an over-payment credit would never
-    // offset new earnings and those sessions could be paid a second time.
-    const creditPool = await this.getTherapistUnappliedCredit(therapistId);
+    // Apply any over-payment credit to outstanding rule-resolved earnings, oldest
+    // first, so the owed list reconciles with the statement's net balance. The
+    // credit comes from two sources: (1) unapplied lump money (paid but not yet
+    // allocated to any session) and (2) retroactive overpayments on sessions whose
+    // earned amount was reduced after they were already paid in full. Without this,
+    // those credits would never offset new earnings and the sessions could be paid
+    // a second time.
+    const creditPool = Math.round(
+      ((await this.getTherapistUnappliedCredit(therapistId)) + retroOverpayCredit) * 100,
+    ) / 100;
     if (creditPool > 0) {
       const payableOldestFirst = items
         .filter((i) => i.payType != null && i.amountRemaining > 0)

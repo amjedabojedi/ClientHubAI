@@ -22,6 +22,26 @@ amount, never raw earned. Both payout paths recompute owed inside one transactio
 behind a per-therapist advisory lock so concurrent payouts can't allocate against
 a stale snapshot.
 
+## Credit has TWO sources, not just unapplied lump money
+The owed credit pool must include BOTH (1) unapplied lump money (paid but never
+allocated to a session) AND (2) retroactive per-session overpayments — a session
+whose paid amount now exceeds its earned amount because its collected amount was
+reduced *after* it was already paid in full (e.g. fixing a double-counted insurance
+payment lowers earned on an already-settled session).
+
+**Why:** the owed list clamps each session's remaining at `max(0, earned − paid)`,
+which silently discards the excess on an over-paid session. The running statement
+nets it (currentOwed = max(0, totalEarned − totalPaid)), so the two views diverge
+— owed shows money still owed while the statement shows the therapist fully paid
+(with a credit). Symptom seen in the wild: owed screen says $1,692 owed but the
+statement says $0 owed / $80.50 credit for the same therapist.
+
+**How to apply:** in getTherapistOwed, accumulate `−remaining` for every billing
+where paid > earned into a retro-overpay credit, add it to the unapplied-lump
+credit, and apply the combined pool oldest-first. The two sources are disjoint
+buckets (unallocated excess vs allocated-over-earning excess), so summing them is
+correct and never double-counts.
+
 ## Voids are reversals, never deletions
 A voided payout must stay visible everywhere as the original payment plus an equal
 and opposite reversal dated at the void time — the two net to zero. The running
