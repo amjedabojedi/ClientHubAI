@@ -446,7 +446,21 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
       });
     },
     onError: (err: Error) => {
-      toast({ title: "Could not re-open", description: err.message, variant: "destructive" });
+      // A 400 "Only a voided statement can be re-opened" means the statement is
+      // no longer voided server-side — almost always because someone else
+      // already re-opened (or otherwise advanced) it while this page still shows
+      // the stale voided view. Tell the user that specifically and how to
+      // recover, instead of a generic "server error" that hides the real cause.
+      const alreadyReopened = /only a voided/i.test(err.message);
+      toast({
+        title: alreadyReopened
+          ? "Already re-opened"
+          : "Could not re-open",
+        description: alreadyReopened
+          ? "This statement is no longer voided — someone else may have re-opened it. Refresh to see its current state."
+          : err.message,
+        variant: "destructive",
+      });
     },
   });
 
