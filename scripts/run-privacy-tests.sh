@@ -63,6 +63,7 @@ SUITES=(
   "test/record-drawer-back-button-ui.test.ts"
   "test/record-drawer-real-ui.test.ts"
   "test/session-edit-drawers-ui.test.ts"
+  "test/insurance-statement-double-payment.test.ts"
 )
 
 PASSED=()

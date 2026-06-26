@@ -1,0 +1,477 @@
+/**
+ * Automated Tests for the Insurance Double-Payment Guard (adoption + void→repost)
+ *
+ * Background
+ * ----------
+ * Staff can record an insurance payment two ways for the SAME real-world money:
+ *   1. Manually keying a payment_transactions row (source='insurance').
+ *   2. Posting a line from an uploaded insurance statement (EOB/ERA).
+ * Without protection, doing both would count the insurer's payment TWICE,
+ * inflating "collected" — and therefore therapist pay, which is computed from
+ * collections.
+ *
+ * The guard in storage.postInsuranceStatement "adopts" any matching manual
+ * insurance payment (stamping it with the posting line's id so no later
+ * statement can re-claim it) and posts only the SHORTFALL (line amount minus
+ * what the adopted manual rows already cover). storage.voidInsuranceStatement
+ * reverses exactly the posted shortfall and releases the adoption so a re-post
+ * re-adopts instead of stacking a duplicate.
+ *
+ * This suite proves that invariant end-to-end through a full void→repost cycle,
+ * for two scenarios:
+ *   A. Manual payment FULLY covers the statement line (shortfall = 0).
+ *   B. Manual payment PARTIALLY covers the line (a real shortfall is posted).
+ *
+ * In both, the test asserts that after post, void, and re-post the billing's
+ * collected insurance never doubles or re-stacks, the manual row is adopted
+ * (and released on void), and only the shortfall is ever posted.
+ *
+ * Run with: npx tsx test/insurance-statement-double-payment.test.ts
+ *
+ * NOTES:
+ * - Exercises the real storage layer against the live database (no mocks).
+ * - Seeds dedicated, uniquely-named test user/client/service/session/billing
+ *   and removes them (and every row they generate) at the end.
+ */
+
+import { db } from "../server/db";
+import { storage } from "../server/storage";
+import {
+  users,
+  clients,
+  services,
+  sessions,
+  sessionBilling,
+  paymentTransactions,
+  insuranceStatements,
+  insuranceStatementLines,
+} from "../shared/schema";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+
+// ---------------------------------------------------------------------------
+// Test utilities
+// ---------------------------------------------------------------------------
+let testsPassed = 0;
+let testsFailed = 0;
+
+function assert(condition: boolean, message: string) {
+  if (condition) {
+    console.log(`✅ PASS: ${message}`);
+    testsPassed++;
+  } else {
+    console.error(`❌ FAIL: ${message}`);
+    testsFailed++;
+  }
+}
+
+function assertEqual(actual: any, expected: any, message: string) {
+  if (actual === expected) {
+    console.log(`✅ PASS: ${message}`);
+    testsPassed++;
+  } else {
+    console.error(`❌ FAIL: ${message}`);
+    console.error(`   Expected: ${JSON.stringify(expected)}`);
+    console.error(`   Actual:   ${JSON.stringify(actual)}`);
+    testsFailed++;
+  }
+}
+
+const SUFFIX = `ins-dbl-${Date.now()}`;
+
+// Tracking for cleanup
+const createdUserIds: number[] = [];
+const createdClientIds: number[] = [];
+const createdServiceIds: number[] = [];
+const createdBillingIds: number[] = [];
+const createdStatementIds: number[] = [];
+
+// ---------------------------------------------------------------------------
+// Helpers — read the authoritative "collected" numbers off the billing row,
+// and cross-check against the live (non-voided) payment_transactions ledger.
+// Therapist pay reads sessionBilling.{client,insurance}PaidAmount, so that is
+// the number that must never double.
+// ---------------------------------------------------------------------------
+async function getBilling(billingId: number) {
+  const [b] = await db
+    .select()
+    .from(sessionBilling)
+    .where(eq(sessionBilling.id, billingId))
+    .limit(1);
+  return b;
+}
+
+// Sum of NON-voided insurance payment_transactions amounts for a billing — the
+// ledger view of collected insurance. Must always agree with the column above.
+async function ledgerInsurance(billingId: number): Promise<number> {
+  const rows = await db
+    .select({ amt: paymentTransactions.amount })
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billingId),
+        eq(paymentTransactions.source, "insurance"),
+        isNull(paymentTransactions.voidedAt),
+      ),
+    );
+  return +rows.reduce((sum, r) => sum + (Number(r.amt) || 0), 0).toFixed(2);
+}
+
+// The manual insurance rows (keyed by staff, not created by posting a line):
+// source='insurance' AND sourceStatementLineId IS NULL.
+async function manualInsuranceRows(billingId: number) {
+  return db
+    .select()
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billingId),
+        eq(paymentTransactions.source, "insurance"),
+        isNull(paymentTransactions.sourceStatementLineId),
+      ),
+    );
+}
+
+async function getLine(statementId: number) {
+  const [line] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.statementId, statementId))
+    .limit(1);
+  return line;
+}
+
+// Seed a billing record (user → client → service → session → billing) and
+// return the ids needed to drive the scenario.
+async function seedBilling(label: string) {
+  const therapist = await storage.createUser({
+    username: `${label}-${SUFFIX}`,
+    password: "x",
+    fullName: `${label} ${SUFFIX}`,
+    email: `${label}-${SUFFIX}@example.test`,
+    role: "therapist",
+  } as any);
+  createdUserIds.push(therapist.id);
+
+  const client = await storage.createClient({
+    fullName: `Patient ${label} ${SUFFIX}`,
+    assignedTherapistId: therapist.id,
+  } as any);
+  createdClientIds.push(client.id);
+
+  const service = await storage.createService({
+    serviceCode: `SVC-${label}-${SUFFIX}`,
+    serviceName: `Test Service ${label} ${SUFFIX}`,
+    duration: 60,
+    baseRate: "200.00",
+  } as any);
+  createdServiceIds.push(service.id);
+
+  const session = await storage.createSession({
+    clientId: client.id,
+    therapistId: therapist.id,
+    serviceId: service.id,
+    sessionDate: new Date(),
+    sessionType: "individual",
+    status: "completed",
+  } as any);
+
+  const billing = await storage.createSessionBilling(session.id);
+  if (!billing) throw new Error("Failed to create billing for test session");
+  createdBillingIds.push(billing.id);
+
+  return { therapist, client, service, session, billing };
+}
+
+// Create a draft statement with a single line and confirm it against `billingId`
+// so it is ready to post.
+async function createConfirmedStatement(
+  billingId: number,
+  insurancePaidAmount: string,
+  label: string,
+): Promise<{ statementId: number; lineId: number }> {
+  const stmt = await storage.createInsuranceStatement(
+    {
+      fileName: `stmt-${label}-${SUFFIX}.pdf`,
+      sourceType: "pdf",
+      payerName: `Test Payer ${SUFFIX}`,
+      statementDate: new Date().toISOString().slice(0, 10),
+      status: "draft",
+    } as any,
+    [
+      {
+        clientNameRaw: `Patient ${label} ${SUFFIX}`,
+        serviceCode: `SVC-${label}-${SUFFIX}`,
+        insurancePaidAmount,
+      } as any,
+    ],
+  );
+  createdStatementIds.push(stmt.id);
+
+  const line = await getLine(stmt.id);
+  // Explicitly bind + confirm against our billing (overriding whatever
+  // auto-match decided), so the post path is deterministic.
+  await storage.updateStatementLineMatch(line.id, {
+    matchStatus: "confirmed",
+    matchedSessionBillingId: billingId,
+  });
+
+  return { statementId: stmt.id, lineId: line.id };
+}
+
+// ---------------------------------------------------------------------------
+// Scenario A: manual payment FULLY covers the statement line (shortfall = 0)
+// ---------------------------------------------------------------------------
+async function scenarioFullCover(userId: number) {
+  console.log("\n🧪 Scenario A: manual payment fully covers the line (shortfall = 0)\n");
+
+  const { billing } = await seedBilling("A");
+
+  // 1. Staff manually records the $100 insurance payment.
+  await storage.recordPayment(billing.id, {
+    status: "billed",
+    amount: 100,
+    date: new Date().toISOString().slice(0, 10),
+    method: "insurance",
+    source: "insurance",
+    recordedBy: userId,
+    notes: "Manual insurance entry",
+  });
+
+  let b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "A: manual entry sets collected insurance to 100");
+
+  // 2. Post a matching $100 statement line.
+  const { statementId, lineId } = await createConfirmedStatement(billing.id, "100.00", "A");
+  const postRes = await storage.postInsuranceStatement(statementId, userId);
+
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "A: collected is NOT doubled after posting (stays 100)");
+  assertEqual(await ledgerInsurance(billing.id), 100, "A: live ledger insurance also stays 100");
+
+  const [postedLine] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, lineId))
+    .limit(1);
+  assertEqual(postedLine.matchStatus, "posted", "A: line is marked posted");
+  assertEqual(Number(postedLine.postedAmount), 0, "A: only the shortfall (0) is posted");
+
+  let manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual.length, 1, "A: exactly one manual insurance row exists (not duplicated)");
+  assertEqual(Number(manual[0].amount), 100, "A: manual row amount unchanged at 100");
+  assertEqual(manual[0].adoptedByLineId, lineId, "A: manual row is adopted by the posting line");
+
+  // No statement-sourced payment row should have been created (shortfall was 0).
+  const sourced = await db
+    .select()
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billing.id),
+        eq(paymentTransactions.sourceStatementLineId, lineId),
+      ),
+    );
+  assertEqual(sourced.length, 0, "A: no statement-sourced payment row created for a zero shortfall");
+  assertEqual(postRes.postedCount, 1, "A: postedCount reflects the one handled line");
+
+  // 3. Void, then re-post — must not re-stack.
+  await storage.voidInsuranceStatement(statementId, userId, "test void cycle");
+
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "A: collected stays 100 after void (manual untouched)");
+  manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual[0].adoptedByLineId, null, "A: void releases the manual row's adoption");
+  const [voidedLine] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, lineId))
+    .limit(1);
+  assertEqual(voidedLine.matchStatus, "confirmed", "A: void returns the line to confirmed");
+
+  // Re-post is a FRESH statement against the same billing (a voided statement
+  // can never be posted again). The released manual row must be re-adopted by
+  // the new line without re-stacking collections.
+  const second = await createConfirmedStatement(billing.id, "100.00", "A2");
+  await storage.postInsuranceStatement(second.statementId, userId);
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "A: collected stays 100 after re-post (no re-stacking)");
+  assertEqual(await ledgerInsurance(billing.id), 100, "A: live ledger insurance stays 100 after re-post");
+  manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual.length, 1, "A: still exactly one manual insurance row after re-post");
+  assertEqual(
+    manual[0].adoptedByLineId,
+    second.lineId,
+    "A: manual row is re-adopted by the new line (not duplicated) on re-post",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Scenario B: manual payment PARTIALLY covers the line (a real shortfall posts)
+// ---------------------------------------------------------------------------
+async function scenarioShortfall(userId: number) {
+  console.log("\n🧪 Scenario B: manual payment partially covers the line (real shortfall)\n");
+
+  const { billing } = await seedBilling("B");
+
+  // 1. Staff manually records only $60 of the eventual $100 insurer payment.
+  await storage.recordPayment(billing.id, {
+    status: "billed",
+    amount: 60,
+    date: new Date().toISOString().slice(0, 10),
+    method: "insurance",
+    source: "insurance",
+    recordedBy: userId,
+    notes: "Manual insurance entry (partial)",
+  });
+
+  let b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 60, "B: manual entry sets collected insurance to 60");
+
+  // 2. Post a $100 statement line — only the $40 shortfall should be added.
+  const { statementId, lineId } = await createConfirmedStatement(billing.id, "100.00", "B");
+  await storage.postInsuranceStatement(statementId, userId);
+
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "B: collected is the line total 100, NOT 160 (no double count)");
+  assertEqual(await ledgerInsurance(billing.id), 100, "B: live ledger insurance equals 100");
+
+  const [postedLine] = await db
+    .select()
+    .from(insuranceStatementLines)
+    .where(eq(insuranceStatementLines.id, lineId))
+    .limit(1);
+  assertEqual(Number(postedLine.postedAmount), 40, "B: only the 40 shortfall is posted");
+
+  let manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual.length, 1, "B: exactly one manual insurance row exists");
+  assertEqual(Number(manual[0].amount), 60, "B: manual row amount unchanged at 60 (never inflated)");
+  assertEqual(manual[0].adoptedByLineId, lineId, "B: manual row is adopted by the posting line");
+
+  // Exactly one live statement-sourced shortfall row of 40.
+  const liveSourced = await db
+    .select()
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billing.id),
+        eq(paymentTransactions.sourceStatementLineId, lineId),
+        isNull(paymentTransactions.voidedAt),
+      ),
+    );
+  assertEqual(liveSourced.length, 1, "B: exactly one live statement-sourced shortfall row");
+  assertEqual(Number(liveSourced[0].amount), 40, "B: the shortfall row is 40");
+
+  // 3. Void — reverses the 40 shortfall and releases the manual adoption.
+  await storage.voidInsuranceStatement(statementId, userId, "test void cycle");
+
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 60, "B: void drops collected back to the manual 60");
+  assertEqual(await ledgerInsurance(billing.id), 60, "B: live ledger insurance back to 60 after void");
+  manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual[0].adoptedByLineId, null, "B: void releases the manual row's adoption");
+
+  // 4. Re-post a FRESH statement against the same billing — must re-adopt the
+  //    60 and post the 40 shortfall again, never stacking collections.
+  const second = await createConfirmedStatement(billing.id, "100.00", "B2");
+  await storage.postInsuranceStatement(second.statementId, userId);
+
+  b = await getBilling(billing.id);
+  assertEqual(Number(b.insurancePaidAmount), 100, "B: re-post returns collected to 100 (not 140/stacked)");
+  assertEqual(await ledgerInsurance(billing.id), 100, "B: live ledger insurance is 100 after re-post");
+  manual = await manualInsuranceRows(billing.id);
+  assertEqual(manual.length, 1, "B: still exactly one manual insurance row after re-post");
+  assertEqual(Number(manual[0].amount), 60, "B: manual row still 60 after re-post (never inflated)");
+  assertEqual(manual[0].adoptedByLineId, second.lineId, "B: manual row is re-adopted by the new line on re-post");
+
+  const liveSourcedAfter = await db
+    .select()
+    .from(paymentTransactions)
+    .where(
+      and(
+        eq(paymentTransactions.sessionBillingId, billing.id),
+        eq(paymentTransactions.sourceStatementLineId, second.lineId),
+        isNull(paymentTransactions.voidedAt),
+      ),
+    );
+  const liveShortfallSum = +liveSourcedAfter
+    .reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    .toFixed(2);
+  assertEqual(liveShortfallSum, 40, "B: net live statement-sourced amount is exactly the 40 shortfall");
+}
+
+// ---------------------------------------------------------------------------
+// Runner
+// ---------------------------------------------------------------------------
+async function run() {
+  console.log("\n🧪 Insurance double-payment guard: adoption + void→repost\n");
+
+  // A system user to attribute the test payments to.
+  const sysUser = await storage.createUser({
+    username: `sys-${SUFFIX}`,
+    password: "x",
+    fullName: `Sys ${SUFFIX}`,
+    email: `sys-${SUFFIX}@example.test`,
+    role: "admin",
+  } as any);
+  createdUserIds.push(sysUser.id);
+
+  try {
+    await scenarioFullCover(sysUser.id);
+    await scenarioShortfall(sysUser.id);
+  } catch (error) {
+    console.error("\n❌ Test suite error:", error);
+    testsFailed++;
+  } finally {
+    // --- Cleanup -----------------------------------------------------------
+    try {
+      if (createdBillingIds.length > 0) {
+        await db
+          .delete(paymentTransactions)
+          .where(inArray(paymentTransactions.sessionBillingId, createdBillingIds));
+      }
+      if (createdStatementIds.length > 0) {
+        // Cascades insurance_statement_lines.
+        await db
+          .delete(insuranceStatements)
+          .where(inArray(insuranceStatements.id, createdStatementIds));
+      }
+      if (createdBillingIds.length > 0) {
+        await db.delete(sessionBilling).where(inArray(sessionBilling.id, createdBillingIds));
+      }
+      if (createdClientIds.length > 0) {
+        // Cascades sessions.
+        await db.delete(clients).where(inArray(clients.id, createdClientIds));
+      }
+      if (createdServiceIds.length > 0) {
+        await db.delete(services).where(inArray(services.id, createdServiceIds));
+      }
+      if (createdUserIds.length > 0) {
+        await db.delete(users).where(inArray(users.id, createdUserIds));
+      }
+      console.log("\n🧹 Cleanup complete.");
+    } catch (cleanupErr) {
+      console.error("⚠️  Cleanup error:", cleanupErr);
+    }
+  }
+
+  // --- Summary -------------------------------------------------------------
+  console.log("\n" + "=".repeat(50));
+  console.log("📊 TEST SUMMARY");
+  console.log("=".repeat(50));
+  console.log(`✅ Passed: ${testsPassed}`);
+  console.log(`❌ Failed: ${testsFailed}`);
+  console.log(`📈 Total:  ${testsPassed + testsFailed}`);
+
+  if (testsFailed === 0) {
+    console.log("\n🎉 All tests passed!");
+    process.exit(0);
+  } else {
+    console.log("\n⚠️  Some tests failed. Please review the output above.");
+    process.exit(1);
+  }
+}
+
+run().catch((error) => {
+  console.error("Fatal error running tests:", error);
+  process.exit(1);
+});
