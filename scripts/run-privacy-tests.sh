@@ -75,6 +75,7 @@ SUITES=(
   "test/insurance-repost-doublecount-ui.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
   "test/insurance-void-reject-ui.test.ts"
+  "test/insurance-post-reject-ui.test.ts"
 )
 
 PASSED=()

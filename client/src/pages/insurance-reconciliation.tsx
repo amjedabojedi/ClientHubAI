@@ -414,7 +414,22 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
       });
     },
     onError: (err: Error) => {
-      toast({ title: "Could not post", description: err.message, variant: "destructive" });
+      // A 400 "Cannot post a voided statement." means the statement is no longer
+      // in a postable state server-side — almost always because someone else
+      // voided (or otherwise advanced) it while this page still shows the stale
+      // postable view. Tell the user that specifically and how to recover,
+      // instead of a generic "server error" that hides the real cause. Mirrors
+      // the void/re-open treatment below.
+      const notPostable = /voided statement|already voided|no longer/i.test(
+        err.message,
+      );
+      toast({
+        title: notPostable ? "Can't post — statement changed" : "Could not post",
+        description: notPostable
+          ? "This statement is no longer in a postable state — someone else may have voided or changed it. Refresh to see its current state."
+          : err.message,
+        variant: "destructive",
+      });
     },
   });
 
