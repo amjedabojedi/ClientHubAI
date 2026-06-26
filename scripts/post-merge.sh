@@ -22,6 +22,10 @@ npx tsx scripts/ensure-therapist-ledger.ts
 # Ensure payment_transactions has the insurance-statement provenance columns
 # (source_statement_id / source_statement_line_id). Idempotent DDL.
 npx tsx scripts/ensure-statement-payment-link.ts
+# Backfill provenance for insurance payments posted before the columns existed,
+# recovered from the statement id the app wrote into each transaction's notes.
+# Idempotent (only fills NULLs); safe no-op once everything is linked.
+npx tsx scripts/backfill-statement-payment-link.ts
 # Finally reconcile the rest of the schema via Drizzle. Runs last so the additive
 # feature schema above is already in place if this aborts on known drift.
 npm run db:push
