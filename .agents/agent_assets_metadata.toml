@@ -30,3 +30,9 @@ id = "JQQi6bRoVysk8J2yvxgtM"
 uri = "file://docs/close-client-file-rebuild.md"
 type = "text"
 title = "Close File for Client — Technical Handoff / Rebuild"
+
+[[outputs]]
+id = "E9fQJay0fWDD8BDbRgbbV"
+uri = "file://exports/January_2026_insurance_reconciliation.csv"
+type = "table"
+title = "January 2026 — Ready-to-upload Reconciliation Spreadsheet"
