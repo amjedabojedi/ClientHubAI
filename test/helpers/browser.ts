@@ -256,6 +256,46 @@ export async function clickTab(page: Page, tabTextPattern: RegExp): Promise<void
 }
 
 // ---------------------------------------------------------------------------
+// Switch to a Radix tab BY its data-testid (when you know the tab's testid
+// rather than its visible text). A Radix `TabsTrigger` needs a TRUSTED click,
+// but a single one-shot click is flaky: a freshly mounted tab can be mid-remount
+// when the event lands, so the click "succeeds" (no throw) yet the tab never
+// switches and the inactive tab's content (and its queries) never mount. So we
+// poll: re-query a fresh handle, click it, and confirm it actually became the
+// active tab (data-state="active" / aria-selected="true") before returning.
+// See .agents/memory/radix-tab-click-must-verify-active.md.
+// ---------------------------------------------------------------------------
+export async function clickTabById(page: Page, testId: string): Promise<void> {
+  const selector = `[data-testid="${testId}"]`;
+  await page.waitForSelector(selector, { timeout: 30_000 });
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const handle = await page.$(selector);
+    if (handle) {
+      try {
+        await handle.evaluate((el: Element) =>
+          el.scrollIntoView({ block: "center", inline: "center" }),
+        );
+        await handle.click(); // trusted event — required for Radix to switch tab
+      } catch {
+        // node detached mid-click or momentarily not clickable — retry
+      }
+    }
+    const active = await page
+      .$eval(
+        selector,
+        (el: Element) =>
+          el.getAttribute("data-state") === "active" ||
+          el.getAttribute("aria-selected") === "true",
+      )
+      .catch(() => false);
+    if (active) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`tab ${testId} did not become active within 30s`);
+}
+
+// ---------------------------------------------------------------------------
 // Click the first <button> whose visible text matches `pattern`, optionally
 // scoped under `rootSelector` (defaults to "body").
 //

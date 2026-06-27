@@ -65,6 +65,7 @@ import {
   startDevServer,
   launchBrowser,
   loginAs,
+  clickTabById,
   type DevServer,
 } from "./helpers/browser";
 import { db } from "../server/db";
@@ -119,17 +120,6 @@ const SUFFIX = `thr-owed-record-payout-ui-${Date.now()}`;
 // Radix Tabs only mount the ACTIVE tab's content and require a TRUSTED event to
 // switch — a synthetic DOM .click() will not change the tab. Drive a real
 // ElementHandle click. See .agents/memory/browser-tests-puppeteer.md.
-async function clickTabById(page: Page, testId: string) {
-  const selector = `[data-testid="${testId}"]`;
-  await page.waitForSelector(selector, { timeout: 30_000 });
-  const handle = await page.$(selector);
-  if (!handle) throw new Error(`tab ${testId} not found`);
-  await handle.evaluate((el: Element) =>
-    el.scrollIntoView({ block: "center", inline: "center" }),
-  );
-  await handle.click();
-}
-
 // Click any element by testid with a TRUSTED ElementHandle click (Radix
 // checkboxes / portaled dialog buttons need a real click, not a synthetic one).
 async function clickById(page: Page, testId: string) {
