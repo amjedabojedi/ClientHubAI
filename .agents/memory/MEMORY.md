@@ -14,6 +14,7 @@
 - [jsdom React render tests](jsdom-react-render-tests.md) — rendering real client pages under tsx needs jsdom globals first, global.React (classic JSX), global.location (posthog), and tab-click to mount radix Tabs.
 - [Notification recipient rules](notification-recipient-rules.md) — calculateRecipients swallows errors → 0 recipients; specificUsers ANY() bind throws on Neon, use assignedTherapist/roles instead.
 - [Browser tests with puppeteer](browser-tests-puppeteer.md) — auth via in-page /api/auth/login fetch + localStorage.currentUser (NOT page.setCookie); Radix tabs need a trusted ElementHandle click, not synthetic .click().
+- [Radix tab click must verify active](radix-tab-click-must-verify-active.md) — one-shot tab click can succeed yet not switch (panel never mounts, its GET never fires); retry until data-state/aria-selected active.
 - [Session note content fields](session-note-content-fields.md) — session_notes has no single "content" column; read finalContent/draft/generated + structured fields, strip HTML before truthiness check.
 - [pdfjs-dist worker in Node](pdfjs-node-worker.md) — pdfjs v5 needs workerSrc set to a real worker file:// URL; empty string throws "fake worker failed" → 500 on PDF uploads.
 - [Supporting files blob exposure](supporting-files-blob-exposure.md) — Azure container is public at blob level; never return fileUrl/fileBlobName/extractedText in API responses for blob-backed rows.
