@@ -91,6 +91,7 @@ interface MonthlySessionRow {
   sessionBillingId: number | null;
   sessionDate: string | null;
   clientName: string;
+  clientType: string | null;
   serviceCode: string | null;
   serviceName: string | null;
   status: string | null;
@@ -1387,6 +1388,7 @@ function MonthlyReportTab({
     const rows = visibleSessions.map((s) => [
       ymd(s.sessionDate),
       s.clientName,
+      s.clientType || "",
       s.serviceName || s.serviceCode || "",
       s.billed ? "Billed" : "Not billed",
       s.status || "",
@@ -1396,7 +1398,7 @@ function MonthlyReportTab({
       !s.billed ? "" : s.hasRule ? s.earned.toFixed(2) : "no rule",
     ]);
     const csv = toCsv(
-      ["Date", "Client", "Service", "Billing", "Status", "Expected", "Collected", "Uncollected", "Earned"],
+      ["Date", "Client", "Type", "Service", "Billing", "Status", "Expected", "Collected", "Uncollected", "Earned"],
       rows,
     );
     const header =
@@ -1427,6 +1429,7 @@ function MonthlyReportTab({
       <tr>
         <td>${fmtDate(s.sessionDate)}</td>
         <td>${escapeHtml(s.clientName)}</td>
+        <td>${escapeHtml(s.clientType || "—")}</td>
         <td>${escapeHtml(s.serviceName || s.serviceCode || "—")}</td>
         <td class="${s.billed ? "" : "flag"}">${s.billed ? "Billed" : "Not billed"}${s.status ? ` (${escapeHtml(s.status)})` : ""}</td>
         <td class="num">${s.billed ? money(s.expected) : "—"}</td>
@@ -1454,7 +1457,7 @@ function MonthlyReportTab({
       </div>
       <h2>Sessions</h2>
       <table>
-        <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Billing</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
+        <thead><tr><th>Date</th><th>Client</th><th>Type</th><th>Service</th><th>Billing</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
     try {
@@ -1563,6 +1566,7 @@ function MonthlyReportTab({
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Client</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Service</TableHead>
                       <TableHead>Billing</TableHead>
                       <TableHead className="text-right">Expected</TableHead>
@@ -1580,6 +1584,7 @@ function MonthlyReportTab({
                       >
                         <TableCell>{fmtDate(s.sessionDate)}</TableCell>
                         <TableCell>{s.clientName}</TableCell>
+                        <TableCell>{s.clientType || "—"}</TableCell>
                         <TableCell>
                           {s.serviceName || s.serviceCode || "—"}
                           {s.serviceCode && s.serviceCode !== s.serviceName ? <span className="ml-1 text-xs text-gray-500">{s.serviceCode}</span> : null}

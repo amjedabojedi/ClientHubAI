@@ -351,6 +351,7 @@ export interface TherapistMonthlySessionRow {
   sessionBillingId: number | null; // null when the session has no billing record yet
   sessionDate: Date | null;
   clientName: string;
+  clientType: string | null;
   serviceCode: string | null;
   serviceName: string | null;
   status: string | null; // session status (scheduled / completed / cancelled / no_show ...)
@@ -3706,6 +3707,7 @@ export class DatabaseStorage implements IStorage {
     category: string | null;
     clientId: number | null;
     clientName: string;
+    clientType: string | null;
     totalAmount: number;
     expected: number;
     collectedAmount: number;
@@ -3731,6 +3733,7 @@ export class DatabaseStorage implements IStorage {
         category: services.category,
         clientId: clients.id,
         clientName: clients.fullName,
+        clientType: clients.clientType,
         totalAmount: sessionBilling.totalAmount,
         discountAmount: sessionBilling.discountAmount,
         clientPaid: sessionBilling.clientPaidAmount,
@@ -3777,6 +3780,7 @@ export class DatabaseStorage implements IStorage {
         category: row.category ?? null,
         clientId: row.clientId != null ? Number(row.clientId) : null,
         clientName: row.clientName ?? '',
+        clientType: row.clientType ?? null,
         totalAmount: Number(row.totalAmount || 0),
         expected,
         collectedAmount: collected,
@@ -4657,6 +4661,7 @@ export class DatabaseStorage implements IStorage {
         status: sessionsTable.status,
         sessionDate: sessionsTable.sessionDate,
         clientName: clients.fullName,
+        clientType: clients.clientType,
         serviceCode: services.serviceCode,
         serviceName: services.serviceName,
       })
@@ -4691,6 +4696,7 @@ export class DatabaseStorage implements IStorage {
           sessionBillingId: e.billingId,
           sessionDate: e.sessionDate,
           clientName: e.clientName,
+          clientType: e.clientType ?? null,
           serviceCode: e.serviceCode,
           serviceName: e.serviceName,
           status: statusBySession.get(e.sessionId) ?? 'completed',
@@ -4726,6 +4732,7 @@ export class DatabaseStorage implements IStorage {
         sessionBillingId: null,
         sessionDate: r.sessionDate ? new Date(r.sessionDate) : null,
         clientName: r.clientName ?? '',
+        clientType: r.clientType ?? null,
         serviceCode: r.serviceCode ?? null,
         serviceName: r.serviceName ?? null,
         status,
