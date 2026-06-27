@@ -71,6 +71,7 @@ import {
   startDevServer,
   launchBrowser,
   loginAs,
+  clickTabById,
   type DevServer,
 } from "./helpers/browser";
 import { db } from "../server/db";
@@ -125,20 +126,6 @@ const SESSION_ISO = "2026-04-12T10:00:00.000Z";
 const SESSION_YMD = "2026-04-12";
 const MONTH_START = "2026-04-01";
 const MONTH_END = "2026-04-30";
-
-// Radix Tabs only mount the ACTIVE tab's content and require a TRUSTED event to
-// switch — a synthetic DOM .click() will not change the tab. Drive a real
-// ElementHandle click. See .agents/memory/browser-tests-puppeteer.md.
-async function clickTabById(page: Page, testId: string) {
-  const selector = `[data-testid="${testId}"]`;
-  await page.waitForSelector(selector, { timeout: 30_000 });
-  const handle = await page.$(selector);
-  if (!handle) throw new Error(`tab ${testId} not found`);
-  await handle.evaluate((el: Element) =>
-    el.scrollIntoView({ block: "center", inline: "center" }),
-  );
-  await handle.click();
-}
 
 // Set a React-controlled <input> (here, the type=date range fields) to a value
 // using the native value setter + a bubbled "input" event, which is what React

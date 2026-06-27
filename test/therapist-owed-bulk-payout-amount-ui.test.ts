@@ -72,6 +72,7 @@ import {
   startDevServer,
   launchBrowser,
   loginAs,
+  clickTabById,
   type DevServer,
 } from "./helpers/browser";
 import { db } from "../server/db";
@@ -127,45 +128,6 @@ const SUFFIX = `thr-owed-bulk-payout-ui-${Date.now()}`;
 // whole point: the bulk "select all / pay all" path must pay the corrected
 // amount on EACH of them, not the inflated one.
 const SESSION_COUNT = 3;
-
-// Radix Tabs only mount the ACTIVE tab's content and require a TRUSTED event to
-// switch — a synthetic DOM .click() will not change the tab. Drive a real
-// ElementHandle click. See .agents/memory/browser-tests-puppeteer.md.
-// Switch to a Radix tab by testid. A Radix `TabsTrigger` needs a TRUSTED click,
-// but a single one-shot click is flaky: a freshly mounted tab can be mid-remount
-// when the event lands, so the click "succeeds" (no throw) yet the tab never
-// switches and the inactive tab's content (and its queries) never mount. So we
-// poll: re-query a fresh handle, click it, and confirm it actually became the
-// active tab (data-state="active" / aria-selected="true") before returning.
-async function clickTabById(page: Page, testId: string) {
-  const selector = `[data-testid="${testId}"]`;
-  await page.waitForSelector(selector, { timeout: 30_000 });
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const handle = await page.$(selector);
-    if (handle) {
-      try {
-        await handle.evaluate((el: Element) =>
-          el.scrollIntoView({ block: "center", inline: "center" }),
-        );
-        await handle.click(); // trusted event — required for Radix to switch tab
-      } catch {
-        // node detached mid-click or momentarily not clickable — retry
-      }
-    }
-    const active = await page
-      .$eval(
-        selector,
-        (el: Element) =>
-          el.getAttribute("data-state") === "active" ||
-          el.getAttribute("aria-selected") === "true",
-      )
-      .catch(() => false);
-    if (active) return;
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`tab ${testId} did not become active within 30s`);
-}
 
 // Click any element by testid with a TRUSTED ElementHandle click (Radix
 // checkboxes / portaled dialog buttons need a real click, not a synthetic one).
