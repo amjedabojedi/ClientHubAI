@@ -25,3 +25,19 @@ skipped so "Due Date" is never read as money.
 via local calendar parts (`fmtLocalDate`), never `toISOString()`, so a date-only value
 ("Jan 10, 2026") doesn't shift a day in a non-UTC zone — important because matching is
 by exact service date.
+
+**Header-row detection (don't assume row 1 / sheet 0):** real exported reports put a
+title/summary banner above the headers, trailing totals/variance rows below, and extra
+sheets ("Summary", "Source Notes"). `locateTable` reads each sheet as an array-of-arrays
+(`sheet_to_json {header:1}`), collects EVERY row where `looksLikeHeaderRow` (has a client
+col AND a date-or-amount col), and picks the strongest candidate by sort: `hasDate` first
+(a service-date col actually mapped), then most mapped fields, then earliest sheet, then
+earliest row. **Why hasDate first:** a "Summary" tab (client + Total Due, no date) must
+NOT beat the detail/claim-lines tab. `buildColumnMap(headers)` is the single source of
+truth for column mapping, shared by both the scoring and the final parse so selection and
+extraction can't drift.
+
+**Totals/banner row drop:** the final line filter requires a non-empty `clientName`. A
+line with no client can never match a session anyway, and this cleanly drops "Grand
+Total"/"Calculated Total Due"/"Variance"/blank rows (which have an amount but no client).
+Legit dateless lines (client + amount, blank service date) are still kept.

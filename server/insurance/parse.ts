@@ -85,21 +85,10 @@ const HEADER_MAP: Record<keyof ExtractedInsuranceLine, string[]> = {
   remarkCode: ["remark", "adjustment", "denial", "reason", "carc", "remarkcode"],
 };
 
-// Parse an Excel/CSV buffer into our structured statement shape. No AI is used
-// for spreadsheets — the columns are read directly with heuristic header mapping.
-export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceStatement {
-  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-  const firstSheet = wb.SheetNames[0];
-  if (!firstSheet) {
-    throw new Error("The spreadsheet has no sheets.");
-  }
-  const sheet = wb.Sheets[firstSheet];
-  const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
-  if (!rows.length) {
-    throw new Error("The spreadsheet has no data rows.");
-  }
-
-  const headers = Object.keys(rows[0]);
+// Map a set of header strings onto our canonical fields, including the
+// invoice-summary fallback for the paid amount. Shared by table scoring (below)
+// and the final parse so both agree on what a header row resolves to.
+function buildColumnMap(headers: string[]): Partial<Record<keyof ExtractedInsuranceLine, string>> {
   const colFor: Partial<Record<keyof ExtractedInsuranceLine, string>> = {};
   (Object.keys(HEADER_MAP) as (keyof ExtractedInsuranceLine)[]).forEach((field) => {
     const col = matchHeader(headers, HEADER_MAP[field]);
@@ -144,7 +133,110 @@ export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceSta
     }
   }
 
-  const lines: ExtractedInsuranceLine[] = rows
+  return colFor;
+}
+
+// Decide whether a sheet row is the column-header row (titles), as opposed to a
+// title banner, a totals line, or a data row. Exported reports routinely put a
+// title/summary banner above the real headers, so we can't assume it's row 1.
+function looksLikeHeaderRow(cells: any[]): boolean {
+  const cellHas = (needles: string[]) =>
+    cells.some((c) => {
+      const lh = String(c ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return lh !== "" && needles.some((n) => lh.includes(n));
+    });
+  const hasClient = cellHas(HEADER_MAP.clientName);
+  const hasDate = cellHas(HEADER_MAP.serviceDate);
+  const hasAmount = cellHas([
+    ...HEADER_MAP.insurancePaidAmount,
+    ...HEADER_MAP.billedAmount,
+    ...HEADER_MAP.allowedAmount,
+    "totaldue",
+    "amountdue",
+    "balancedue",
+    "amount",
+    "total",
+    "due",
+  ]);
+  // A real header row names who (client) plus when-or-how-much (date or amount).
+  return hasClient && (hasDate || hasAmount);
+}
+
+// Locate the best data table in a workbook. Exported reports can have title
+// banners above the header, totals rows below it, and multiple sheets (e.g. a
+// "Summary" tab before the detail tab). We collect every header-like row across
+// all sheets and pick the strongest: prefer a table that has BOTH a client and a
+// service-date column, then the one mapping the most known columns, then the
+// earliest sheet/row. This keeps a summary/aggregate tab from beating the detail.
+function locateTable(wb: XLSX.WorkBook): { headers: string[]; dataRows: Record<string, any>[] } {
+  type Candidate = {
+    headers: string[];
+    dataRows: Record<string, any>[];
+    fieldCount: number;
+    hasDate: boolean;
+    sheetIdx: number;
+    headerIdx: number;
+  };
+  const candidates: Candidate[] = [];
+
+  wb.SheetNames.forEach((sheetName, sheetIdx) => {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) return;
+    const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+    aoa.forEach((row, headerIdx) => {
+      if (!Array.isArray(row) || !looksLikeHeaderRow(row)) return;
+      const headers = row.map((h, i) => {
+        const s = h == null ? "" : String(h).trim();
+        return s || `__col${i}`;
+      });
+      const colFor = buildColumnMap(headers);
+      const dataRows = aoa.slice(headerIdx + 1).map((r) => {
+        const obj: Record<string, any> = {};
+        headers.forEach((h, i) => {
+          obj[h] = r?.[i] ?? null;
+        });
+        return obj;
+      });
+      candidates.push({
+        headers,
+        dataRows,
+        fieldCount: Object.keys(colFor).length,
+        hasDate: !!colFor.serviceDate,
+        sheetIdx,
+        headerIdx,
+      });
+    });
+  });
+
+  if (!candidates.length) {
+    throw new Error(
+      "Couldn't find a column header row in this spreadsheet. Make sure it has columns like Client (or Patient), Service Date, and an amount such as Total Due or Paid.",
+    );
+  }
+
+  // Strongest first: date-bearing tables, then most mapped columns, then earliest.
+  candidates.sort(
+    (a, b) =>
+      Number(b.hasDate) - Number(a.hasDate) ||
+      b.fieldCount - a.fieldCount ||
+      a.sheetIdx - b.sheetIdx ||
+      a.headerIdx - b.headerIdx,
+  );
+  const best = candidates[0];
+  return { headers: best.headers, dataRows: best.dataRows };
+}
+
+// Parse an Excel/CSV buffer into our structured statement shape. No AI is used
+// for spreadsheets — the columns are read directly with heuristic header mapping.
+export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceStatement {
+  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  if (!wb.SheetNames.length) {
+    throw new Error("The spreadsheet has no sheets.");
+  }
+  const { headers, dataRows } = locateTable(wb);
+  const colFor = buildColumnMap(headers);
+
+  const lines: ExtractedInsuranceLine[] = dataRows
     .map((r) => {
       const get = (f: keyof ExtractedInsuranceLine) => (colFor[f] ? r[colFor[f]!] : null);
       const line: ExtractedInsuranceLine = {
@@ -159,15 +251,10 @@ export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceSta
       };
       return line;
     })
-    // drop completely empty rows
-    .filter(
-      (l) =>
-        l.serviceDate ||
-        l.clientName ||
-        l.serviceCode ||
-        l.billedAmount != null ||
-        l.insurancePaidAmount != null,
-    );
+    // Keep only rows that name a client. A line with no client can never match a
+    // session, and this drops totals/variance/banner rows (e.g. "Grand Total")
+    // that have an amount but no client name.
+    .filter((l) => !!l.clientName);
 
   const totalPaid = lines.reduce((sum, l) => sum + (l.insurancePaidAmount ?? 0), 0);
   return {
