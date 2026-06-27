@@ -23,8 +23,16 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import {
   FileText, Upload, Loader2, ArrowLeft, CheckCircle2, Ban, AlertTriangle,
   Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks, Trash2,
+  ChevronsUpDown,
 } from "lucide-react";
 
 type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped" | "reversed";
@@ -124,6 +132,82 @@ const fmtDate = (d: string | null | undefined) => {
   if (!m) return ymd;
   return `${m[2]}/${m[3]}/${m[1]}`;
 };
+
+// A Select-style dropdown with a type-to-filter search box, used for the
+// therapist pickers (assignment + Transactions filter) so long therapist
+// lists are searchable.
+function SearchableSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  searchPlaceholder = "Search…",
+  emptyText = "No results.",
+  triggerClassName,
+  disabled,
+  testId,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  triggerClassName?: string;
+  disabled?: boolean;
+  testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn("justify-between font-normal", triggerClassName)}
+          data-testid={testId}
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.value}
+                  value={o.label}
+                  onSelect={() => {
+                    onValueChange(o.value);
+                    setOpen(false);
+                  }}
+                  data-testid={testId ? `${testId}-option-${o.value}` : undefined}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === o.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {o.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function statusBadge(status: StatementStatus) {
   if (status === "posted") return <Badge className="bg-green-600 hover:bg-green-600">Posted</Badge>;
@@ -304,22 +388,22 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
           <Label className="text-xs text-muted-foreground">
             Therapist for this statement (optional)
           </Label>
-          <Select
+          <SearchableSelect
             value={therapistId || "none"}
             onValueChange={(v) => setTherapistId(v === "none" ? "" : v)}
-          >
-            <SelectTrigger className="w-[260px]" data-testid="select-upload-therapist">
-              <SelectValue placeholder="No therapist" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No therapist</SelectItem>
-              {therapists?.map((t) => (
-                <SelectItem key={t.id} value={String(t.id)}>
-                  {t.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={[
+              { value: "none", label: "No therapist" },
+              ...(therapists ?? []).map((t) => ({
+                value: String(t.id),
+                label: t.fullName,
+              })),
+            ]}
+            placeholder="No therapist"
+            searchPlaceholder="Search therapist…"
+            emptyText="No therapist found."
+            triggerClassName="w-[260px]"
+            testId="select-upload-therapist"
+          />
         </div>
         <div>
           <input
@@ -750,25 +834,25 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
           <div className="flex items-center gap-2 mt-3">
             <UserIcon className="h-4 w-4 text-muted-foreground" />
             <Label className="text-xs text-muted-foreground">Therapist:</Label>
-            <Select
+            <SearchableSelect
               value={statement.therapistId != null ? String(statement.therapistId) : "none"}
               onValueChange={(v) =>
                 therapistMutation.mutate(v === "none" ? null : Number(v))
               }
               disabled={therapistMutation.isPending}
-            >
-              <SelectTrigger className="w-[240px] h-8" data-testid="select-detail-therapist">
-                <SelectValue placeholder="No therapist" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No therapist</SelectItem>
-                {therapists?.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    {t.fullName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={[
+                { value: "none", label: "No therapist" },
+                ...(therapists ?? []).map((t) => ({
+                  value: String(t.id),
+                  label: t.fullName,
+                })),
+              ]}
+              placeholder="No therapist"
+              searchPlaceholder="Search therapist…"
+              emptyText="No therapist found."
+              triggerClassName="w-[240px] h-8"
+              testId="select-detail-therapist"
+            />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1223,19 +1307,19 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
               data-testid="input-search-transactions"
             />
           </div>
-          <Select value={therapist} onValueChange={setTherapist}>
-            <SelectTrigger className="w-[200px]" data-testid="select-transaction-therapist">
-              <SelectValue placeholder="All therapists" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All therapists</SelectItem>
-              {therapistNames.map((name) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={therapist}
+            onValueChange={setTherapist}
+            options={[
+              { value: "all", label: "All therapists" },
+              ...therapistNames.map((name) => ({ value: name, label: name })),
+            ]}
+            placeholder="All therapists"
+            searchPlaceholder="Search therapist…"
+            emptyText="No therapist found."
+            triggerClassName="w-[200px]"
+            testId="select-transaction-therapist"
+          />
           <Select value={filter} onValueChange={(v) => setFilter(v as TxFilter)}>
             <SelectTrigger className="w-[180px]" data-testid="select-transaction-filter">
               <SelectValue />
