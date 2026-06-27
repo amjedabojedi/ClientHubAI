@@ -3471,7 +3471,10 @@ export class DatabaseStorage implements IStorage {
       const combinedTotal = +(cumulativeForSource + otherSourceAmount).toFixed(2);
 
       // Compute authoritative status from totals (don't trust client when it disagrees)
-      const billAmount = Number(current.total_amount) - Number(current.discount_amount || 0);
+      // Round to cents before comparing — float subtraction (e.g. 149.61 - 44.88
+      // = 104.7299999…) would otherwise leave a fully-paid session one float-epsilon
+      // short and mislabel it 'billed' instead of 'paid'.
+      const billAmount = +(Number(current.total_amount) - Number(current.discount_amount || 0)).toFixed(2);
       const authoritativeStatus =
         combinedTotal >= billAmount ? 'paid'
         : combinedTotal > 0 ? 'billed'
@@ -3588,7 +3591,9 @@ export class DatabaseStorage implements IStorage {
         sql`SELECT total_amount, discount_amount FROM session_billing WHERE id = ${billingId}`
       );
       const bill: any = (billRows as any).rows?.[0] || (billRows as any)[0];
-      const billAmount = Number(bill.total_amount) - Number(bill.discount_amount || 0);
+      // Round to cents before comparing (float subtraction can leave a fully-paid
+      // session a float-epsilon short and mislabel it 'billed').
+      const billAmount = +(Number(bill.total_amount) - Number(bill.discount_amount || 0)).toFixed(2);
       const newStatus = combined >= billAmount ? 'paid' : combined > 0 ? 'billed' : 'pending';
 
       await tx
@@ -5260,7 +5265,7 @@ export class DatabaseStorage implements IStorage {
   async postInsuranceStatement(
     id: number,
     userId: number,
-  ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number }> {
+  ): Promise<{ statement: InsuranceStatement; postedCount: number; postedTotal: number; skippedDuplicates: number }> {
     // Serialize posting against a concurrent delete on the SAME statement. Post
     // records payments BEFORE flipping status to 'posted', so a delete that read
     // 'draft' mid-post could remove the statement and leave billing balances
@@ -5303,6 +5308,7 @@ export class DatabaseStorage implements IStorage {
     const paymentDate = statement.statementDate || new Date().toISOString().slice(0, 10);
     let postedCount = 0;
     let postedTotal = 0;
+    let skippedDuplicates = 0;
 
     for (const line of lines) {
       // Only confirmed, billing-linked lines get posted. Already-posted lines
@@ -5340,12 +5346,47 @@ export class DatabaseStorage implements IStorage {
       //      line, `additional` is 0 and nothing new is recorded — so a second
       //      statement for the same payment can never double the total.
       const [billing] = await lockTx
-        .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+        .select({
+          insurancePaid: sessionBilling.insurancePaidAmount,
+          clientPaid: sessionBilling.clientPaidAmount,
+          totalAmount: sessionBilling.totalAmount,
+          discountAmount: sessionBilling.discountAmount,
+        })
         .from(sessionBilling)
         .where(eq(sessionBilling.id, line.matchedSessionBillingId))
         .limit(1);
       if (!billing) continue;
       const currentInsurance = Number(billing.insurancePaid) || 0;
+      const currentClient = Number(billing.clientPaid) || 0;
+      const expected = Math.max(
+        0,
+        Number(billing.totalAmount || 0) - Number(billing.discountAmount || 0),
+      );
+
+      // ── Duplicate-payment guard ──────────────────────────────────────────
+      // The earlier guard (below) only stops the SAME insurance payment from
+      // being counted twice. It does NOT see a payment that was already recorded
+      // on the CLIENT side. So when staff already keyed a client payment that
+      // fully covers the session, posting this insurance line on top would
+      // silently DOUBLE collections (client paid + insurance paid), which then
+      // inflates therapist pay. That is the same money paid once, recorded twice.
+      //
+      // Detect it: there is an existing client payment AND adding this insurer
+      // amount would push total collected ABOVE what the session is expected to
+      // collect. In that case skip the line (record nothing) and mark it
+      // 'skipped' so a human can review/reconcile it instead of it silently
+      // double-counting. Sessions with NO client payment are untouched, so a
+      // genuine insurer over-payment (no client side) still posts as before.
+      const wouldAdd = Math.max(0, +(lineAmount - currentInsurance).toFixed(2));
+      const wouldCollect = +(currentClient + currentInsurance + wouldAdd).toFixed(2);
+      if (wouldAdd > 0 && currentClient > 0 && wouldCollect > expected + 0.01) {
+        await lockTx
+          .update(insuranceStatementLines)
+          .set({ matchStatus: 'skipped', postedAmount: '0.00' })
+          .where(eq(insuranceStatementLines.id, line.id));
+        skippedDuplicates += 1;
+        continue;
+      }
 
       const manualRows = await lockTx
         .select({ id: paymentTransactions.id, amt: paymentTransactions.amount })
@@ -5419,7 +5460,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(insuranceStatements.id, id))
       .returning();
 
-    return { statement: updated, postedCount, postedTotal };
+    return { statement: updated, postedCount, postedTotal, skippedDuplicates };
     });
   }
 

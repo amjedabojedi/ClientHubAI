@@ -697,9 +697,14 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      const skipped = Number(res?.skippedDuplicates ?? 0);
       toast({
         title: "Payments posted",
-        description: `Posted ${res?.postedCount ?? 0} line(s), ${money(res?.postedTotal)} total.`,
+        description:
+          `Posted ${res?.postedCount ?? 0} line(s), ${money(res?.postedTotal)} total.` +
+          (skipped > 0
+            ? ` Skipped ${skipped} line(s) that would have double-counted a payment already collected — review them below.`
+            : ""),
       });
     },
     onError: (err: Error) => {

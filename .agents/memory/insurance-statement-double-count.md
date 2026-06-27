@@ -31,3 +31,26 @@ design that already assumes same-billing insurance = same payment.
 
 Covered by `test/insurance-statement-double-payment.test.ts` (Scenario C: two posted
 statements, full-cover duplicate + incremental).
+
+## Insurance-vs-CLIENT double count (separate path)
+
+The dedup above only guards insurance-vs-insurance. A different doubling happens when
+a billing already has a **client** payment (e.g. a bank transfer) and an insurance
+statement line is posted for the same money: collected = client + insurance = 2×
+expected. `postInsuranceStatement` must also fetch the billing's `clientPaid` +
+`totalAmount`/`discountAmount` and **skip** a line (set `matchStatus='skipped'`,
+`postedAmount='0.00'`, count `skippedDuplicates`) when a client payment exists AND
+`client + insurance + wouldAdd > expected (= total - discount)`. Surface the skipped
+count through the route audit + JSON and the FE toast.
+
+**Why:** insurance posting and client `recordPayment` are independent write paths, so
+the insurance-vs-insurance guard never sees the client money and lets it double.
+
+## Float-subtraction status mislabel
+
+Payment-status logic compares collected `>=` billAmount where
+`billAmount = total - discount`. Raw JS float subtraction (e.g. `149.61 - 44.88 =
+104.7299999…`) leaves a fully-paid session a float-epsilon short and mislabels it
+`billed` instead of `paid`. Round billAmount to cents with `.toFixed(2)` before the
+comparison in BOTH `recordPayment` and `voidPaymentTransaction`. Money totals are
+unaffected — only the status label.

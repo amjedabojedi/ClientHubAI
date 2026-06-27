@@ -13041,13 +13041,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
         result: 'success',
         resourceType: 'insurance_statement',
         resourceId: String(id),
-        details: JSON.stringify({ postedCount: result.postedCount, postedTotal: result.postedTotal }),
+        details: JSON.stringify({ postedCount: result.postedCount, postedTotal: result.postedTotal, skippedDuplicates: result.skippedDuplicates }),
         ipAddress: req.ip || null,
         userAgent: req.get('user-agent') || null,
       });
 
       const detail = await storage.getInsuranceStatementById(id);
-      res.json({ ...detail, postedCount: result.postedCount, postedTotal: result.postedTotal });
+      res.json({ ...detail, postedCount: result.postedCount, postedTotal: result.postedTotal, skippedDuplicates: result.skippedDuplicates });
     } catch (error: any) {
       const msg = error?.message || "Internal server error";
       if (msg.includes('not found')) return res.status(404).json({ message: msg });
