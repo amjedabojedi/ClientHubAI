@@ -1132,7 +1132,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
 // ---------------------------------------------------------------------------
 // Transactions tab — flat searchable list of every line across all statements
 // ---------------------------------------------------------------------------
-type TxFilter = "all" | "confirmed" | "not_confirmed" | "posted" | "denied";
+type TxFilter = "all" | "confirmed" | "not_confirmed" | "not_matched" | "posted" | "denied";
 
 function txMatchBadge(status: string) {
   switch (status) {
@@ -1183,6 +1183,8 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
     )
       return false;
     if (filter === "posted" && r.matchStatus !== "posted") return false;
+    // "Not matched" = lines that aren't tied to any session yet.
+    if (filter === "not_matched" && r.matchStatus !== "unmatched") return false;
     if (filter === "denied" && !isDeniedLine(r.insurancePaidAmount, r.remarkCode)) return false;
 
     if (!search.trim()) return true;
@@ -1242,6 +1244,7 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
               <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
               <SelectItem value="not_confirmed">Not confirmed</SelectItem>
+              <SelectItem value="not_matched">Not matched</SelectItem>
               <SelectItem value="posted">Posted</SelectItem>
               <SelectItem value="denied">Denied</SelectItem>
             </SelectContent>
