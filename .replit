@@ -40,12 +40,12 @@ waitForPort = 5000
 name = "test-privacy"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "console"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "FAIL_ON_SLOWDOWN=1 AUTO_UPDATE_BASELINE=1 bash scripts/run-privacy-tests.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 5000

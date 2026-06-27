@@ -79,6 +79,7 @@ SUITES=(
   "test/therapist-statement-corrected-pay-monthly-print.test.ts"
   "test/therapist-owed-record-payout-amount-ui.test.ts"
   "test/therapist-owed-duplicate-restatement-no-reinflate-ui.test.ts"
+  "test/therapist-owed-lump-credit-duplicate-restatement-no-reinflate-ui.test.ts"
   "test/insurance-reopen-repost-ui.test.ts"
   "test/insurance-repost-doublecount-ui.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
