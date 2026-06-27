@@ -1343,6 +1343,8 @@ function MonthlyReportTab({
   const [startDate, setStartDate] = useState<string>(defaultRange.start);
   const [endDate, setEndDate] = useState<string>(defaultRange.end);
   const [collFilter, setCollFilter] = useState<"all" | "collected" | "uncollected" | "unbilled">("all");
+  const [nameQuery, setNameQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const validRange =
     /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
@@ -1369,18 +1371,32 @@ function MonthlyReportTab({
   // follow it, so "what you see is what you download" — but the summary totals
   // above stay period-wide (they describe the whole range, not the filter).
   const matchesFilter = (s: MonthlySessionRow) => {
+    const q = nameQuery.trim().toLowerCase();
+    if (q && !s.clientName.toLowerCase().includes(q)) return false;
+    if (typeFilter !== "all" && (s.clientType || "") !== typeFilter) return false;
     if (collFilter === "all") return true;
     if (collFilter === "unbilled") return !s.billed;
     if (collFilter === "collected") return s.billed && s.uncollected <= 0;
     if (collFilter === "uncollected") return s.billed && s.uncollected > 0;
     return true;
   };
+  // Type options come from whatever client types actually appear in this period.
+  const availableTypes = Array.from(
+    new Set((data?.sessions ?? []).map((s) => s.clientType).filter((t): t is string => !!t)),
+  ).sort();
   const filterLabel: Record<typeof collFilter, string> = {
     all: "All sessions",
     collected: "Collected only",
     uncollected: "Uncollected only",
     unbilled: "Not billed only",
   };
+  // Human-readable description of EVERY active filter, so exports/empty-state
+  // reflect the name search + type dropdown, not just the collected-status button.
+  const activeFilterLabel = [
+    filterLabel[collFilter],
+    nameQuery.trim() ? `Name contains "${nameQuery.trim()}"` : null,
+    typeFilter !== "all" ? `Type: ${typeFilter}` : null,
+  ].filter(Boolean).join(" · ");
   const visibleSessions = (data?.sessions ?? []).filter(matchesFilter);
 
   const exportCsv = async () => {
@@ -1403,7 +1419,7 @@ function MonthlyReportTab({
     );
     const header =
       `Report,${name},${periodLabel}\r\n` +
-      `Filter,${filterLabel[collFilter]}\r\n` +
+      `Filter,${activeFilterLabel}\r\n` +
       `Opening balance,${data.openingBalance.toFixed(2)}\r\n` +
       `Earned in period,${data.earnedInMonth.toFixed(2)}\r\n` +
       `Paid in period,${data.paidInMonth.toFixed(2)}\r\n` +
@@ -1439,7 +1455,7 @@ function MonthlyReportTab({
       </tr>`).join("");
     const body = `
       <h1>Statement — ${escapeHtml(name)}</h1>
-      <div class="muted">${escapeHtml(periodLabel)} · ${escapeHtml(filterLabel[collFilter])} · generated ${new Date().toLocaleString()}</div>
+      <div class="muted">${escapeHtml(periodLabel)} · ${escapeHtml(activeFilterLabel)} · generated ${new Date().toLocaleString()}</div>
       <div class="cards">
         <div class="card"><div class="label">Opening balance</div><div class="value">${money(data.openingBalance)}</div></div>
         <div class="card"><div class="label">Earned in period</div><div class="value">${money(data.earnedInMonth)}</div></div>
@@ -1539,6 +1555,26 @@ function MonthlyReportTab({
                 {label}
               </Button>
             ))}
+            <Input
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              placeholder="Search client name…"
+              className="h-8 w-48"
+              data-testid="input-search-name"
+            />
+            {availableTypes.length > 0 && (
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-8 w-40" data-testid="select-filter-type">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {availableTypes.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <span className="ml-auto text-xs text-gray-500" data-testid="text-filter-count">
               {visibleSessions.length} of {data.sessions.length} sessions
             </span>
@@ -1555,7 +1591,7 @@ function MonthlyReportTab({
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
-                No {filterLabel[collFilter].toLowerCase()} for {periodLabel}.
+                No sessions match the current filters for {periodLabel}.
               </CardContent>
             </Card>
           ) : (
