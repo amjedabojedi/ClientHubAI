@@ -54,6 +54,7 @@ interface StatementSummary {
   lineCount: number;
   matchedCount: number;
   postedCount: number;
+  postedTotal: number;
 }
 
 interface StatementLine {
@@ -447,11 +448,11 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>File</TableHead>
                   <TableHead>Therapist</TableHead>
                   <TableHead>Payer</TableHead>
                   <TableHead>Statement Date</TableHead>
                   <TableHead className="text-right">Total Paid</TableHead>
+                  <TableHead className="text-right">Total Posted</TableHead>
                   <TableHead className="text-center">Lines</TableHead>
                   <TableHead className="text-center">Matched</TableHead>
                   <TableHead className="text-center">Posted</TableHead>
@@ -462,20 +463,15 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
               <TableBody>
                 {statements.map((s) => (
                   <TableRow key={s.id} data-testid={`row-statement-${s.id}`}>
-                    <TableCell className="font-medium max-w-[220px] truncate" title={s.fileName}>
-                      <span className="inline-flex items-center gap-2">
-                        <Badge variant="outline" className="uppercase text-[10px]">
-                          {s.sourceType}
-                        </Badge>
-                        {s.fileName}
-                      </span>
-                    </TableCell>
                     <TableCell data-testid={`text-statement-therapist-${s.id}`}>
                       {s.therapistName || "—"}
                     </TableCell>
                     <TableCell>{s.payerName || "—"}</TableCell>
                     <TableCell>{fmtDate(s.statementDate)}</TableCell>
                     <TableCell className="text-right">{money(s.totalPaid)}</TableCell>
+                    <TableCell className="text-right" data-testid={`text-statement-posted-total-${s.id}`}>
+                      {money(s.postedTotal)}
+                    </TableCell>
                     <TableCell className="text-center">{s.lineCount}</TableCell>
                     <TableCell className="text-center">{s.matchedCount}</TableCell>
                     <TableCell className="text-center">{s.postedCount}</TableCell>

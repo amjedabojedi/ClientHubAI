@@ -385,6 +385,7 @@ export interface InsuranceStatementSummary extends InsuranceStatement {
   lineCount: number;
   matchedCount: number; // suggested or confirmed
   postedCount: number;
+  postedTotal: number; // sum of insurance-paid amounts on posted lines
 }
 
 // One flat transaction row for the cross-statement "Transactions" list: a single
@@ -5043,6 +5044,7 @@ export class DatabaseStorage implements IStorage {
         lineCount: sql<number>`count(*)::int`,
         matchedCount: sql<number>`count(*) FILTER (WHERE ${insuranceStatementLines.matchStatus} IN ('suggested','confirmed','posted'))::int`,
         postedCount: sql<number>`count(*) FILTER (WHERE ${insuranceStatementLines.matchStatus} = 'posted')::int`,
+        postedTotal: sql<number>`coalesce(sum(${insuranceStatementLines.insurancePaidAmount}) FILTER (WHERE ${insuranceStatementLines.matchStatus} = 'posted'), 0)::float8`,
       })
       .from(insuranceStatementLines)
       .where(inArray(insuranceStatementLines.statementId, ids))
@@ -5070,6 +5072,7 @@ export class DatabaseStorage implements IStorage {
         lineCount: c?.lineCount ?? 0,
         matchedCount: c?.matchedCount ?? 0,
         postedCount: c?.postedCount ?? 0,
+        postedTotal: c?.postedTotal ?? 0,
       };
     });
   }
