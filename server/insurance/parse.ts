@@ -20,12 +20,22 @@ function numOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Format a Date using its LOCAL calendar parts (never UTC), so a date-only value
+// can't shift a day in a non-UTC timezone. xlsx builds Date cells in local time,
+// so local getters recover the date the cell actually represents.
+function fmtLocalDate(dt: Date): string {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 // Normalize an Excel serial date or string date into YYYY-MM-DD (or null).
 function toIsoDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
   // Excel stores dates as serial numbers; xlsx can give us a parsed Date.
   if (v instanceof Date && !isNaN(v.getTime())) {
-    return v.toISOString().slice(0, 10);
+    return fmtLocalDate(v);
   }
   if (typeof v === "number" && Number.isFinite(v)) {
     const parsed = XLSX.SSF?.parse_date_code?.(v);
@@ -47,7 +57,7 @@ function toIsoDate(v: any): string | null {
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
   const dt = new Date(s);
-  if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+  if (!isNaN(dt.getTime())) return fmtLocalDate(dt);
   return null;
 }
 
@@ -101,6 +111,37 @@ export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceSta
   // the same column.
   if (colFor.insurancePaidAmount && colFor.insurancePaidAmount === colFor.patientResponsibility) {
     delete colFor.patientResponsibility;
+  }
+
+  // Invoice / billing summaries (not insurer EOBs) often have no explicit "paid"
+  // column — the amount sits in a column like "Total Due", "Amount", or "Total".
+  // When no paid column matched, fall back to one of these as the paid amount,
+  // but only consider columns NOT already claimed by another field, so we never
+  // mistake "Billed Amount", "Allowed", or "Patient Responsibility" for payment.
+  if (!colFor.insurancePaidAmount) {
+    const claimed = new Set(Object.values(colFor));
+    // Most specific needles first so "Total Due"/"Total Paid" beats a bare "Total".
+    const fallbackNeedles = [
+      "totaldue",
+      "amountdue",
+      "balancedue",
+      "totalpaid",
+      "totalpayment",
+      "amount",
+      "total",
+      "due",
+    ];
+    outer: for (const n of fallbackNeedles) {
+      for (const h of headers) {
+        if (claimed.has(h)) continue;
+        const lh = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (lh.includes("date")) continue; // never read a date column as money
+        if (lh.includes(n)) {
+          colFor.insurancePaidAmount = h;
+          break outer;
+        }
+      }
+    }
   }
 
   const lines: ExtractedInsuranceLine[] = rows
