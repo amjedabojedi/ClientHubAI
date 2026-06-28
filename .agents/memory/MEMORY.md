@@ -32,6 +32,7 @@
 - [phoneE164 derived SMS copy](phone-e164-derived-copy.md) — separate auto-derived E.164 copy for texting; recompute only when patch.phone !== undefined (Drizzle ignores undefined → would drift columns).
 - [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.
 - [Backend reload trap](backend-reload-trap.md) — a committed server fix that emits ZERO logs/audit rows is likely a stale tsx process; restart "Start application" before chasing a logic bug.
+- [Cancelled session billing](cancelled-session-billing.md) — cancel never removes session_billing; reports must zero Expected/Uncollected for status='cancelled' (no_show stays owed).
 - [Therapist earning ledger](therapist-earning-ledger.md) — earnings persisted lazily (sync at read/payout, NOT collection path) into append-only audited therapist_earnings; delta 'adjustment' rows, distinct advisory lock.
 - [Therapist payout credit](therapist-payout-credit.md) — owed calc must subtract over-payment credit (sum unappliedAmount) oldest-first or new sessions get double-paid; both payout paths lock per-therapist + recompute owed inside the txn.
 - [Payout detail live basis](payout-detail-live-basis.md) — getTherapistPayoutById overlays live collected basis (corrections show as over/under paid) but keeps the frozen pay-rule snapshot; amountAllocated never changes.

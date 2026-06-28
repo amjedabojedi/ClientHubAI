@@ -4697,7 +4697,18 @@ export class DatabaseStorage implements IStorage {
       const d = e.sessionDate ? new Date(e.sessionDate) : null;
       const inMonth = d != null && d >= monthStart && d < monthEnd;
       if (inMonth) {
-        const uncollected = Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
+        const rowStatus = statusBySession.get(e.sessionId) ?? 'completed';
+        // A cancelled session keeps its billing row (cancelling never removes it),
+        // but the practice is no longer owed that money. Zero out expected/
+        // uncollected so a cancelled session stops inflating the "money owed"
+        // totals and is shown as cancelled rather than a live billed charge.
+        // Earned still follows collected money below (money actually collected
+        // before a cancellation remains earned).
+        const cancelled = rowStatus === 'cancelled';
+        const expected = cancelled ? 0 : e.expected;
+        const uncollected = cancelled
+          ? 0
+          : Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
         sessions.push({
           sessionId: e.sessionId,
           sessionBillingId: e.billingId,
@@ -4706,9 +4717,9 @@ export class DatabaseStorage implements IStorage {
           clientType: e.clientType ?? null,
           serviceCode: e.serviceCode,
           serviceName: e.serviceName,
-          status: statusBySession.get(e.sessionId) ?? 'completed',
+          status: rowStatus,
           billed: true,
-          expected: e.expected,
+          expected,
           collected: e.collectedAmount,
           uncollected,
           // Earnings follow collected money: a fixed-rate rule still earns $0
@@ -4717,7 +4728,7 @@ export class DatabaseStorage implements IStorage {
           earned: e.hasRule && e.collectedAmount > 0 ? e.amountEarned : 0,
           hasRule: e.hasRule,
         });
-        totalExpected = Math.round((totalExpected + e.expected) * 100) / 100;
+        totalExpected = Math.round((totalExpected + expected) * 100) / 100;
         totalCollected = Math.round((totalCollected + e.collectedAmount) * 100) / 100;
         totalUncollected = Math.round((totalUncollected + uncollected) * 100) / 100;
       }

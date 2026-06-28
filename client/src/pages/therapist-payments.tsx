@@ -1380,7 +1380,10 @@ function MonthlyReportTab({
     if (typeFilter !== "all" && (s.clientType || "") !== typeFilter) return false;
     if (collFilter === "all") return true;
     if (collFilter === "unbilled") return !s.billed;
-    if (collFilter === "collected") return s.billed && s.uncollected <= 0;
+    // A cancelled session is no longer owed money (uncollected is 0) but it is
+    // not "collected" money either, so keep it out of both money filters; it
+    // only appears under "All".
+    if (collFilter === "collected") return s.billed && s.status !== "cancelled" && s.uncollected <= 0;
     if (collFilter === "uncollected") return s.billed && s.uncollected > 0;
     return true;
   };
@@ -1631,7 +1634,11 @@ function MonthlyReportTab({
                         </TableCell>
                         <TableCell>
                           {s.billed ? (
-                            <Badge variant="outline">Billed</Badge>
+                            s.status === "cancelled" ? (
+                              <Badge variant="secondary">Cancelled</Badge>
+                            ) : (
+                              <Badge variant="outline">Billed</Badge>
+                            )
                           ) : (
                             <Badge variant={s.status === "completed" ? "destructive" : "secondary"}>
                               Not billed{s.status ? ` · ${s.status}` : ""}
