@@ -26,7 +26,7 @@ import {
 import {
   DollarSign, Percent, Users, Receipt, History, Loader2, AlertTriangle,
   ChevronDown, ChevronRight, Ban, Check, ChevronsUpDown,
-  FileText, CalendarRange, Download, Printer,
+  FileText, CalendarRange, Download, Printer, Plus, Clock, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +63,7 @@ interface OwedResponse {
   therapistId: number;
   items: OwedItem[];
   total: number;
+  adjustmentsNet?: number;
   unresolvedCount: number;
 }
 interface StatementEntry {
@@ -75,6 +76,24 @@ interface StatementEntry {
   runningBalance: number;
   payoutId?: number;
   sessionId?: number;
+  adjustmentId?: number;
+}
+interface AdjustmentRow {
+  id: number;
+  therapistId: number;
+  adjustmentType: "bonus" | "deduction";
+  amount: number;
+  signedAmount: number;
+  description: string;
+  effectiveDate: string;
+  status: "active" | "voided";
+  createdAt: string;
+}
+interface AttentionResponse {
+  unresolved: { therapistId: number; therapistName: string; count: number }[];
+  credits: { therapistId: number; therapistName: string; creditBalance: number }[];
+  staleUnpaid: { therapistId: number; therapistName: string; count: number; oldestDate: string | null; total: number }[];
+  staleDays: number;
 }
 interface StatementResponse {
   therapistId: number;
@@ -235,6 +254,110 @@ const auditExport = async (body: { therapistId: number; reportType: "statement" 
   await apiRequest("/api/therapist-pay/export-audit", "POST", body);
 };
 
+function NeedsAttentionPanel({ onPick }: { onPick: (id: number) => void }) {
+  const { data, isLoading } = useQuery<AttentionResponse>({
+    queryKey: ["/api/therapist-pay/attention"],
+    queryFn: async () => {
+      const res = await apiRequest("/api/therapist-pay/attention", "GET");
+      return res.json();
+    },
+  });
+
+  if (isLoading || !data) return null;
+
+  const total = data.unresolved.length + data.credits.length + data.staleUnpaid.length;
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950/30">
+        <Check className="h-4 w-4 flex-shrink-0" />
+        Everything looks good — no payment issues need your attention right now.
+      </div>
+    );
+  }
+
+  return (
+    <Card className="border-amber-300">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="h-5 w-5" /> Needs attention
+        </CardTitle>
+        <CardDescription>Click a therapist to open their record and fix the issue.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-3">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <Percent className="h-4 w-4 text-amber-600" /> Missing pay rules
+          </div>
+          {data.unresolved.length === 0 ? (
+            <p className="text-xs text-gray-400">None</p>
+          ) : (
+            <ul className="space-y-1">
+              {data.unresolved.map((u) => (
+                <li key={u.therapistId}>
+                  <button
+                    className="text-left text-sm text-blue-700 hover:underline dark:text-blue-400"
+                    onClick={() => onPick(u.therapistId)}
+                    data-testid={`attention-unresolved-${u.therapistId}`}
+                  >
+                    {u.therapistName} — {u.count} session{u.count === 1 ? "" : "s"} with no rule
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <CreditCard className="h-4 w-4 text-amber-600" /> Overpaid (credit on file)
+          </div>
+          {data.credits.length === 0 ? (
+            <p className="text-xs text-gray-400">None</p>
+          ) : (
+            <ul className="space-y-1">
+              {data.credits.map((c) => (
+                <li key={c.therapistId}>
+                  <button
+                    className="text-left text-sm text-blue-700 hover:underline dark:text-blue-400"
+                    onClick={() => onPick(c.therapistId)}
+                    data-testid={`attention-credit-${c.therapistId}`}
+                  >
+                    {c.therapistName} — {money(c.creditBalance)} credit
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <Clock className="h-4 w-4 text-amber-600" /> Owed &gt; {data.staleDays} days
+          </div>
+          {data.staleUnpaid.length === 0 ? (
+            <p className="text-xs text-gray-400">None</p>
+          ) : (
+            <ul className="space-y-1">
+              {data.staleUnpaid.map((s) => (
+                <li key={s.therapistId}>
+                  <button
+                    className="text-left text-sm text-blue-700 hover:underline dark:text-blue-400"
+                    onClick={() => onPick(s.therapistId)}
+                    data-testid={`attention-stale-${s.therapistId}`}
+                  >
+                    {s.therapistName} — {money(s.total)} across {s.count} session{s.count === 1 ? "" : "s"}
+                    {s.oldestDate ? ` (oldest ${fmtDate(s.oldestDate)})` : ""}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function TherapistPaymentsPage() {
   const { toast } = useToast();
   const [therapistId, setTherapistId] = useState<number | null>(null);
@@ -257,6 +380,8 @@ export default function TherapistPaymentsPage() {
           </p>
         </div>
       </div>
+
+      <NeedsAttentionPanel onPick={(id) => setTherapistId(id)} />
 
       <Card>
         <CardContent className="pt-6">
@@ -618,11 +743,16 @@ function OwedTab({ therapistId, toast }: { therapistId: number; toast: ReturnTyp
         <div className="flex flex-wrap items-end gap-6">
           <div>
             <p className="text-sm text-gray-500">
-              {month === "all" ? "Total currently owed (all payable sessions)" : `Owed in ${fmtMonth(month)}`}
+              {month === "all" ? "Total currently owed (sessions + adjustments)" : `Owed in ${fmtMonth(month)}`}
             </p>
             <p className="text-2xl font-bold" data-testid="text-total-owed">
-              {money(month === "all" ? (data?.total || 0) : viewTotal)}
+              {money(month === "all" ? ((data?.total || 0) + (data?.adjustmentsNet || 0)) : viewTotal)}
             </p>
+            {month === "all" && !!data?.adjustmentsNet && (
+              <p className="text-xs text-gray-500" data-testid="text-owed-adjustments-note">
+                Includes {data.adjustmentsNet >= 0 ? "+" : "−"}{money(Math.abs(data.adjustmentsNet))} in net manual adjustments
+              </p>
+            )}
           </div>
           <div className="w-52">
             <Label className="mb-1 block text-xs">Filter by month</Label>
@@ -1053,7 +1183,15 @@ function StatementTab({
       return res.json();
     },
   });
+  const { data: adjustments = [] } = useQuery<AdjustmentRow[]>({
+    queryKey: ["/api/therapist-pay/adjustments", therapistId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/adjustments/${therapistId}`, "GET");
+      return res.json();
+    },
+  });
   const [lumpOpen, setLumpOpen] = useState(false);
+  const [adjOpen, setAdjOpen] = useState(false);
 
   if (isLoading) {
     return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading statement…</div>;
@@ -1145,6 +1283,9 @@ function StatementTab({
           <Button onClick={() => setLumpOpen(true)} data-testid="button-lump-payment">
             <DollarSign className="mr-2 h-4 w-4" /> Make a lump payment
           </Button>
+          <Button variant="outline" onClick={() => setAdjOpen(true)} data-testid="button-add-adjustment">
+            <Plus className="mr-2 h-4 w-4" /> Add bonus / deduction
+          </Button>
           <Button variant="outline" onClick={exportCsv} disabled={entries.length === 0} data-testid="button-statement-csv">
             <Download className="mr-2 h-4 w-4" /> CSV
           </Button>
@@ -1215,6 +1356,8 @@ function StatementTab({
         </Card>
       )}
 
+      <AdjustmentsCard therapistId={therapistId} adjustments={adjustments} toast={toast} />
+
       <LumpPaymentDialog
         open={lumpOpen}
         onOpenChange={setLumpOpen}
@@ -1222,7 +1365,206 @@ function StatementTab({
         currentOwed={data.currentOwed}
         toast={toast}
       />
+
+      <AdjustmentDialog
+        open={adjOpen}
+        onOpenChange={setAdjOpen}
+        therapistId={therapistId}
+        toast={toast}
+      />
     </div>
+  );
+}
+
+function AdjustmentsCard({
+  therapistId, adjustments, toast,
+}: {
+  therapistId: number;
+  adjustments: AdjustmentRow[];
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const voidMut = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      apiRequest(`/api/therapist-pay/adjustments/${id}/void`, "POST", { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/adjustments", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/monthly-statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/attention"] });
+      toast({ title: "Adjustment voided" });
+    },
+    onError: (err: any) =>
+      toast({ title: "Could not void adjustment", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  const onVoid = (a: AdjustmentRow) => {
+    const reason = window.prompt("Why are you voiding this adjustment? (recorded for the audit log)");
+    if (reason == null) return;
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      toast({ title: "A reason is required", variant: "destructive" });
+      return;
+    }
+    voidMut.mutate({ id: a.id, reason: trimmed });
+  };
+
+  if (adjustments.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Bonuses & deductions</CardTitle>
+        <CardDescription>
+          Manual amounts not tied to a session. A bonus increases what is owed; a deduction lowers it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {adjustments.map((a) => (
+              <TableRow key={a.id} data-testid={`adjustment-row-${a.id}`} className={a.status === "voided" ? "opacity-50" : ""}>
+                <TableCell>{fmtDate(a.effectiveDate)}</TableCell>
+                <TableCell>
+                  {a.adjustmentType === "bonus"
+                    ? <Badge variant="secondary">Bonus</Badge>
+                    : <Badge variant="destructive">Deduction</Badge>}
+                </TableCell>
+                <TableCell>{a.description}</TableCell>
+                <TableCell className="text-right font-medium">
+                  {a.adjustmentType === "bonus" ? "+" : "−"}{money(a.amount)}
+                </TableCell>
+                <TableCell>
+                  {a.status === "voided"
+                    ? <Badge variant="outline">Voided</Badge>
+                    : <Badge variant="outline" className="border-green-400 text-green-700">Active</Badge>}
+                </TableCell>
+                <TableCell className="text-right">
+                  {a.status === "active" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onVoid(a)}
+                      disabled={voidMut.isPending}
+                      data-testid={`button-void-adjustment-${a.id}`}
+                    >
+                      <Ban className="mr-1 h-3.5 w-3.5" /> Void
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdjustmentDialog({
+  open, onOpenChange, therapistId, toast,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  therapistId: number;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [adjustmentType, setAdjustmentType] = useState<"bonus" | "deduction">("bonus");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(today);
+
+  const reset = () => {
+    setAdjustmentType("bonus"); setAmount(""); setDescription(""); setEffectiveDate(today);
+  };
+
+  const amt = Number(amount);
+  const validAmount = amount.trim() !== "" && isFinite(amt) && amt > 0;
+  const validDesc = description.trim() !== "";
+
+  const create = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/therapist-pay/adjustments", "POST", {
+        therapistId,
+        adjustmentType,
+        amount: amt,
+        description: description.trim(),
+        effectiveDate,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/adjustments", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/monthly-statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/attention"] });
+      toast({ title: "Adjustment added" });
+      reset();
+      onOpenChange(false);
+    },
+    onError: (err: any) =>
+      toast({ title: "Could not add adjustment", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a bonus or deduction</DialogTitle>
+          <DialogDescription>
+            A bonus adds to what the practice owes this therapist. A deduction lowers it. This is not tied to any
+            single session.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="adjType">Type</Label>
+            <Select value={adjustmentType} onValueChange={(v) => setAdjustmentType(v as "bonus" | "deduction")}>
+              <SelectTrigger id="adjType" data-testid="select-adjustment-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bonus">Bonus (increases owed)</SelectItem>
+                <SelectItem value="deduction">Deduction (decreases owed)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="adjAmount">Amount ($)</Label>
+            <Input id="adjAmount" type="number" min="0" step="0.01" value={amount}
+              onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 100.00" data-testid="input-adjustment-amount" />
+          </div>
+          <div>
+            <Label htmlFor="adjDate">Effective date</Label>
+            <Input id="adjDate" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} data-testid="input-adjustment-date" />
+          </div>
+          <div>
+            <Label htmlFor="adjDesc">Description</Label>
+            <Textarea id="adjDesc" value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Year-end bonus, equipment reimbursement, advance repayment" data-testid="input-adjustment-description" />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={create.isPending}>Cancel</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !validAmount || !validDesc || !effectiveDate} data-testid="button-confirm-adjustment">
+            {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Add adjustment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

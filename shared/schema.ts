@@ -850,6 +850,48 @@ export const insertTherapistEarningSchema = createInsertSchema(therapistEarnings
 export type InsertTherapistEarning = z.infer<typeof insertTherapistEarningSchema>;
 export type TherapistEarning = typeof therapistEarnings.$inferSelect;
 
+// Therapist manual adjustments - non-session ledger items the practice owner adds
+// by hand: a 'bonus' (e.g. CEU reimbursement) increases what the therapist is owed,
+// a 'deduction' (e.g. office rent share) decreases it. Unlike earnings these are not
+// tied to a session/billing and are never allocated per-session; they affect only
+// the NET balance (running statement, monthly report, owed total and the unapplied
+// part of a lump payment). Voiding marks the row 'voided' (kept for the audit trail)
+// and stops it counting everywhere.
+export const therapistAdjustments = pgTable("therapist_adjustments", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  // 'bonus' = +amount (increases owed); 'deduction' = -amount (decreases owed).
+  adjustmentType: varchar("adjustment_type", { length: 20 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // always positive
+  description: text("description").notNull(),
+  // Date the adjustment is attributed to, so it buckets into the right month.
+  effectiveDate: date("effective_date").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default('active'), // 'active' | 'voided'
+  voidedAt: timestamp("voided_at"),
+  voidedBy: integer("voided_by").references(() => users.id),
+  voidReason: text("void_reason"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  therapistIdx: index("therapist_adjustments_therapist_idx").on(table.therapistId),
+}));
+
+export const insertTherapistAdjustmentSchema = createInsertSchema(therapistAdjustments).omit({
+  id: true,
+  createdAt: true,
+  voidedAt: true,
+  voidedBy: true,
+  voidReason: true,
+  status: true,
+}).extend({
+  adjustmentType: z.enum(['bonus', 'deduction']),
+  amount: z.coerce.number().positive('Amount must be greater than zero'),
+  description: z.string().min(1, 'A description is required'),
+  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
+});
+export type InsertTherapistAdjustment = z.infer<typeof insertTherapistAdjustmentSchema>;
+export type TherapistAdjustment = typeof therapistAdjustments.$inferSelect;
+
 // Insurance statements - an uploaded insurance payment statement (an EOB/ERA),
 // either a PDF (read by AI) or an Excel/CSV file. Each statement holds many
 // line items, one per claim/service the insurer paid (or denied). status:
@@ -1687,6 +1729,8 @@ export const AUDIT_ACTIONS = [
   'therapist_earning_recorded',
   'therapist_payout_voided',
   'therapist_statement_exported',
+  'therapist_adjustment_created',
+  'therapist_adjustment_voided',
 
   // Insurance statement reconciliation
   'insurance_statement_uploaded',

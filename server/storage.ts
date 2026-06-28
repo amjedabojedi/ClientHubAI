@@ -58,6 +58,7 @@ import {
   therapistPayoutItems,
   therapistPaymentAllocations,
   therapistEarnings,
+  therapistAdjustments,
   auditLogs,
   dailyScheduleEmails,
   deferredNotificationEmails,
@@ -313,16 +314,49 @@ export interface TherapistPayoutItemDetail {
 export interface TherapistStatementEntry {
   date: string; // YYYY-MM-DD
   // 'adjustment' lines reverse a previously-recorded payment that was later
-  // voided, so the ledger stays continuous (nothing is erased).
+  // voided, or carry a manual bonus/deduction, so the ledger stays continuous.
   type: 'earning' | 'payment' | 'adjustment';
   description: string;
   reference: string | null;
-  earned: number;   // > 0 for earning lines, 0 otherwise
-  // > 0 for payment lines; < 0 for a void-reversal adjustment line; 0 otherwise.
+  earned: number;   // > 0 for earning lines and bonuses, 0 otherwise
+  // > 0 for payment lines and deductions; < 0 for a void-reversal adjustment line.
   paid: number;
   runningBalance: number;
   payoutId?: number;
   sessionId?: number;
+  // Set on manual bonus/deduction lines so the UI can offer a "void" action.
+  adjustmentId?: number;
+}
+
+// A manual, non-session ledger item (bonus or deduction) shown in the
+// adjustments list. Signed `amount`: bonus is positive, deduction negative.
+export interface TherapistAdjustmentRow {
+  id: number;
+  therapistId: number;
+  adjustmentType: 'bonus' | 'deduction';
+  amount: number;        // always positive (the magnitude)
+  signedAmount: number;  // + for bonus, - for deduction (effect on owed)
+  description: string;
+  effectiveDate: string; // YYYY-MM-DD
+  status: 'active' | 'voided';
+  createdAt: Date;
+}
+
+// The "needs attention" summary across therapists for the payments dashboard.
+export interface TherapistPayAttention {
+  // Therapists with collected sessions that have NO pay rule set (can't be paid).
+  unresolved: { therapistId: number; therapistName: string; count: number }[];
+  // Therapists carrying an over-payment credit (paid ahead of earnings).
+  credits: { therapistId: number; therapistName: string; creditBalance: number }[];
+  // Therapists with owed sessions older than the staleDays threshold.
+  staleUnpaid: {
+    therapistId: number;
+    therapistName: string;
+    count: number;
+    oldestDate: string | null;
+    total: number;
+  }[];
+  staleDays: number;
 }
 
 // A single session-level allocation produced when a payout is recorded, surfaced
@@ -3855,10 +3889,104 @@ export class DatabaseStorage implements IStorage {
     return sum;
   }
 
+  // Net manual adjustment for a therapist: sum of active bonuses (+) minus active
+  // deductions (-). A positive result increases what the practice owes; negative
+  // decreases it. The single place every consumer reads adjustments from, so the
+  // statement, owed total, lump-payment math and monthly report can never disagree.
+  private async getTherapistAdjustmentsNet(therapistId: number): Promise<number> {
+    const rows = await db
+      .select({ type: therapistAdjustments.adjustmentType, amt: therapistAdjustments.amount })
+      .from(therapistAdjustments)
+      .where(and(eq(therapistAdjustments.therapistId, therapistId), eq(therapistAdjustments.status, 'active')));
+    let net = 0;
+    for (const r of rows) {
+      const signed = r.type === 'deduction' ? -Number(r.amt || 0) : Number(r.amt || 0);
+      net = Math.round((net + signed) * 100) / 100;
+    }
+    return net;
+  }
+
+  // List a therapist's manual adjustments (active and voided), newest first.
+  async listTherapistAdjustments(therapistId: number): Promise<TherapistAdjustmentRow[]> {
+    const rows = await db
+      .select()
+      .from(therapistAdjustments)
+      .where(eq(therapistAdjustments.therapistId, therapistId))
+      .orderBy(desc(therapistAdjustments.effectiveDate), desc(therapistAdjustments.id));
+    return rows.map((r) => {
+      const amount = Number(r.amount || 0);
+      const type = (r.adjustmentType === 'deduction' ? 'deduction' : 'bonus') as 'bonus' | 'deduction';
+      const dateStr =
+        typeof r.effectiveDate === 'string'
+          ? r.effectiveDate
+          : r.effectiveDate
+            ? new Date(r.effectiveDate as any).toISOString().slice(0, 10)
+            : '';
+      return {
+        id: Number(r.id),
+        therapistId: Number(r.therapistId),
+        adjustmentType: type,
+        amount,
+        signedAmount: type === 'deduction' ? -amount : amount,
+        description: r.description ?? '',
+        effectiveDate: dateStr,
+        status: (r.status === 'voided' ? 'voided' : 'active') as 'active' | 'voided',
+        createdAt: r.createdAt as Date,
+      };
+    });
+  }
+
+  async createTherapistAdjustment(input: {
+    therapistId: number;
+    adjustmentType: 'bonus' | 'deduction';
+    amount: number;
+    description: string;
+    effectiveDate: string;
+    createdBy: number;
+  }): Promise<TherapistAdjustmentRow> {
+    const amount = Math.round(Number(input.amount) * 100) / 100;
+    if (!(amount > 0)) throw new Error('Amount must be greater than zero');
+    const [row] = await db
+      .insert(therapistAdjustments)
+      .values({
+        therapistId: input.therapistId,
+        adjustmentType: input.adjustmentType,
+        amount: amount.toString(),
+        description: input.description,
+        effectiveDate: input.effectiveDate,
+        status: 'active',
+        createdBy: input.createdBy,
+      })
+      .returning();
+    const list = await this.listTherapistAdjustments(input.therapistId);
+    return list.find((a) => a.id === Number(row.id))!;
+  }
+
+  async voidTherapistAdjustment(
+    id: number,
+    voidedBy: number,
+    reason: string,
+  ): Promise<TherapistAdjustmentRow> {
+    const [existing] = await db
+      .select()
+      .from(therapistAdjustments)
+      .where(eq(therapistAdjustments.id, id))
+      .limit(1);
+    if (!existing) throw new Error('Adjustment not found');
+    if (existing.status === 'voided') throw new Error('Adjustment is already voided');
+    await db
+      .update(therapistAdjustments)
+      .set({ status: 'voided', voidedAt: new Date(), voidedBy, voidReason: reason })
+      .where(eq(therapistAdjustments.id, id));
+    const list = await this.listTherapistAdjustments(Number(existing.therapistId));
+    return list.find((a) => a.id === id)!;
+  }
+
   async getTherapistOwed(therapistId: number): Promise<{
     therapistId: number;
     items: TherapistOwedItem[];
-    total: number;
+    total: number;          // session-only payable total (sum of items' remaining)
+    adjustmentsNet: number; // net manual bonus(+)/deduction(-) not tied to a session
     unresolvedCount: number;
   }> {
     const earnings = await this.computeTherapistEarnings(therapistId);
@@ -3946,7 +4074,13 @@ export class DatabaseStorage implements IStorage {
       visible.reduce((s, i) => s + (i.payType != null ? i.amountRemaining : 0), 0) * 100,
     ) / 100;
 
-    return { therapistId, items: visible, total, unresolvedCount };
+    // Manual bonuses/deductions are not tied to a session, so they don't appear as
+    // owed-list items. They are returned separately and folded into the net owed by
+    // callers (the headline owed number and the lump-payment math) so the owed total
+    // reconciles with the running statement's net balance.
+    const adjustmentsNet = await this.getTherapistAdjustmentsNet(therapistId);
+
+    return { therapistId, items: visible, total, adjustmentsNet, unresolvedCount };
   }
 
   async createTherapistPayout(input: {
@@ -4300,8 +4434,17 @@ export class DatabaseStorage implements IStorage {
         remainingToApply = Math.round((remainingToApply - applyRounded) * 100) / 100;
       }
 
-      const appliedAmount = Math.round((amount - remainingToApply) * 100) / 100;
-      const unappliedAmount = Math.round(remainingToApply * 100) / 100;
+      // Money beyond everything currently owed becomes an over-payment credit.
+      // "Everything owed" is the session payable total PLUS the net manual
+      // adjustment (a bonus raises owed, a deduction lowers it). Computing the
+      // unapplied part against this net — rather than against session remaining
+      // alone — keeps the credit correct when adjustments exist: paying off a
+      // bonus creates no false credit, and a deduction makes a same-size payment
+      // correctly show as credit. Session allocations above are unchanged; the
+      // adjustment portion is settled implicitly via the net balance.
+      const netOwed = Math.max(0, Math.round((owed.total + owed.adjustmentsNet) * 100) / 100);
+      const unappliedAmount = Math.max(0, Math.round((amount - netOwed) * 100) / 100);
+      const appliedAmount = Math.round((amount - unappliedAmount) * 100) / 100;
 
       const [payout] = await tx
         .insert(therapistPayouts)
@@ -4560,6 +4703,28 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Manual adjustment lines (active only): a bonus adds to earned, a deduction
+    // adds to paid, so they move the running balance the same way a session earning
+    // or a payment would. They are not session/payout lines, so they carry neither
+    // sessionId nor payoutId; the adjustmentId lets the UI offer a "void" action.
+    const adjustments = await this.listTherapistAdjustments(therapistId);
+    for (const a of adjustments) {
+      if (a.status !== 'active') continue;
+      const isBonus = a.adjustmentType === 'bonus';
+      const label = isBonus ? 'Bonus' : 'Deduction';
+      const d = a.effectiveDate || '1970-01-01';
+      raw.push({
+        date: d,
+        type: 'adjustment',
+        description: a.description ? `${label} — ${a.description}` : label,
+        reference: null,
+        earned: isBonus ? a.amount : 0,
+        paid: isBonus ? 0 : a.amount,
+        adjustmentId: a.id,
+        sortKey: new Date(d).getTime(),
+      });
+    }
+
     // Chronological order. On the same day: earnings first, then payments, then
     // void adjustments, so a payment can settle that day's earnings and a void
     // reversal applies after the payment it reverses.
@@ -4812,6 +4977,27 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Bucket manual adjustments (active only) the same way as earnings/payments so
+    // the monthly chain stays consistent with the running statement: a bonus is an
+    // "earned" event and a deduction is a "paid" event, each on its effectiveDate.
+    // Before the month -> opening; inside the month -> this period's earned/paid.
+    const adjustments = await this.listTherapistAdjustments(therapistId);
+    for (const a of adjustments) {
+      if (a.status !== 'active') continue;
+      const d = a.effectiveDate ? new Date(a.effectiveDate) : null;
+      if (d == null) continue;
+      const before = d < monthStart;
+      const inMonth = d >= monthStart && d < monthEnd;
+      if (!before && !inMonth) continue;
+      if (a.adjustmentType === 'bonus') {
+        if (before) openingEarned = Math.round((openingEarned + a.amount) * 100) / 100;
+        else earnedInMonth = Math.round((earnedInMonth + a.amount) * 100) / 100;
+      } else {
+        if (before) openingPaid = Math.round((openingPaid + a.amount) * 100) / 100;
+        else paidInMonth = Math.round((paidInMonth + a.amount) * 100) / 100;
+      }
+    }
+
     const openingBalance = Math.round((openingEarned - openingPaid) * 100) / 100;
     const closingBalance = Math.round((openingBalance + earnedInMonth - paidInMonth) * 100) / 100;
 
@@ -4838,6 +5024,83 @@ export class DatabaseStorage implements IStorage {
       unbilledCount,
       unbilledCompletedCount,
     };
+  }
+
+  // Read-only "needs attention" summary for the payments dashboard. Scans only the
+  // therapists that have any pay activity (an earning, a payout, or an adjustment)
+  // and flags three actionable problems:
+  //   - unresolved: collected sessions with NO pay rule (can't be paid out)
+  //   - credits:    therapists carrying an unapplied over-payment credit
+  //   - staleUnpaid: owed sessions older than `staleDays` still unpaid
+  async getTherapistPayAttention(staleDays = 30): Promise<TherapistPayAttention> {
+    const ids = new Set<number>();
+    // Seed with every current therapist so that someone who has collected
+    // sessions but NO pay rule (and therefore no persisted earnings/payouts yet)
+    // still gets flagged as "unresolved" — that is exactly the case this panel
+    // exists to catch. We then union in any historical ledger ids below so a
+    // therapist who has since left but still has owed money isn't dropped.
+    const allTherapists = await this.getTherapists();
+    for (const t of allTherapists) ids.add(Number(t.id));
+    const earnIds = await db
+      .selectDistinct({ id: therapistEarnings.therapistId })
+      .from(therapistEarnings);
+    for (const r of earnIds) ids.add(Number(r.id));
+    const payIds = await db
+      .selectDistinct({ id: therapistPayouts.therapistId })
+      .from(therapistPayouts);
+    for (const r of payIds) ids.add(Number(r.id));
+    const adjIds = await db
+      .selectDistinct({ id: therapistAdjustments.therapistId })
+      .from(therapistAdjustments);
+    for (const r of adjIds) ids.add(Number(r.id));
+
+    const idList = Array.from(ids);
+    const nameMap = new Map<number, string>();
+    if (idList.length) {
+      const us = await db
+        .select({ id: users.id, fullName: users.fullName })
+        .from(users)
+        .where(inArray(users.id, idList));
+      for (const u of us) nameMap.set(Number(u.id), u.fullName || '');
+    }
+
+    const unresolved: TherapistPayAttention['unresolved'] = [];
+    const credits: TherapistPayAttention['credits'] = [];
+    const staleUnpaid: TherapistPayAttention['staleUnpaid'] = [];
+    const cutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+
+    for (const tid of idList) {
+      const name = nameMap.get(tid) || '';
+      const owed = await this.getTherapistOwed(tid);
+      if (owed.unresolvedCount > 0) {
+        unresolved.push({ therapistId: tid, therapistName: name, count: owed.unresolvedCount });
+      }
+      const credit = await this.getTherapistUnappliedCredit(tid);
+      if (credit > 0.005) {
+        credits.push({ therapistId: tid, therapistName: name, creditBalance: credit });
+      }
+      let count = 0;
+      let total = 0;
+      let oldest: string | null = null;
+      for (const it of owed.items) {
+        if (it.payType == null || it.amountRemaining <= 0 || !it.sessionDate) continue;
+        const sd = new Date(it.sessionDate);
+        if (sd >= cutoff) continue;
+        count++;
+        total = Math.round((total + it.amountRemaining) * 100) / 100;
+        const ds = new Date(it.sessionDate).toISOString().slice(0, 10);
+        if (oldest == null || ds < oldest) oldest = ds;
+      }
+      if (count > 0) {
+        staleUnpaid.push({ therapistId: tid, therapistName: name, count, oldestDate: oldest, total });
+      }
+    }
+
+    unresolved.sort((a, b) => b.count - a.count);
+    credits.sort((a, b) => b.creditBalance - a.creditBalance);
+    staleUnpaid.sort((a, b) => (a.oldestDate || '') < (b.oldestDate || '') ? -1 : 1);
+
+    return { unresolved, credits, staleUnpaid, staleDays };
   }
 
   // ===== INSURANCE STATEMENT RECONCILIATION =====

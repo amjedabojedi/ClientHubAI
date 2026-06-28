@@ -12717,6 +12717,114 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // List a therapist's manual adjustments (bonuses/deductions), newest first.
+  app.get("/api/therapist-pay/adjustments/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const rows = await storage.listTherapistAdjustments(therapistId);
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create a manual adjustment (bonus = +, deduction = -) on a therapist's ledger.
+  app.post("/api/therapist-pay/adjustments", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { therapistId, adjustmentType, amount, description, effectiveDate } = req.body || {};
+      const tId = parseInt(String(therapistId));
+      if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      if (adjustmentType !== 'bonus' && adjustmentType !== 'deduction') {
+        return res.status(400).json({ message: "adjustmentType must be 'bonus' or 'deduction'" });
+      }
+      const amt = Math.round(Number(amount) * 100) / 100;
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ message: "Amount must be greater than zero" });
+      }
+      const desc = (description || '').toString().trim();
+      if (!desc) return res.status(400).json({ message: "A description is required" });
+      const date = (effectiveDate || '').toString().trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ message: "effectiveDate is required (YYYY-MM-DD)" });
+      }
+
+      const adjustment = await storage.createTherapistAdjustment({
+        therapistId: tId,
+        adjustmentType,
+        amount: amt,
+        description: desc,
+        effectiveDate: date,
+        createdBy: req.user!.id,
+      });
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_adjustment_created',
+        result: 'success',
+        resourceType: 'therapist_adjustment',
+        resourceId: String(adjustment.id),
+        details: JSON.stringify({
+          therapistId: tId,
+          adjustmentType,
+          amount: amt,
+          effectiveDate: date,
+          description: desc,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.status(201).json(adjustment);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg === 'Amount must be greater than zero') return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Void a manual adjustment (excluded from all balances afterwards).
+  app.post("/api/therapist-pay/adjustments/:id/void", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid adjustment ID" });
+      const reason = (req.body?.reason || '').toString().trim();
+      if (!reason) return res.status(400).json({ message: "A reason is required to void an adjustment" });
+
+      const adjustment = await storage.voidTherapistAdjustment(id, req.user!.id, reason);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'therapist_adjustment_voided',
+        result: 'success',
+        resourceType: 'therapist_adjustment',
+        resourceId: String(id),
+        details: JSON.stringify({ therapistId: adjustment.therapistId, reason }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      res.json(adjustment);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg === 'Adjustment not found') return res.status(404).json({ message: msg });
+      if (msg === 'Adjustment is already voided') return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // "Needs attention" summary across therapists with pay activity (read-only).
+  app.get("/api/therapist-pay/attention", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const attention = await storage.getTherapistPayAttention();
+      res.json(attention);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Audit a statement / monthly-report export (CSV or print/PDF) by an admin.
   app.post("/api/therapist-pay/export-audit", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
     try {

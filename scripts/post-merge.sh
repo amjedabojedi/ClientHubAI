@@ -19,6 +19,9 @@ npx tsx scripts/ensure-report-tables.ts
 # Ensure the therapist running-statement schema exists (therapist_payment_allocations
 # + therapist_earnings tables + therapist_payouts ledger columns). Idempotent DDL.
 npx tsx scripts/ensure-therapist-ledger.ts
+# Ensure the therapist manual-adjustments table (bonuses/deductions) exists.
+# Idempotent additive DDL (db:push avoided due to known practice_configuration drift).
+npx tsx scripts/ensure-therapist-adjustments.ts
 # Ensure payment_transactions has the insurance-statement provenance columns
 # (source_statement_id / source_statement_line_id). Idempotent DDL.
 npx tsx scripts/ensure-statement-payment-link.ts

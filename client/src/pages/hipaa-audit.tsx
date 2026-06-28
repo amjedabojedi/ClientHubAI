@@ -192,6 +192,8 @@ const AUDIT_ACTION_LABELS = {
   therapist_payment_allocated: 'Therapist Payment Allocated',
   therapist_earning_recorded: 'Therapist Earning Recorded',
   therapist_payout_voided: 'Therapist Payout Voided',
+  therapist_adjustment_created: 'Therapist Adjustment Created',
+  therapist_adjustment_voided: 'Therapist Adjustment Voided',
   therapist_statement_exported: 'Therapist Statement Exported',
 
   // Insurance statement reconciliation
