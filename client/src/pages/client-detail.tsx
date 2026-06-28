@@ -1972,7 +1972,10 @@ export default function ClientDetailPage({
           reference: paymentForm.reference || null,
           method: paymentForm.method,
           notes: paymentForm.notes || null,
-          clientId: clientId
+          clientId: clientId,
+          // Forward the staffer's explicit override so the server-side
+          // duplicate-insurance guard lets a deliberate, separate payment through.
+          acknowledgeDuplicate: confirmDuplicateInsurance,
         }
       });
     } else {

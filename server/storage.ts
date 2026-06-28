@@ -3471,6 +3471,7 @@ export class DatabaseStorage implements IStorage {
     recordedBy?: number;
     sourceStatementId?: number;
     sourceStatementLineId?: number;
+    acknowledgeDuplicate?: boolean;
   }, executor?: any): Promise<SelectSessionBilling> {
     // When an `executor` (an already-open transaction) is supplied, run on it
     // instead of opening a new transaction — this lets callers that already hold
@@ -3499,6 +3500,42 @@ export class DatabaseStorage implements IStorage {
         source === 'client' ? current.client_paid_amount : current.insurance_paid_amount
       ) || 0;
       const delta = +(cumulativeForSource - previousForSource).toFixed(2);
+
+      // Server-side duplicate-insurance guard (defense-in-depth for the
+      // client-side advisory in PaymentDialog). A MANUAL insurance payment
+      // (one NOT carrying a sourceStatement(Line)Id — i.e. not posted by the
+      // statement reconciler) whose newly-added amount closely matches an
+      // insurance payment already posted from a statement for this billing is
+      // almost always the same EOB being re-keyed by hand, which would double-
+      // count collected insurance. Reject it unless the caller explicitly
+      // acknowledges it is a separate, additional payment. The tolerance
+      // mirrors the dialog exactly: the greater of $1 or 5% of the posted amount.
+      const isManualInsurance =
+        source === 'insurance' &&
+        paymentData.sourceStatementId == null &&
+        paymentData.sourceStatementLineId == null;
+      if (isManualInsurance && !paymentData.acknowledgeDuplicate && delta > 0) {
+        const postedRows = await tx.execute(sql`
+          SELECT amount FROM payment_transactions
+          WHERE session_billing_id = ${billingId}
+            AND voided_at IS NULL
+            AND source = 'insurance'
+            AND source_statement_id IS NOT NULL
+        `);
+        const rows: any[] = (postedRows as any).rows || (postedRows as any) || [];
+        for (const r of rows) {
+          const amt = Math.abs(Number(r.amount) || 0);
+          if (amt <= 0) continue;
+          const tol = Math.max(1, amt * 0.05);
+          if (Math.abs(delta - amt) <= tol) {
+            const err: any = new Error(
+              `This insurance amount ($${delta.toFixed(2)}) matches a payment of $${amt.toFixed(2)} already posted from a statement for this billing. If this is a separate, additional insurance payment, confirm the duplicate to proceed.`
+            );
+            err.code = 'DUPLICATE_INSURANCE_PAYMENT';
+            throw err;
+          }
+        }
+      }
 
       const otherSourceAmount = Number(
         source === 'client' ? current.insurance_paid_amount : current.client_paid_amount

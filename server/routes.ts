@@ -14725,7 +14725,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status, amount, date, reference, method, notes, clientId, source } = req.body;
+      const { status, amount, date, reference, method, notes, clientId, source, acknowledgeDuplicate } = req.body;
       
       // Use centralized storage method to get billing data for authorization
       // clientId is passed from frontend to use getBillingForInvoice
@@ -14767,11 +14767,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
         method,
         notes,
         source,
+        acknowledgeDuplicate: acknowledgeDuplicate === true,
         recordedBy: req.user?.id
       });
       
       res.json({ message: "Payment details updated successfully" });
-    } catch (error) {
+    } catch (error: any) {
+      // Server-side duplicate-insurance guard: surface a clear 422 so a scripted
+      // or stale-page call (which never saw the dialog's advisory) can't silently
+      // double-count collected insurance. The dialog forwards acknowledgeDuplicate
+      // when staff deliberately override, which bypasses this.
+      if (error?.code === 'DUPLICATE_INSURANCE_PAYMENT') {
+        return res.status(422).json({ message: error.message, code: error.code });
+      }
       console.error('[PAYMENT ERROR]', error);
       res.status(500).json({ message: "Internal server error" });
     }
