@@ -95,6 +95,7 @@ SUITES=(
   "test/billing-payment-authz.test.ts"
   "test/billing-transactions-void-authz.test.ts"
   "test/billing-transaction-void-restores-balance.test.ts"
+  "test/insurance-payment-void-restores-balance.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
   "test/insurance-void-reject-ui.test.ts"
   "test/insurance-post-reject-ui.test.ts"
