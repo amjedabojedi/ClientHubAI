@@ -87,6 +87,7 @@ SUITES=(
   "test/insurance-repost-doublecount-ui.test.ts"
   "test/insurance-duplicate-payment-warning-ui.test.ts"
   "test/insurance-duplicate-payment-server-guard.test.ts"
+  "test/duplicate-insurance-payment-warning-ui.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
   "test/insurance-void-reject-ui.test.ts"
   "test/insurance-post-reject-ui.test.ts"
