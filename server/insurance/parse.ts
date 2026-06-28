@@ -85,13 +85,40 @@ const HEADER_MAP: Record<keyof ExtractedInsuranceLine, string[]> = {
   remarkCode: ["remark", "adjustment", "denial", "reason", "carc", "remarkcode"],
 };
 
+// Identifier-style columns (e.g. "Payment ID", "Claim Number", "Account #",
+// "Auth No", "Reference") hold long numbers that are NOT money. They routinely
+// collide with money needles ("Payment ID" matches "payment", "Charge No"
+// matches "charge"), so a misread turns a 10-digit id into a giant dollar amount
+// and the row overflows the money columns. We exclude these headers when mapping
+// the money fields. Matching is token-based (split on non-alphanumerics) so we
+// never trip on substrings like the "id" inside "paid". "claim"/"account" are
+// deliberately NOT treated as identifiers on their own, because legitimate money
+// headers like "Claim Paid" / "Account Balance" exist — only the id/number/ref
+// suffix (or a literal #) marks a column as an identifier.
+function isIdentifierHeader(h: string): boolean {
+  if (h.includes("#")) return true;
+  const tokens = h.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const idTokens = new Set(["id", "number", "no", "num", "ref", "reference", "acct"]);
+  return tokens.some((t) => idTokens.has(t));
+}
+
+const MONEY_FIELDS: ReadonlySet<keyof ExtractedInsuranceLine> = new Set<keyof ExtractedInsuranceLine>([
+  "billedAmount",
+  "allowedAmount",
+  "insurancePaidAmount",
+  "patientResponsibility",
+]);
+
 // Map a set of header strings onto our canonical fields, including the
 // invoice-summary fallback for the paid amount. Shared by table scoring (below)
 // and the final parse so both agree on what a header row resolves to.
 function buildColumnMap(headers: string[]): Partial<Record<keyof ExtractedInsuranceLine, string>> {
   const colFor: Partial<Record<keyof ExtractedInsuranceLine, string>> = {};
+  // Money fields may only map to non-identifier columns.
+  const moneyHeaders = headers.filter((h) => !isIdentifierHeader(h));
   (Object.keys(HEADER_MAP) as (keyof ExtractedInsuranceLine)[]).forEach((field) => {
-    const col = matchHeader(headers, HEADER_MAP[field]);
+    const pool = MONEY_FIELDS.has(field) ? moneyHeaders : headers;
+    const col = matchHeader(pool, HEADER_MAP[field]);
     if (col) colFor[field] = col;
   });
 
@@ -123,6 +150,7 @@ function buildColumnMap(headers: string[]): Partial<Record<keyof ExtractedInsura
     outer: for (const n of fallbackNeedles) {
       for (const h of headers) {
         if (claimed.has(h)) continue;
+        if (isIdentifierHeader(h)) continue; // never read an id/number column as money
         const lh = h.toLowerCase().replace(/[^a-z0-9]/g, "");
         if (lh.includes("date")) continue; // never read a date column as money
         if (lh.includes(n)) {
