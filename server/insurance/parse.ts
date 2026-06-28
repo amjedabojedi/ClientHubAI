@@ -102,6 +102,16 @@ function isIdentifierHeader(h: string): boolean {
   return tokens.some((t) => idTokens.has(t));
 }
 
+// Date columns must never be read as money. A header like "Date submitted"
+// contains the billed-amount needle "submitted", so without this guard the
+// money mapper grabs the date column and tries to parse "2026-06-15" as a dollar
+// amount — which serializes to a giant number and overflows the money column.
+function isDateHeader(h: string): boolean {
+  const lh = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (lh.includes("date")) return true;
+  return h.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).includes("dos");
+}
+
 const MONEY_FIELDS: ReadonlySet<keyof ExtractedInsuranceLine> = new Set<keyof ExtractedInsuranceLine>([
   "billedAmount",
   "allowedAmount",
@@ -114,8 +124,8 @@ const MONEY_FIELDS: ReadonlySet<keyof ExtractedInsuranceLine> = new Set<keyof Ex
 // and the final parse so both agree on what a header row resolves to.
 function buildColumnMap(headers: string[]): Partial<Record<keyof ExtractedInsuranceLine, string>> {
   const colFor: Partial<Record<keyof ExtractedInsuranceLine, string>> = {};
-  // Money fields may only map to non-identifier columns.
-  const moneyHeaders = headers.filter((h) => !isIdentifierHeader(h));
+  // Money fields may only map to columns that are neither identifiers nor dates.
+  const moneyHeaders = headers.filter((h) => !isIdentifierHeader(h) && !isDateHeader(h));
   (Object.keys(HEADER_MAP) as (keyof ExtractedInsuranceLine)[]).forEach((field) => {
     const pool = MONEY_FIELDS.has(field) ? moneyHeaders : headers;
     const col = matchHeader(pool, HEADER_MAP[field]);

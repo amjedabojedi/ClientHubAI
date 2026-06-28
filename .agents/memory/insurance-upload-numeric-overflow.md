@@ -32,6 +32,16 @@ bare "claim"/"account" (legit "Claim Paid"/"Account Balance"). Known gap: compac
 no-separator headers ("PaymentID","ClaimNo") aren't caught (can't suffix-match "id"
 without breaking "paid") — the route guard below still prevents a DB crash there.
 
+**Second real-world root cause (DATE column read as money):** a header like
+**"Date submitted"** contains "submitted", a billedAmount needle, so the parser
+mapped the DATE column to billedAmount and tried to read "2026-06-15" as money →
+overflow. Fix: `isDateHeader(h)` (normalized header includes "date", or has a "dos"
+token) and money fields map only against headers that are neither identifier NOR
+date. Use **substring** `includes("date")` here (opposite of the identifier rule) so
+it also catches compact "ServiceDate"/"DateSubmitted"; no real money header contains
+"date" as a substring. The date filter is scoped to the money pool ONLY — serviceDate
+still maps against the full headers, so it keeps matching "date" columns.
+
 **Fix / rule:** range-check every parsed money field BEFORE insert (in the route,
 right after parse, before duplicate check + createInsuranceStatement). On overflow
 return a **422** naming the offending client/row and which amount(s) are too large.
