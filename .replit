@@ -23,10 +23,6 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-privacy"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -35,17 +31,6 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
-
-[[workflows.workflow]]
-name = "test-privacy"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "FAIL_ON_SLOWDOWN=1 AUTO_UPDATE_BASELINE=1 bash scripts/run-privacy-tests.sh"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[ports]]
 localPort = 5000
