@@ -36,3 +36,9 @@ id = "E9fQJay0fWDD8BDbRgbbV"
 uri = "file://exports/January_2026_insurance_reconciliation.csv"
 type = "table"
 title = "January 2026 — Ready-to-upload Reconciliation Spreadsheet"
+
+[[outputs]]
+id = "5ex1Cf4XRLLFPjn7fZHBF"
+uri = "file://exports/fake-users.csv"
+type = "table"
+title = "Fake test user accounts (743) — review before any deletion"
