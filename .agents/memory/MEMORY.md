@@ -25,6 +25,7 @@
 - [Non-modal depth-1 drawer](non-modal-depth1-drawer.md) — top record-drawer level is non-modal (list stays clickable, swap via replaceTopDrawer); depth 2+ stays modal to protect editor edits.
 - [Wizard button type morph](wizard-button-type-morph.md) — never share one JSX slot for a wizard's Next(type=button) and Submit(type=submit); React mutates type in place and the advance-click submits.
 - [Slow-down detector baseline](slowdown-detection-baseline.md) — privacy-suite regression baseline must EXCLUDE the latest run (else a slow sample masks itself) and only fail on a SUSTAINED 2-run slow-down.
+- [Test-data cleanup](test-data-cleanup.md) — fake staff=@example.test; test CLIENTS not by year (CL-2026 has real clients), use name patterns; delete via atomic bottom-up FK order; test-privacy workflow pollutes the live DB.
 - [SMS appointment notifications](sms-appointment-notifications.md) — consent-gated Twilio SMS; body MAY include appointment date/time (owner-approved) but never name/clinical; fail-closed + always audited; reminders are scheduled session_scheduled triggers.
 - [Client sessions payload + reschedule](client-sessions-payload-shape.md) — /api/clients/:id/sessions returns nested therapist obj (no flat therapistName); reschedule has no get-by-id, needs editSessionId+editDate to load the session's month.
 - [audit userId FK](audit-userid-fk.md) — audit_logs.user_id is FK to users; system/webhook audits must use SYSTEM_USER_ID (6) not a client id, else write silently hits fallback file. Client goes in clientId.
