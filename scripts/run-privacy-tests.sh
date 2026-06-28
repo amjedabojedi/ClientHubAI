@@ -70,6 +70,7 @@ SUITES=(
   "test/insurance-reconciliation-posted-line-ui.test.ts"
   "test/therapist-statement-earning-dedup.test.ts"
   "test/therapist-statement-monthly-running-agree.test.ts"
+  "test/therapist-statement-voided-payout-agree.test.ts"
   "test/therapist-earning-self-correct.test.ts"
   "test/insurance-void-repost-corrects-pay.test.ts"
   "test/therapist-statement-corrected-pay-ui.test.ts"
