@@ -179,18 +179,19 @@ async function main() {
     } as any);
     therapistId = therapist.id;
 
-    // Record the payment as an ADMIN. The PUT /api/billing/:id/payment route
-    // authorizes administrators, supervisors, accountants, and the assigned
-    // therapist — it does NOT accept the bare 'billing' role (that role can post
-    // statements but not record a manual payment through this route), so a
-    // 'billing' user would 403 before ever reaching the duplicate guard. Using
-    // an admin keeps this suite focused on the override guard, not authz.
+    // Record the payment as a dedicated BILLING staffer. The PUT
+    // /api/billing/:id/payment route authorizes administrators, supervisors,
+    // accountants, the assigned therapist, AND the bare 'billing' role — the
+    // latter to match the neighbouring billing routes (insurance post/void,
+    // transactions) that already grant 'billing' full billing access. Seeding a
+    // 'billing' user here also proves that role can record a payment (and clear
+    // the duplicate guard) end-to-end, not just admins.
     const billingUser = await storage.createUser({
-      username: `admin-${SUFFIX}`,
+      username: `billing-${SUFFIX}`,
       password: "x",
-      fullName: `Admin ${SUFFIX}`,
-      email: `admin-${SUFFIX}@example.test`,
-      role: "admin",
+      fullName: `Billing ${SUFFIX}`,
+      email: `billing-${SUFFIX}@example.test`,
+      role: "billing",
     } as any);
     billingUserId = billingUser.id;
 
@@ -322,7 +323,7 @@ async function main() {
       username: billingUser.username,
       password: "x",
     });
-    assertEqual(loginStatus, 200, "Admin user logs in via /api/auth/login");
+    assertEqual(loginStatus, 200, "Billing user logs in via /api/auth/login");
 
     // --- COMPLEMENTARY: a scripted PUT WITHOUT override is rejected 422 -----
     // Re-key the same $100 (cumulative $200) through the REAL authenticated HTTP
