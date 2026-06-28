@@ -70,7 +70,7 @@ interface StatementLine {
   remarkCode: string | null;
   matchedSessionBillingId: number | null;
   matchStatus: MatchStatus;
-  matchConfidence: "high" | "medium" | "low" | null;
+  matchConfidence: "high" | "medium" | "low" | "partial" | null;
   postedAmount: string | null;
   matchedClientName: string | null;
   matchedSessionDate: string | null;
@@ -223,6 +223,13 @@ function matchBadge(line: StatementLine) {
     case "confirmed":
       return <Badge className="bg-blue-600 hover:bg-blue-600">Confirmed</Badge>;
     case "suggested":
+      if (line.matchConfidence === "partial") {
+        return (
+          <Badge variant="outline" className="border-orange-500 text-orange-700">
+            Possible match · confirm
+          </Badge>
+        );
+      }
       return (
         <Badge variant="outline" className="border-amber-500 text-amber-700">
           Suggested{line.matchConfidence ? ` · ${line.matchConfidence}` : ""}

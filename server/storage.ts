@@ -963,6 +963,22 @@ export interface IStorage {
   // Note: Practice configuration methods removed - not implemented in current schema
 }
 
+// Normalize a person's name into comparable word-tokens for insurance/EOB
+// matching. Strips diacritics (José -> jose), lowercases, and splits on any
+// non-letter/digit so punctuation and ordering are irrelevant (O'Brien ->
+// ["obrien"], "Garcia Lopez, Maria" -> ["garcia","lopez","maria"]). Keeps
+// tokens of length >= 2 so stray single-letter initials don't create noise.
+function normalizedNameTokens(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return (
+    raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .match(/[a-z0-9]{2,}/g) || []
+  );
+}
+
 export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
@@ -5239,28 +5255,36 @@ export class DatabaseStorage implements IStorage {
   // null when there is no candidate or the candidates are ambiguous (we never
   // guess between multiple billings — the user resolves those manually).
   private async findBillingMatchForLine(line: InsuranceStatementLine): Promise<
-    { billingId: number; sessionId: number; clientId: number; confidence: 'high' | 'medium' | 'low' } | null
+    { billingId: number; sessionId: number; clientId: number; confidence: 'high' | 'medium' | 'low' | 'partial' } | null
   > {
     const conds: any[] = [];
     const hasDate = !!line.serviceDate;
     if (hasDate) {
       conds.push(sql`${sessions.sessionDate}::date = ${line.serviceDate}::date`);
     }
-    // Token-based name match that tolerates one name being a shortened form of
-    // the other. Insurance statements often carry the full legal name (e.g. a
-    // middle name and a second surname) while the stored client name is
-    // abbreviated (first name + one surname). Requiring *every* statement token
-    // to appear in the stored name breaks those. Instead we pre-filter on any
-    // shared token in SQL, then keep only candidates whose name tokens are a
-    // subset of the statement's (or vice-versa).
-    const nameTokens = (line.clientNameRaw || '').toLowerCase().match(/[a-z]{2,}/g) || [];
+    // Name tokens are normalized (accents stripped, lowercased, order-independent)
+    // so "José", "Garcia Lopez, Maria Jose" and "Maria Garcia" all compare on
+    // their bare word-pieces. See normalizedNameTokens.
+    const nameTokens = normalizedNameTokens(line.clientNameRaw);
     const hasName = nameTokens.length > 0;
-    if (hasName) {
+    if (!hasDate && !hasName) return null;
+
+    // When we have a service date we pre-filter on the date alone and do ALL
+    // name logic in JS. This is more accurate than an ILIKE name pre-filter,
+    // which silently drops accented stored names (e.g. statement token "jose"
+    // can't ILIKE-match a stored "José"). A single day has few billings, so the
+    // candidate set stays small. Without a date we fall back to a broad name
+    // ILIKE pre-filter.
+    if (!hasDate && hasName) {
       const tokenConds = nameTokens.map((t) => ilike(clients.fullName, `%${t}%`));
       conds.push(or(...tokenConds));
     }
-    if (!hasDate && !hasName) return null;
 
+    // Fetch one more than the cap so we can detect saturation. If the prefilter
+    // returns MORE than the cap, additional valid candidates may be hidden and we
+    // cannot guarantee the eventual single survivor is globally unique — bail to
+    // manual rather than risk a misleading "unique" suggestion.
+    const CANDIDATE_CAP = 50;
     const rows = await db
       .select({
         billingId: sessionBilling.id,
@@ -5274,29 +5298,49 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(and(...conds))
-      .limit(25);
+      .limit(CANDIDATE_CAP + 1);
 
     if (!rows.length) return null;
+    if (rows.length > CANDIDATE_CAP) return null;
 
     let candidates = rows;
+    // 'partial' means the names only PARTLY overlap (shared word-piece, but
+    // neither name fully contains the other) — surfaced as a low-confidence
+    // "possible match" a human must confirm, never auto-posted.
+    let partial = false;
 
-    // Name compatibility: one name's token set must be a (non-empty) subset of
-    // the other's. "Gerson Rivas" ⊆ "Gerson Mar Rivas Fernandez" matches; a
-    // genuinely different name ("John Smith" vs "John Doe") does not. Ambiguity
-    // is still resolved by the single-candidate gate below.
     if (hasName) {
       const stmtSet = new Set(nameTokens);
+      // Tier 1 — strong name match: one name's token set is a (non-empty)
+      // subset of the other's. "Gerson Rivas" ⊆ "Gerson Mar Rivas Fernandez";
+      // a genuinely different name ("John Smith" vs "John Doe") does not.
       const nameCompatible = candidates.filter((r) => {
-        const clientTokens = (r.clientName || '').toLowerCase().match(/[a-z]{2,}/g) || [];
+        const clientTokens = normalizedNameTokens(r.clientName);
         if (!clientTokens.length) return false;
         const clientSet = new Set(clientTokens);
         const clientInStmt = clientTokens.every((t) => stmtSet.has(t));
         const stmtInClient = nameTokens.every((t) => clientSet.has(t));
         return clientInStmt || stmtInClient;
       });
-      if (!nameCompatible.length) return null;
-      candidates = nameCompatible;
+
+      if (nameCompatible.length) {
+        candidates = nameCompatible;
+      } else if (hasDate) {
+        // Tier 2 — partial name overlap. Only attempted when we have a service
+        // date (a strong constraint), and even then it is just a suggestion the
+        // user confirms. Requires at least one fully-shared word-piece so a
+        // stray substring can't pull in an unrelated client.
+        const sharesToken = candidates.filter((r) =>
+          normalizedNameTokens(r.clientName).some((t) => stmtSet.has(t)),
+        );
+        if (!sharesToken.length) return null;
+        candidates = sharesToken;
+        partial = true;
+      } else {
+        return null;
+      }
     }
+
     let codeMatched = false;
     if (line.serviceCode) {
       const lc = line.serviceCode.toLowerCase();
@@ -5311,8 +5355,9 @@ export class DatabaseStorage implements IStorage {
     if (candidates.length !== 1) return null;
 
     const c = candidates[0];
-    let confidence: 'high' | 'medium' | 'low' = 'low';
-    if (hasName && hasDate && codeMatched) confidence = 'high';
+    let confidence: 'high' | 'medium' | 'low' | 'partial' = 'low';
+    if (partial) confidence = 'partial';
+    else if (hasName && hasDate && codeMatched) confidence = 'high';
     else if (hasName && hasDate) confidence = 'medium';
     return { billingId: c.billingId, sessionId: c.sessionId, clientId: c.clientId, confidence };
   }

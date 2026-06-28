@@ -8,7 +8,7 @@ The shared dev DATABASE_URL is effectively the practice's LIVE data. The privacy
 ## Identifying fake vs real
 - **Fake STAFF/therapist accounts** = `email ILIKE '%@example.test'`. Real staff use real domains (resiliencec.com, gmail, etc.). Clean, reliable discriminator. (Once observed: 743 fake vs 30 real.)
 - **Test CLIENTS are NOT identifiable by client_id era.** `CL-2026-*` contains REAL clients added in 2026 (~243 real). Identify test clients by **generated-name patterns** instead: 8+ digit timestamps, "Drawer Client", "consent-client tNN", "no-consent", "Patient X ins-", "client thr-/ins-", "-ui-", "def/dla/ddl/sf-client", plus `client_id LIKE 'T%'`, `email ILIKE '%@example.test'`, and assignment to a fake therapist.
-- **Always audit the predicate**: confirm it catches 0 `CL-2025-*` rows, and eyeball matches with non-`example` emails for false positives — one "Test Client" used the admin's real email (amjadabu@…) and had to be excluded by hand.
+- **Always audit the predicate**: confirm it catches 0 `CL-2025-*` rows, and eyeball matches with non-`example` emails for false positives — a "Test Client"-named row can carry a real staff email and must be excluded by hand.
 
 ## Why: deleting on a live DB is irreversible
 Checkpoint rollback may not cover this external DB. Always: back up the to-delete sets to CSV first, scope strictly to confirmed-test rows, and run inside an atomic block so a missed FK rolls everything back.
