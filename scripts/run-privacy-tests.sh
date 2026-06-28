@@ -92,6 +92,7 @@ SUITES=(
   "test/duplicate-insurance-payment-hook.test.ts"
   "test/insurance-duplicate-payment-override-submit-ui.test.ts"
   "test/billing-payment-authz.test.ts"
+  "test/billing-transactions-void-authz.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
   "test/insurance-void-reject-ui.test.ts"
   "test/insurance-post-reject-ui.test.ts"
