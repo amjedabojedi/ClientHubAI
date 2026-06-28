@@ -1253,10 +1253,111 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TxFilter>("all");
   const [therapist, setTherapist] = useState<string>("all");
+  const [postOpen, setPostOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: rows, isLoading } = useQuery<TransactionRow[]>({
     queryKey: ["/api/insurance/transactions"],
   });
+
+  const invalidateInsurance = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/insurance/transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+  };
+
+  // Statements in the current therapist scope (all of them when "all" is picked).
+  // Used to keep the bulk actions limited to what the user is actually looking at.
+  const scopeStatementIds = () =>
+    Array.from(
+      new Set(
+        (rows ?? [])
+          .filter((r) => therapist === "all" || r.therapistName === therapist)
+          .map((r) => r.statementId),
+      ),
+    );
+
+  // Re-run matching across the in-scope open statements. Safe: only ever suggests.
+  const rematchAll = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("/api/insurance/rematch-all", "POST", {
+        statementIds: scopeStatementIds(),
+      });
+      return res.json();
+    },
+    onSuccess: (data: { statementsScanned: number; newlyMatched: number }) => {
+      invalidateInsurance();
+      toast({
+        title: "Re-scan complete",
+        description:
+          data.newlyMatched > 0
+            ? `Found ${data.newlyMatched} new match${data.newlyMatched === 1 ? "" : "es"} across ${data.statementsScanned} statement${data.statementsScanned === 1 ? "" : "s"}.`
+            : `No new matches found across ${data.statementsScanned} statement${data.statementsScanned === 1 ? "" : "s"}.`,
+      });
+    },
+    onError: (err: any) =>
+      toast({ title: "Re-scan failed", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  // Confirm one suggested line (human approval before any posting).
+  const confirmLine = useMutation({
+    mutationFn: async (lineId: number) =>
+      apiRequest(`/api/insurance/lines/${lineId}`, "PATCH", { matchStatus: "confirmed" }),
+    onSuccess: () => {
+      invalidateInsurance();
+      toast({ title: "Match confirmed", description: "Ready to post." });
+    },
+    onError: (err: any) =>
+      toast({ title: "Could not confirm", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  // Post the in-scope confirmed lines (records the insurance payments). Money action.
+  const postAll = useMutation({
+    mutationFn: async (statementIds: number[]) => {
+      const res = await apiRequest("/api/insurance/post-all", "POST", { statementIds });
+      return res.json();
+    },
+    onSuccess: (data: {
+      statementsPosted: number;
+      postedCount: number;
+      postedTotal: number;
+      failedCount?: number;
+    }) => {
+      invalidateInsurance();
+      setPostOpen(false);
+      const base = `Recorded ${data.postedCount} payment${data.postedCount === 1 ? "" : "s"} totaling ${money(data.postedTotal)} across ${data.statementsPosted} statement${data.statementsPosted === 1 ? "" : "s"}.`;
+      if (data.failedCount && data.failedCount > 0) {
+        toast({
+          title: "Posted with some errors",
+          description: `${base} ${data.failedCount} statement${data.failedCount === 1 ? "" : "s"} could not be posted — open ${data.failedCount === 1 ? "it" : "them"} to review.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Posted", description: base });
+      }
+    },
+    onError: (err: any) =>
+      toast({ title: "Post failed", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  // Confirmed lines ready to post within the current therapist scope — exactly
+  // what the "Post" button commits, so the count/total match what's on screen.
+  const confirmedRows = (rows ?? []).filter(
+    (r) => r.matchStatus === "confirmed" && (therapist === "all" || r.therapistName === therapist),
+  );
+  const confirmedCount = confirmedRows.length;
+  const confirmedTotal = confirmedRows.reduce(
+    (sum, r) => sum + (Number(r.insurancePaidAmount) || 0),
+    0,
+  );
+  const confirmedStatementIds = Array.from(new Set(confirmedRows.map((r) => r.statementId)));
+
+  // Statements visible in the current therapist scope; Re-scan is disabled when
+  // there are none so it can never fall back to scanning everything.
+  const inScopeStatementCount = new Set(
+    (rows ?? [])
+      .filter((r) => therapist === "all" || r.therapistName === therapist)
+      .map((r) => r.statementId),
+  ).size;
 
   // Distinct therapist names present in the data, for the therapist picker.
   const therapistNames = Array.from(
@@ -1295,6 +1396,7 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
   });
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Transactions</CardTitle>
@@ -1341,6 +1443,37 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
               <SelectItem value="denied">Denied</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="text-sm text-muted-foreground" data-testid="text-ready-to-post">
+            {confirmedCount > 0
+              ? `${confirmedCount} confirmed line${confirmedCount === 1 ? "" : "s"} · ${money(confirmedTotal)} ready to post`
+              : "No confirmed lines waiting to post."}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => rematchAll.mutate()}
+              disabled={rematchAll.isPending || inScopeStatementCount === 0}
+              data-testid="button-rescan-transactions"
+            >
+              {rematchAll.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Re-scan unmatched
+            </Button>
+            <Button
+              onClick={() => setPostOpen(true)}
+              disabled={confirmedCount === 0 || postAll.isPending}
+              data-testid="button-post-all-transactions"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Post{confirmedCount > 0 ? ` (${confirmedCount})` : ""}
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -1393,17 +1526,32 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
                     {r.statementFileName}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpen(r.statementId);
-                      }}
-                      data-testid={`button-open-transaction-${r.lineId}`}
-                    >
-                      Open
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {r.matchStatus === "suggested" && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmLine.mutate(r.lineId);
+                          }}
+                          disabled={confirmLine.isPending}
+                          data-testid={`button-confirm-transaction-${r.lineId}`}
+                        >
+                          <Check className="h-4 w-4 mr-1" /> Confirm
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpen(r.statementId);
+                        }}
+                        data-testid={`button-open-transaction-${r.lineId}`}
+                      >
+                        Open
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1412,6 +1560,44 @@ function TransactionsList({ onOpen }: { onOpen: (id: number) => void }) {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={postOpen} onOpenChange={(o) => !postAll.isPending && setPostOpen(o)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Post confirmed payments?</DialogTitle>
+          <DialogDescription>
+            This records {confirmedCount} confirmed line{confirmedCount === 1 ? "" : "s"} totaling{" "}
+            <span className="font-semibold">{money(confirmedTotal)}</span>{" "}
+            {therapist === "all" ? "across all therapists" : `for ${therapist}`} as insurance
+            payments. This affects therapist pay and can only be undone by voiding. Only lines you
+            have confirmed will be posted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setPostOpen(false)}
+            disabled={postAll.isPending}
+            data-testid="button-cancel-post-all"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => postAll.mutate(confirmedStatementIds)}
+            disabled={postAll.isPending}
+            data-testid="button-confirm-post-all"
+          >
+            {postAll.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+            )}
+            Post {money(confirmedTotal)}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

@@ -133,6 +133,19 @@ function requireTherapistPayAccess(req: AuthenticatedRequest, res: Response, nex
   return res.status(403).json({ message: "Access denied. Admin or billing privileges required." });
 }
 
+// Parse an optional list of statement ids from a bulk-action request body into a
+// Set of valid integers. Returns null ONLY when the field is absent (no array at
+// all) so the caller falls back to "all" scope. An explicitly provided array —
+// even an empty one — yields a Set, so an empty list means "act on nothing"
+// rather than silently going global.
+function parseStatementIdFilter(raw: unknown): Set<number> | null {
+  if (!Array.isArray(raw)) return null;
+  const ids = raw
+    .map((x) => parseInt(String(x), 10))
+    .filter((n) => Number.isInteger(n));
+  return new Set(ids);
+}
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize notification service
@@ -13145,6 +13158,112 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error: any) {
       const msg = error?.message || "Internal server error";
       if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Cannot')) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Re-run auto-matching across EVERY still-open (draft) statement at once, so
+  // unmatched lines can be re-checked with the latest matching logic from the
+  // flat Transactions screen. Only ever produces suggestions — never posts money.
+  app.post("/api/insurance/rematch-all", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Optional scope: when the caller passes statementIds (e.g. the lines for
+      // the therapist currently filtered on screen) only those are re-scanned, so
+      // the on-screen action never silently touches other therapists' statements.
+      const idFilter = parseStatementIdFilter(req.body?.statementIds);
+      const statements = await storage.getInsuranceStatements();
+      let drafts = statements.filter((s) => s.status === 'draft');
+      if (idFilter) drafts = drafts.filter((s) => idFilter.has(s.id));
+      const draftIds = new Set(drafts.map((s) => s.id));
+
+      const before = await storage.getAllInsuranceLines();
+      const beforeUnmatched = before.filter(
+        (r) => draftIds.has(r.statementId) && r.matchStatus === 'unmatched',
+      ).length;
+      for (const s of drafts) {
+        await storage.autoMatchStatementLines(s.id);
+      }
+      const after = await storage.getAllInsuranceLines();
+      const afterUnmatched = after.filter(
+        (r) => draftIds.has(r.statementId) && r.matchStatus === 'unmatched',
+      ).length;
+      const newlyMatched = Math.max(0, beforeUnmatched - afterUnmatched);
+      res.json({ statementsScanned: drafts.length, newlyMatched });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Post EVERY open statement that has at least one confirmed line, in one click
+  // from the Transactions screen. Each line still had to be confirmed by a human
+  // first; this only commits the already-confirmed ones. Posting is per-statement
+  // (advisory-locked + atomic) so a failure on one statement doesn't corrupt the
+  // others already committed.
+  app.post("/api/insurance/post-all", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Optional scope: only post the statements the caller asked for (e.g. the
+      // confirmed lines for the therapist currently filtered on screen) so a
+      // filtered "Post" never silently commits other therapists' lines.
+      const idFilter = parseStatementIdFilter(req.body?.statementIds);
+      const lines = await storage.getAllInsuranceLines();
+      let eligible = Array.from(
+        new Set(
+          lines
+            .filter((r) => r.statementStatus === 'draft' && r.matchStatus === 'confirmed')
+            .map((r) => r.statementId),
+        ),
+      );
+      if (idFilter) eligible = eligible.filter((id) => idFilter.has(id));
+
+      let statementsPosted = 0;
+      let postedCount = 0;
+      let postedTotal = 0;
+      let skippedDuplicates = 0;
+      const failed: { statementId: number; message: string }[] = [];
+
+      // Post statement-by-statement. Each post is advisory-locked + atomic, so if
+      // one fails the ones already committed stay valid; we collect failures and
+      // report them instead of aborting the whole batch.
+      for (const id of eligible) {
+        try {
+          const result = await storage.postInsuranceStatement(id, req.user!.id);
+          statementsPosted += 1;
+          postedCount += result.postedCount;
+          postedTotal += result.postedTotal;
+          skippedDuplicates += result.skippedDuplicates;
+
+          await db.insert(auditLogs).values({
+            userId: req.user!.id,
+            username: req.user!.username,
+            action: 'insurance_statement_posted',
+            result: 'success',
+            resourceType: 'insurance_statement',
+            resourceId: String(id),
+            details: JSON.stringify({
+              postedCount: result.postedCount,
+              postedTotal: result.postedTotal,
+              skippedDuplicates: result.skippedDuplicates,
+              bulk: true,
+            }),
+            ipAddress: req.ip || null,
+            userAgent: req.get('user-agent') || null,
+          });
+        } catch (err: any) {
+          failed.push({ statementId: id, message: err?.message || 'Failed to post' });
+        }
+      }
+
+      res.json({
+        statementsPosted,
+        postedCount,
+        postedTotal: Math.round(postedTotal * 100) / 100,
+        skippedDuplicates,
+        failedCount: failed.length,
+        failed,
+      });
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
       if (msg.includes('Cannot')) return res.status(400).json({ message: msg });
       res.status(500).json({ message: "Internal server error" });
     }
