@@ -98,6 +98,7 @@ SUITES=(
   "test/insurance-payment-void-restores-balance.test.ts"
   "test/insurance-payment-void-status-flip.test.ts"
   "test/discount-payment-void-status-flip.test.ts"
+  "test/discount-payment-record-status-flip.test.ts"
   "test/billing-transaction-void-last-payment-pending.test.ts"
   "test/insurance-reopen-reject-ui.test.ts"
   "test/insurance-void-reject-ui.test.ts"
