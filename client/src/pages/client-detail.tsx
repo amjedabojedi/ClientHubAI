@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
@@ -88,6 +88,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import {
+  useDuplicateInsurancePayment,
+  DuplicateInsuranceWarning,
+} from "@/components/shared/duplicate-insurance-payment";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRecordDrawer, INLINE_DRAWER_TYPE } from "@/contexts/RecordDrawerContext";
@@ -1926,35 +1930,11 @@ export default function ClientDetailPage({
     enabled: !!paymentBillingRecord?.id && topInlineKey === "payment-record",
   });
 
-  const postedStatementInsuranceTxns = useMemo(
-    () =>
-      (paymentRecordTransactions || []).filter(
-        (t: any) =>
-          !t.voidedAt &&
-          t.source === 'insurance' &&
-          t.sourceStatementId &&
-          Math.abs(Number(t.amount) || 0) > 0,
-      ),
-    [paymentRecordTransactions],
-  );
-
-  // Advisory duplicate detection mirroring the Billing Dashboard PaymentDialog:
-  // if the amount being keyed as an insurance payment closely matches an
-  // insurance payment ALREADY posted from a statement, it is very likely the
-  // same EOB being entered a second time. Tolerance is intentionally tight
-  // (within ~5% / $1) so genuine top-up payments of a different amount aren't
-  // flagged. Only applies when the chosen method is insurance.
-  const duplicateStatementMatch = useMemo(() => {
-    if (paymentForm.method !== 'insurance') return null;
-    const amountNum = parseFloat(paymentForm.amount || '0') || 0;
-    if (amountNum <= 0) return null;
-    for (const t of postedStatementInsuranceTxns) {
-      const amt = Math.abs(Number(t.amount) || 0);
-      const tol = Math.max(1, amt * 0.05);
-      if (Math.abs(amountNum - amt) <= tol) return t;
-    }
-    return null;
-  }, [postedStatementInsuranceTxns, paymentForm.amount, paymentForm.method]);
+  const { duplicateStatementMatch } = useDuplicateInsurancePayment({
+    transactions: paymentRecordTransactions,
+    amount: parseFloat(paymentForm.amount || '0') || 0,
+    isInsurancePayment: paymentForm.method === 'insurance',
+  });
 
   const handleRecordPayment = (billing: any) => {
     setPaymentBillingRecord(billing);
@@ -5857,30 +5837,11 @@ export default function ClientDetailPage({
                 </SelectContent>
               </Select>
             </div>
-            {duplicateStatementMatch && (
-              <div
-                className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800"
-                data-testid="duplicate-statement-warning"
-              >
-                <input
-                  type="checkbox"
-                  id="confirmDuplicateInsurance"
-                  checked={confirmDuplicateInsurance}
-                  onChange={(e) => setConfirmDuplicateInsurance(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 cursor-pointer"
-                  data-testid="confirm-duplicate-insurance-checkbox"
-                />
-                <label htmlFor="confirmDuplicateInsurance" className="text-xs text-amber-900 dark:text-amber-200 cursor-pointer leading-relaxed">
-                  <span className="font-semibold">Looks like a duplicate of an already-posted statement payment.</span>{' '}
-                  ${Math.abs(Number(duplicateStatementMatch.amount) || 0).toFixed(2)} was already recorded for this session from
-                  insurance statement #{duplicateStatementMatch.sourceStatementId}
-                  {duplicateStatementMatch.statementPayerName ? ` (${duplicateStatementMatch.statementPayerName})` : ''}
-                  {duplicateStatementMatch.statementCheckNumber ? ` · check ${duplicateStatementMatch.statementCheckNumber}` : ''}.
-                  Keying it again here will double-count the insurance collected. Check this box only if this is a separate,
-                  additional payment.
-                </label>
-              </div>
-            )}
+            <DuplicateInsuranceWarning
+              match={duplicateStatementMatch}
+              confirmed={confirmDuplicateInsurance}
+              onConfirmedChange={setConfirmDuplicateInsurance}
+            />
             <div>
               <Label htmlFor="payment-reference">Reference Number</Label>
               <Input
