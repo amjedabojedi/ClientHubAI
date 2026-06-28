@@ -4366,11 +4366,18 @@ export class DatabaseStorage implements IStorage {
           if (e.collectedAmount > 0) unresolvedCount++;
           continue;
         }
-        if (e.collectedAmount <= 0) continue;
         const had = persistedByBilling.has(e.billingId);
         const persisted = persistedByBilling.get(e.billingId) || 0;
-        const delta = Math.round((e.amountEarned - persisted) * 100) / 100;
-        if (delta === 0) continue; // already fully recorded
+        // Earnings follow the money actually collected, so with nothing collected
+        // the earned amount is 0. A session that previously collected money (and
+        // recorded an earning) but whose collected amount later fell to 0 — e.g. a
+        // refund/payment removal after a status change — must be reversed back to
+        // net 0 rather than left at its old recorded value, otherwise the running
+        // statement and monthly report keep overstating the therapist's earnings.
+        const earnedNow = e.collectedAmount > 0 ? e.amountEarned : 0;
+        if (earnedNow <= 0 && !had) continue; // nothing recorded and nothing to record
+        const delta = Math.round((earnedNow - persisted) * 100) / 100;
+        if (Math.abs(delta) < 0.005) continue; // already fully recorded
         const earnedDateStr = e.sessionDate
           ? new Date(e.sessionDate).toISOString().slice(0, 10)
           : null;
