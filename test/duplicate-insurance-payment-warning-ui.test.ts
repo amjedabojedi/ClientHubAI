@@ -424,17 +424,64 @@ async function main() {
     // The mini-form's amount field + method select.
     await page.waitForSelector("#payment-amount", { timeout: 30_000 });
     await setInputValue(page, "#payment-amount", "100");
-    // Default method is "Cash"; switch it to "Insurance" so the advisory (which
-    // only applies to insurance-method payments here) can fire.
-    await selectRadixOption(page, /Cash/, /^Insurance$/);
 
-    // The amber duplicate advisory must appear.
+    // WRONG-METHOD CASE (the bug this task fixes): leave the method on its
+    // default "Cash". The duplicate advisory must STILL fire — a staffer must
+    // not be able to sidestep the safeguard by keeping the method on Cash and
+    // double-counting already-posted insurance money.
     await page.waitForSelector('[data-testid="duplicate-statement-warning"]', {
       timeout: 30_000,
     });
     assert(
       true,
-      "Client mini-form — duplicate-statement-warning appears for the matching insurance amount",
+      "Client mini-form — duplicate-statement-warning appears even when method is the default Cash (wrong-method case)",
+    );
+
+    // With a non-insurance method, the warning must additionally advise that the
+    // matching money is insurance and should be recorded with the Insurance
+    // method.
+    await page.waitForSelector(
+      '[data-testid="duplicate-statement-method-note"]',
+      { timeout: 30_000 },
+    );
+    assert(
+      true,
+      "Client mini-form — wrong-method note advises recording the match as insurance",
+    );
+
+    // Submit is BLOCKED on the wrong-method case too, before any acknowledgement.
+    const disabledWrongMethod = await submitButtonDisabled(
+      page,
+      /Record Payment/,
+    );
+    assert(
+      disabledWrongMethod,
+      "Client mini-form — Record Payment is DISABLED for a Cash-method duplicate (safeguard not sidesteppable)",
+    );
+
+    // Now switch the method to "Insurance"; the advisory stays, and the
+    // wrong-method note goes away (method now matches the money type).
+    await selectRadixOption(page, /Cash/, /^Insurance$/);
+
+    // The amber duplicate advisory must remain.
+    await page.waitForSelector('[data-testid="duplicate-statement-warning"]', {
+      timeout: 30_000,
+    });
+    assert(
+      true,
+      "Client mini-form — duplicate-statement-warning still appears for the matching insurance amount",
+    );
+
+    await page.waitForFunction(
+      () =>
+        !document.querySelector(
+          '[data-testid="duplicate-statement-method-note"]',
+        ),
+      { timeout: 30_000 },
+    );
+    assert(
+      true,
+      "Client mini-form — wrong-method note clears once the Insurance method is selected",
     );
 
     // The warning text must surface the response-shape fields (payer + check

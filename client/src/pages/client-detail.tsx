@@ -1930,10 +1930,16 @@ export default function ClientDetailPage({
     enabled: !!paymentBillingRecord?.id && topInlineKey === "payment-record",
   });
 
+  // Detect a likely-duplicate posted-statement amount REGARDLESS of the chosen
+  // payment method. The previous gate (only when method === 'insurance') let a
+  // staffer sidestep the safeguard by leaving the method on the default "Cash"
+  // and double-count already-posted insurance money. We always check the amount;
+  // when the method isn't "insurance" we additionally advise recording it as
+  // insurance via methodMismatch below.
   const { duplicateStatementMatch } = useDuplicateInsurancePayment({
     transactions: paymentRecordTransactions,
     amount: parseFloat(paymentForm.amount || '0') || 0,
-    isInsurancePayment: paymentForm.method === 'insurance',
+    isInsurancePayment: true,
   });
 
   const handleRecordPayment = (billing: any) => {
@@ -5844,6 +5850,7 @@ export default function ClientDetailPage({
               match={duplicateStatementMatch}
               confirmed={confirmDuplicateInsurance}
               onConfirmedChange={setConfirmDuplicateInsurance}
+              methodMismatch={paymentForm.method !== 'insurance'}
             />
             <div>
               <Label htmlFor="payment-reference">Reference Number</Label>

@@ -73,12 +73,19 @@ interface DuplicateInsuranceWarningProps {
   match: PostedStatementInsuranceTxn | null;
   confirmed: boolean;
   onConfirmedChange: (checked: boolean) => void;
+  // When the amount matches a posted statement payment but the staffer has the
+  // payment method set to something OTHER than insurance, surface an extra note
+  // that the matching money is insurance and (if it's not a duplicate) should be
+  // recorded with the Insurance method. Keeps the wrong-method path from
+  // silently double-counting.
+  methodMismatch?: boolean;
 }
 
 export function DuplicateInsuranceWarning({
   match,
   confirmed,
   onConfirmedChange,
+  methodMismatch = false,
 }: DuplicateInsuranceWarningProps) {
   if (!match) return null;
   return (
@@ -105,8 +112,20 @@ export function DuplicateInsuranceWarning({
         insurance statement #{match.sourceStatementId}
         {match.statementPayerName ? ` (${match.statementPayerName})` : ""}
         {match.statementCheckNumber ? ` · check ${match.statementCheckNumber}` : ""}.
-        Keying it again here will double-count the insurance collected. Check this box only if this is a separate,
-        additional payment.
+        Keying it again here will double-count the insurance collected.
+        {methodMismatch ? (
+          <>
+            {" "}
+            <span
+              className="font-semibold"
+              data-testid="duplicate-statement-method-note"
+            >
+              This is insurance money — if it's a genuine new payment, record it with the
+              Insurance method.
+            </span>
+          </>
+        ) : null}
+        {" "}Check this box only if this is a separate, additional payment.
       </label>
     </div>
   );
