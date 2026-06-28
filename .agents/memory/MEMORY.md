@@ -55,3 +55,4 @@
 - [Puppeteer evaluate __name shim](puppeteer-evaluate-name-shim.md) — tsx/esbuild injects __name into page.evaluate callbacks; stub objects with arrow methods throw "__name is not defined" in-page. Shim window.__name=identity via a STRING evaluate first.
 - [Local test run env](local-test-run-env.md) — bg processes die when the bash call returns (setsid won't save them); run one browser test synchronously+isolated under 120s; `pkill -f` self-kills (exit 143) → use bracket trick `run-priv[a]cy-tests`.
 - [Print-report row finder](local-test-run-env.md) — when a unique SUFFIX is reused across therapist AND client names, `split("<tr>").find(includes(SUFFIX))` matches the <h1> title chunk; also require `<td class="num` to hit the real data row.
+- [Insurance upload numeric overflow](insurance-upload-numeric-overflow.md) — parsed amounts overflow decimal(10,2) line / decimal(12,2) total cols → generic 500; range-check pre-insert, return 422, never clamp money.

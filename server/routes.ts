@@ -12821,6 +12821,51 @@ You can download a copy if you have it saved locally and re-upload it.`;
           });
         }
 
+        // Guard against amounts that exceed the money columns' capacity. Line
+        // money columns are decimal(10,2) -> max 99,999,999.99; the statement
+        // total is decimal(12,2) -> max 9,999,999,999.99. A value beyond these is
+        // almost always a misread column (e.g. an account or claim number read as
+        // a dollar amount). Fail with a clear, specific message instead of letting
+        // Postgres throw a generic "numeric field overflow" 500. We never silently
+        // clamp a money value — that would corrupt the financial record.
+        const LINE_MONEY_MAX = 99999999.99;
+        const STATEMENT_TOTAL_MAX = 9999999999.99;
+        const overLimit = (v: number | null | undefined, max: number) =>
+          v != null && Number.isFinite(v) && Math.abs(v) > max;
+        const fmtMoney = (v: number | null | undefined) =>
+          v == null
+            ? "—"
+            : `$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const badLineIdx = extracted.lines.findIndex(
+          (l) =>
+            overLimit(l.billedAmount, LINE_MONEY_MAX) ||
+            overLimit(l.allowedAmount, LINE_MONEY_MAX) ||
+            overLimit(l.insurancePaidAmount, LINE_MONEY_MAX) ||
+            overLimit(l.patientResponsibility, LINE_MONEY_MAX),
+        );
+        if (badLineIdx !== -1) {
+          const l = extracted.lines[badLineIdx];
+          const who = l.clientName ? `"${l.clientName}"` : `row ${badLineIdx + 1}`;
+          const amounts = [
+            overLimit(l.billedAmount, LINE_MONEY_MAX) ? `billed ${fmtMoney(l.billedAmount)}` : null,
+            overLimit(l.allowedAmount, LINE_MONEY_MAX) ? `allowed ${fmtMoney(l.allowedAmount)}` : null,
+            overLimit(l.insurancePaidAmount, LINE_MONEY_MAX) ? `paid ${fmtMoney(l.insurancePaidAmount)}` : null,
+            overLimit(l.patientResponsibility, LINE_MONEY_MAX)
+              ? `patient responsibility ${fmtMoney(l.patientResponsibility)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          return res.status(422).json({
+            message: `An amount in this file is too large to be a real payment (${who}: ${amounts}). This usually means a column such as an account or claim number was read as money. Please check the amount columns in the file and try again.`,
+          });
+        }
+        if (overLimit(extracted.totalPaid, STATEMENT_TOTAL_MAX)) {
+          return res.status(422).json({
+            message: `The statement's total paid amount (${fmtMoney(extracted.totalPaid)}) is too large to record. Please check the file's amount columns and try again.`,
+          });
+        }
+
         // Flag a likely re-upload so it can't be posted twice by accident. The
         // caller can re-send with force=true to upload it anyway.
         const force = req.body?.force === 'true' || req.body?.force === true;
