@@ -627,6 +627,130 @@ async function scenarioVoidIsTerminal(userId: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario E: void ONE of TWO posted statements for the SAME billing/payment.
+// Scenario C proves two posted statements never INFLATE collected. This proves
+// the inverse correction: when both are posted and the one that ACTUALLY posted
+// the money is voided, the still-posted sibling must keep the real payment
+// reflected — collected must NOT wrongly drop to $0 (or be left orphaned), and
+// the surviving statement must re-absorb the coverage so a later void of IT
+// reverses the right amount. We cover three realistic shapes:
+//   E1: no manual entry, two duplicate $100 statements; void the one that
+//       posted the $100 → collected stays $100 via the survivor.
+//   E2: void the OTHER (the $0-shortfall) statement instead → collected stays
+//       $100, untouched (the real poster keeps it).
+//   E3: incremental — $100 then $150 statement; void the $100 one → the $150
+//       survivor re-absorbs the FULL $150 (collected stays $150, not $50).
+// ---------------------------------------------------------------------------
+async function scenarioVoidOneOfTwo(userId: number) {
+  console.log(
+    "\n🧪 Scenario E: void one of two posted statements; sibling keeps the payment\n",
+  );
+
+  // --- E1: void the statement that actually posted the money ----------------
+  {
+    const { billing } = await seedBilling("F");
+
+    // No manual entry. Statement #1 ($100) posts the real $100.
+    const first = await createConfirmedStatement(billing.id, "100.00", "F1");
+    await storage.postInsuranceStatement(first.statementId, userId);
+    // Statement #2 ($100) is a duplicate of the same payment — posts $0.
+    const second = await createConfirmedStatement(billing.id, "100.00", "F2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+
+    let b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 100, "E1: collected is 100 with both statements posted");
+
+    const [l1] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, first.lineId)).limit(1);
+    const [l2] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, second.lineId)).limit(1);
+    assertEqual(Number(l1.postedAmount), 100, "E1: statement #1's line holds the 100 (postedAmount)");
+    assertEqual(Number(l2.postedAmount), 0, "E1: statement #2's line posted a 0 shortfall");
+
+    // Void statement #1 — the one that actually posted the money.
+    await storage.voidInsuranceStatement(first.statementId, userId, "void the real poster");
+
+    b = await getBilling(billing.id);
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      100,
+      "E1: collected stays 100 after voiding the real poster — NOT dropped to 0",
+    );
+    assertEqual(await ledgerInsurance(billing.id), 100, "E1: live ledger insurance stays 100 after the void");
+
+    const [l1after] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, first.lineId)).limit(1);
+    const [l2after] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, second.lineId)).limit(1);
+    assertEqual(l1after.matchStatus, "reversed", "E1: the voided statement's line is reversed");
+    assertEqual(l2after.matchStatus, "posted", "E1: the surviving statement's line is still posted");
+    assertEqual(
+      Number(l2after.postedAmount),
+      100,
+      "E1: the surviving statement re-absorbs the 100 (postedAmount restored)",
+    );
+
+    // And a later void of the SURVIVOR must now cleanly reverse the 100 to 0.
+    await storage.voidInsuranceStatement(second.statementId, userId, "void the survivor too");
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 0, "E1: collected drops to 0 only once the LAST statement is voided");
+    assertEqual(await ledgerInsurance(billing.id), 0, "E1: live ledger insurance is 0 after both are voided");
+  }
+
+  // --- E2: void the OTHER statement (the $0-shortfall duplicate) -------------
+  {
+    const { billing } = await seedBilling("G");
+
+    const first = await createConfirmedStatement(billing.id, "100.00", "G1");
+    await storage.postInsuranceStatement(first.statementId, userId);
+    const second = await createConfirmedStatement(billing.id, "100.00", "G2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+
+    // Void statement #2 — the duplicate that posted $0. The real poster keeps
+    // the money; collected must be untouched.
+    await storage.voidInsuranceStatement(second.statementId, userId, "void the duplicate");
+
+    let b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 100, "E2: collected stays 100 after voiding the $0 duplicate");
+    assertEqual(await ledgerInsurance(billing.id), 100, "E2: live ledger insurance stays 100");
+
+    const [l1after] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, first.lineId)).limit(1);
+    assertEqual(Number(l1after.postedAmount), 100, "E2: the real poster still holds the 100");
+    assertEqual(l1after.matchStatus, "posted", "E2: the real poster is still posted");
+  }
+
+  // --- E3: incremental statements ($100 then $150); void the $100 one -------
+  {
+    const { billing } = await seedBilling("H");
+
+    const first = await createConfirmedStatement(billing.id, "100.00", "H1");
+    await storage.postInsuranceStatement(first.statementId, userId);
+    const second = await createConfirmedStatement(billing.id, "150.00", "H2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+
+    let b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 150, "E3: collected is 150 (100 + 50 increment) with both posted");
+
+    // Void the $100 statement — the richer $150 survivor must re-absorb the full
+    // 150, not leave collected at the residual 50.
+    await storage.voidInsuranceStatement(first.statementId, userId, "void the smaller statement");
+
+    b = await getBilling(billing.id);
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      150,
+      "E3: collected stays 150 after voiding the smaller statement (survivor re-absorbs full 150)",
+    );
+    assertEqual(await ledgerInsurance(billing.id), 150, "E3: live ledger insurance stays 150");
+
+    const [l2after] = await db.select().from(insuranceStatementLines).where(eq(insuranceStatementLines.id, second.lineId)).limit(1);
+    assertEqual(Number(l2after.postedAmount), 150, "E3: the surviving 150 statement now holds the full 150");
+
+    // Void the survivor → collected finally drops to 0.
+    await storage.voidInsuranceStatement(second.statementId, userId, "void the survivor");
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 0, "E3: collected drops to 0 once the last statement is voided");
+    assertEqual(await ledgerInsurance(billing.id), 0, "E3: live ledger insurance is 0 after both are voided");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 async function run() {
@@ -647,6 +771,7 @@ async function run() {
     await scenarioShortfall(sysUser.id);
     await scenarioTwoStatements(sysUser.id);
     await scenarioVoidIsTerminal(sysUser.id);
+    await scenarioVoidOneOfTwo(sysUser.id);
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;

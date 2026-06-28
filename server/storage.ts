@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
+import { eq, ne, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
 import { normalizePhoneE164 } from "@shared/phone";
 import { isDuplicateInsuranceAmount } from "@shared/insurance";
 
@@ -5821,8 +5821,17 @@ export class DatabaseStorage implements IStorage {
 
     const paymentDate = new Date().toISOString().slice(0, 10);
 
+    // Billings whose insurance coverage this void touches. After reversing this
+    // statement's posted lines, we re-derive each affected billing's coverage
+    // from the manual rows plus whatever OTHER statements remain posted, so a
+    // surviving statement keeps the real payment reflected (see re-balance pass
+    // below). Collect from every posted line, even $0 ones, so a billing whose
+    // only contribution was a sibling statement is still re-evaluated.
+    const affectedBillingIds = new Set<number>();
+
     for (const line of lines) {
       if (line.matchStatus !== 'posted') continue;
+      if (line.matchedSessionBillingId) affectedBillingIds.add(line.matchedSessionBillingId);
       const posted = Number(line.postedAmount) || 0;
       if (line.matchedSessionBillingId && posted > 0) {
         // Reverse: subtract this line's payment from the billing's cumulative
@@ -5869,6 +5878,114 @@ export class DatabaseStorage implements IStorage {
         .update(insuranceStatementLines)
         .set({ matchStatus: 'reversed', postedAmount: null })
         .where(eq(insuranceStatementLines.id, line.id));
+    }
+
+    // ── Re-balance surviving statements ─────────────────────────────────────
+    // Two statements can document the SAME real-world insurer payment for one
+    // billing (a re-uploaded EOB, or one statement keyed manually then posted):
+    // the FIRST to post records the money (postedAmount > 0); a later duplicate
+    // posts a $0 shortfall because the billing already covers it. If the one
+    // that actually posted the money is now voided, naively subtracting its
+    // postedAmount wrongly drops the billing's collected insurance to $0 and
+    // orphans the still-posted sibling, which is left documenting a payment the
+    // billing no longer reflects.
+    //
+    // To fix that, after reversing this statement's lines, re-derive each
+    // affected billing's insurance from the live manual rows plus whatever
+    // statement lines REMAIN posted (excluding this just-voided statement),
+    // re-distributing the shortfall across the survivors in post order exactly
+    // like the original post did. The surviving statement re-absorbs the
+    // coverage it documents (its postedAmount is restored), so collected stays
+    // correct and a future void of that survivor reverses the right amount.
+    for (const billingId of Array.from(affectedBillingIds)) {
+      // Live manual insurance already counted on the billing. Statement-sourced
+      // shortfall rows are represented by the posted lines' postedAmount below,
+      // so they are excluded here to avoid double counting.
+      const manualRows = await db
+        .select({ amt: paymentTransactions.amount })
+        .from(paymentTransactions)
+        .where(
+          and(
+            eq(paymentTransactions.sessionBillingId, billingId),
+            eq(paymentTransactions.source, 'insurance'),
+            isNull(paymentTransactions.sourceStatementLineId),
+            isNull(paymentTransactions.voidedAt),
+          ),
+        );
+      const manualSum = +manualRows
+        .reduce((s, r) => s + (Number(r.amt) || 0), 0)
+        .toFixed(2);
+
+      // Posted lines that survive this void (their parent statement is NOT
+      // voided), in post order so the shortfall re-distribution is deterministic
+      // and matches how the original post built up the cumulative.
+      const remaining = await db
+        .select({
+          lineId: insuranceStatementLines.id,
+          statementId: insuranceStatementLines.statementId,
+          lineAmount: insuranceStatementLines.insurancePaidAmount,
+        })
+        .from(insuranceStatementLines)
+        .innerJoin(
+          insuranceStatements,
+          eq(insuranceStatementLines.statementId, insuranceStatements.id),
+        )
+        .where(
+          and(
+            eq(insuranceStatementLines.matchedSessionBillingId, billingId),
+            eq(insuranceStatementLines.matchStatus, 'posted'),
+            ne(insuranceStatements.status, 'voided'),
+          ),
+        )
+        .orderBy(asc(insuranceStatementLines.id));
+
+      let running = manualSum;
+      let ownerLineId: number | null = null;
+      let ownerStatementId: number | null = null;
+      let ownerShare = 0;
+      for (const r of remaining) {
+        const amt = Number(r.lineAmount) || 0;
+        const newPosted = +Math.max(0, +(amt - running).toFixed(2)).toFixed(2);
+        running = +(running + newPosted).toFixed(2);
+        await db
+          .update(insuranceStatementLines)
+          .set({ postedAmount: newPosted.toFixed(2) })
+          .where(eq(insuranceStatementLines.id, r.lineId));
+        // Track the survivor that re-absorbed the most coverage so the ledger
+        // adjustment below can be attributed to a real surviving line (keeping
+        // it out of the "manual insurance" duplicate guard and traceable).
+        if (newPosted > ownerShare) {
+          ownerShare = newPosted;
+          ownerLineId = r.lineId;
+          ownerStatementId = r.statementId;
+        }
+      }
+
+      // Adjust the billing's cumulative insurance to the re-derived total. When
+      // the voided statement was NOT the one holding the money (its sibling was),
+      // `running` already equals the current value and nothing changes.
+      const [bill] = await db
+        .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+        .from(sessionBilling)
+        .where(eq(sessionBilling.id, billingId))
+        .limit(1);
+      if (bill) {
+        const current = Number(bill.insurancePaid) || 0;
+        if (Math.abs(current - running) > 0.005 && ownerLineId != null) {
+          await this.recordPayment(billingId, {
+            status: running > 0 ? 'paid' : 'billed',
+            amount: running,
+            date: paymentDate,
+            method: 'insurance',
+            source: 'insurance',
+            reference: statement.checkNumber || undefined,
+            notes: `Rebalance after voiding insurance statement #${statement.id}: surviving statement #${ownerStatementId} retains the payment`,
+            recordedBy: userId,
+            sourceStatementId: ownerStatementId ?? undefined,
+            sourceStatementLineId: ownerLineId ?? undefined,
+          });
+        }
+      }
     }
 
     const [updated] = await db
