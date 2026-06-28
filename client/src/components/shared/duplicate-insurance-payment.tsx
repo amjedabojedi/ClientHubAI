@@ -1,4 +1,9 @@
 import { useMemo } from "react";
+import {
+  DUPLICATE_INSURANCE_TOLERANCE_PCT,
+  DUPLICATE_INSURANCE_MIN_TOLERANCE,
+  isDuplicateInsuranceAmount,
+} from "@shared/insurance";
 
 // Advisory duplicate-insurance-payment safeguard shared between the Billing
 // Dashboard PaymentDialog and the client profile "Record Payment" mini-form.
@@ -9,9 +14,12 @@ import { useMemo } from "react";
 // money the statement already recorded, which would double-count collected
 // insurance. The tolerance is intentionally tight (within ~5% / $1) so genuine
 // top-up payments of a different amount are NOT flagged.
+//
+// The tolerance itself lives in @shared/insurance so the server-side block in
+// storage.recordPayment uses the exact same rule and the two can never drift.
 
-export const DUPLICATE_INSURANCE_TOLERANCE_PCT = 0.05;
-export const DUPLICATE_INSURANCE_MIN_TOLERANCE = 1;
+// Re-exported for existing importers that pull these from this module.
+export { DUPLICATE_INSURANCE_TOLERANCE_PCT, DUPLICATE_INSURANCE_MIN_TOLERANCE };
 
 export interface PostedStatementInsuranceTxn {
   amount: number | string;
@@ -57,11 +65,7 @@ export function useDuplicateInsurancePayment({
     if (!(amount > 0)) return null;
     for (const t of postedStatementInsuranceTxns) {
       const amt = Math.abs(Number(t.amount) || 0);
-      const tol = Math.max(
-        DUPLICATE_INSURANCE_MIN_TOLERANCE,
-        amt * DUPLICATE_INSURANCE_TOLERANCE_PCT,
-      );
-      if (Math.abs(amount - amt) <= tol) return t;
+      if (isDuplicateInsuranceAmount(amount, amt)) return t;
     }
     return null;
   }, [postedStatementInsuranceTxns, amount, isInsurancePayment]);

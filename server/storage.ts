@@ -2,6 +2,7 @@
 import { db } from "./db";
 import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
 import { normalizePhoneE164 } from "@shared/phone";
+import { isDuplicateInsuranceAmount } from "@shared/insurance";
 
 // Database Schema - Tables
 import { 
@@ -3508,8 +3509,9 @@ export class DatabaseStorage implements IStorage {
       // insurance payment already posted from a statement for this billing is
       // almost always the same EOB being re-keyed by hand, which would double-
       // count collected insurance. Reject it unless the caller explicitly
-      // acknowledges it is a separate, additional payment. The tolerance
-      // mirrors the dialog exactly: the greater of $1 or 5% of the posted amount.
+      // acknowledges it is a separate, additional payment. The tolerance comes
+      // from the shared isDuplicateInsuranceAmount (@shared/insurance) so it can
+      // never drift from the dialog: the greater of $1 or 5% of the posted amount.
       const isManualInsurance =
         source === 'insurance' &&
         paymentData.sourceStatementId == null &&
@@ -3526,8 +3528,7 @@ export class DatabaseStorage implements IStorage {
         for (const r of rows) {
           const amt = Math.abs(Number(r.amount) || 0);
           if (amt <= 0) continue;
-          const tol = Math.max(1, amt * 0.05);
-          if (Math.abs(delta - amt) <= tol) {
+          if (isDuplicateInsuranceAmount(delta, amt)) {
             const err: any = new Error(
               `This insurance amount ($${delta.toFixed(2)}) matches a payment of $${amt.toFixed(2)} already posted from a statement for this billing. If this is a separate, additional insurance payment, confirm the duplicate to proceed.`
             );
