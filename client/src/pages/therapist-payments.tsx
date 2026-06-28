@@ -388,6 +388,8 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/rules", therapistId] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/monthly-statement", therapistId] });
       toast({ title: "Pay rule saved" });
     },
     onError: async (err: any) => {
@@ -401,6 +403,8 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/rules", therapistId] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/monthly-statement", therapistId] });
       toast({ title: "Override removed" });
     },
     onError: (err: any) =>

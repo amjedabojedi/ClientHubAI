@@ -43,3 +43,10 @@ therefore also queries ALL sessions in the month and appends not-billed ones
 `unbilledCount`/`unbilledCompletedCount`. NOTE the function has a local `sessions`
 array that shadows the `sessions` table import — use the `sessionsTable` alias to
 query the table inside it.
+
+**Frontend cache rule:** because earnings recompute lazily server-side, ANY
+therapist pay-rule mutation (save/delete, default OR per-service override) must
+invalidate the `statement` and `monthly-statement` query caches, not just
+`rules`/`owed` — otherwise the Statement tab + Monthly Report keep showing the
+old numbers until a manual reload (this was a real "it doesn't always update"
+bug). Prefix-invalidate monthly with `[..., therapistId]` to catch all dates.
