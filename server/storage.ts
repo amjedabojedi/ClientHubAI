@@ -3700,6 +3700,7 @@ export class DatabaseStorage implements IStorage {
   private async computeTherapistEarnings(therapistId: number): Promise<{
     billingId: number;
     sessionId: number;
+    status: string | null;
     sessionDate: Date;
     serviceId: number | null;
     serviceCode: string | null;
@@ -3726,6 +3727,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         billingId: sessionBilling.id,
         sessionId: sessions.id,
+        status: sessions.status,
         sessionDate: sessions.sessionDate,
         serviceId: sessions.serviceId,
         serviceCode: services.serviceCode,
@@ -3748,7 +3750,16 @@ export class DatabaseStorage implements IStorage {
 
     return rows.map((row) => {
       const collected = Number(row.clientPaid || 0) + Number(row.insurancePaid || 0);
-      const expected = Math.max(0, Number(row.totalAmount || 0) - Number(row.discountAmount || 0));
+      // A cancelled session keeps its billing row (cancelling never removes it),
+      // but it is no longer owed money and earns nothing. Treat its expected and
+      // earned as 0 at the source so EVERY consumer (owed list, running statement,
+      // monthly report, payouts, earning-ledger sync) agrees it costs/earns
+      // nothing — rather than each report having to special-case it. Money that
+      // was actually collected before the cancellation still appears as collected.
+      const cancelled = row.status === 'cancelled';
+      const expected = cancelled
+        ? 0
+        : Math.max(0, Number(row.totalAmount || 0) - Number(row.discountAmount || 0));
       const svcId = row.serviceId != null ? Number(row.serviceId) : null;
       let rule: TherapistPayRule | null = null;
       let ruleSource: 'service' | 'default' | 'none' = 'none';
@@ -3769,10 +3780,13 @@ export class DatabaseStorage implements IStorage {
         amountEarned = payType === 'percentage' ? (collected * payValue) / 100 : payValue;
         amountEarned = Math.round(amountEarned * 100) / 100;
       }
+      // Cancelled sessions earn nothing regardless of rule/collected money.
+      if (cancelled) amountEarned = 0;
 
       return {
         billingId: Number(row.billingId),
         sessionId: Number(row.sessionId),
+        status: row.status ?? null,
         sessionDate: row.sessionDate,
         serviceId: svcId,
         serviceCode: row.serviceCode ?? null,
@@ -4099,8 +4113,10 @@ export class DatabaseStorage implements IStorage {
     // correction stays visible.
     const liveEarnings = await this.computeTherapistEarnings(payout.therapistId);
     const liveCollectedByBilling = new Map<number, number>();
+    const cancelledByBilling = new Set<number>();
     for (const e of liveEarnings) {
       liveCollectedByBilling.set(e.billingId, e.collectedAmount);
+      if (e.status === 'cancelled') cancelledByBilling.add(e.billingId);
     }
 
     const itemRows = await db
@@ -4185,6 +4201,13 @@ export class DatabaseStorage implements IStorage {
       const collected = liveCollectedByBilling.get(it.sessionBillingId);
       if (collected === undefined) continue;
       it.basisAmount = collected;
+      // A session cancelled after it was paid earns nothing on the live basis,
+      // so payout detail shows it as over-paid — consistent with the owed list,
+      // running statement and monthly report that all treat cancelled as $0.
+      if (cancelledByBilling.has(it.sessionBillingId)) {
+        it.amountEarned = 0;
+        continue;
+      }
       // Recompute earned from the stored historical rule, not the current rule.
       it.amountEarned =
         it.payType === 'percentage'
@@ -4697,18 +4720,10 @@ export class DatabaseStorage implements IStorage {
       const d = e.sessionDate ? new Date(e.sessionDate) : null;
       const inMonth = d != null && d >= monthStart && d < monthEnd;
       if (inMonth) {
-        const rowStatus = statusBySession.get(e.sessionId) ?? 'completed';
-        // A cancelled session keeps its billing row (cancelling never removes it),
-        // but the practice is no longer owed that money. Zero out expected/
-        // uncollected so a cancelled session stops inflating the "money owed"
-        // totals and is shown as cancelled rather than a live billed charge.
-        // Earned still follows collected money below (money actually collected
-        // before a cancellation remains earned).
-        const cancelled = rowStatus === 'cancelled';
-        const expected = cancelled ? 0 : e.expected;
-        const uncollected = cancelled
-          ? 0
-          : Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
+        // expected/earned are already 0 for cancelled sessions (computeTherapistEarnings
+        // zeroes them at the source), so uncollected naturally falls to 0 and a
+        // cancelled session no longer inflates the "money owed" totals here.
+        const uncollected = Math.max(0, Math.round((e.expected - e.collectedAmount) * 100) / 100);
         sessions.push({
           sessionId: e.sessionId,
           sessionBillingId: e.billingId,
@@ -4717,9 +4732,9 @@ export class DatabaseStorage implements IStorage {
           clientType: e.clientType ?? null,
           serviceCode: e.serviceCode,
           serviceName: e.serviceName,
-          status: rowStatus,
+          status: statusBySession.get(e.sessionId) ?? 'completed',
           billed: true,
-          expected,
+          expected: e.expected,
           collected: e.collectedAmount,
           uncollected,
           // Earnings follow collected money: a fixed-rate rule still earns $0
@@ -4728,7 +4743,7 @@ export class DatabaseStorage implements IStorage {
           earned: e.hasRule && e.collectedAmount > 0 ? e.amountEarned : 0,
           hasRule: e.hasRule,
         });
-        totalExpected = Math.round((totalExpected + expected) * 100) / 100;
+        totalExpected = Math.round((totalExpected + e.expected) * 100) / 100;
         totalCollected = Math.round((totalCollected + e.collectedAmount) * 100) / 100;
         totalUncollected = Math.round((totalUncollected + uncollected) * 100) / 100;
       }
