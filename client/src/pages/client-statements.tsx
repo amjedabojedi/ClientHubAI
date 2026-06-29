@@ -12,7 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Users, Receipt, History, Loader2, Check, ChevronsUpDown, DollarSign, AlertTriangle,
+  Users, Receipt, History, Loader2, Check, ChevronsUpDown, DollarSign, AlertTriangle, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClientStatement } from "@shared/schema";
@@ -264,9 +264,44 @@ export default function ClientStatementsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" /> Sessions completed, not yet billed
+              </CardTitle>
+              <CardDescription>Completed sessions that don't have an invoice yet.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statement.unbilledSessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">All completed sessions have been billed.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Session date</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statement.unbilledSessions.map((s) => (
+                      <TableRow key={s.sessionId} data-testid={`row-unbilled-${s.sessionId}`}>
+                        <TableCell>{formatDate(s.sessionDate)}</TableCell>
+                        <TableCell>{s.serviceName || s.serviceCode || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">Not billed</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
                 <History className="h-4 w-4" /> Payment history
               </CardTitle>
-              <CardDescription>Payments recorded against this client's sessions.</CardDescription>
+              <CardDescription>Each payment recorded against this client's sessions.</CardDescription>
             </CardHeader>
             <CardContent>
               {statement.payments.length === 0 ? (
@@ -278,21 +313,27 @@ export default function ClientStatementsPage() {
                       <TableHead>Payment date</TableHead>
                       <TableHead>Session date</TableHead>
                       <TableHead>Service</TableHead>
+                      <TableHead>Paid by</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Reference</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {statement.payments.map((s) => (
-                      <TableRow key={s.billingId} data-testid={`row-payment-${s.billingId}`}>
-                        <TableCell>{formatDate(s.paymentDate)}</TableCell>
-                        <TableCell>{formatDate(s.sessionDate)}</TableCell>
-                        <TableCell>{s.serviceName || s.serviceCode || "—"}</TableCell>
-                        <TableCell className="capitalize">{s.paymentMethod || "—"}</TableCell>
-                        <TableCell>{s.paymentReference || "—"}</TableCell>
+                    {statement.payments.map((p) => (
+                      <TableRow key={p.id} data-testid={`row-payment-${p.id}`}>
+                        <TableCell>{formatDate(p.paymentDate)}</TableCell>
+                        <TableCell>{formatDate(p.sessionDate)}</TableCell>
+                        <TableCell>{p.serviceName || p.serviceCode || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={p.source === "insurance" ? "secondary" : "outline"} className="capitalize">
+                            {p.source}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="capitalize">{p.paymentMethod || "—"}</TableCell>
+                        <TableCell>{p.referenceNumber || "—"}</TableCell>
                         <TableCell className="text-right font-medium text-green-600">
-                          {formatCurrency(s.paid)}
+                          {formatCurrency(p.amount)}
                         </TableCell>
                       </TableRow>
                     ))}

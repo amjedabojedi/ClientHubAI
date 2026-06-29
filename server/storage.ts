@@ -146,6 +146,8 @@ import type {
   ClientInvoice,
   ClientStatement,
   ClientStatementSession,
+  ClientStatementPayment,
+  ClientStatementUnbilledSession,
   UserProfile,
   InsertUserProfile,
   SupervisorAssignment,
@@ -1960,6 +1962,7 @@ export class DatabaseStorage implements IStorage {
 
     const services = await this.getServices();
     const serviceMap = new Map(services.map((s) => [s.serviceCode, s.serviceName]));
+    const serviceById = new Map(services.map((s) => [s.id, s]));
 
     const sessionsOut: ClientStatementSession[] = rows.map((r) => {
       const total = Number(r.totalAmount || 0);
@@ -1991,9 +1994,73 @@ export class DatabaseStorage implements IStorage {
     const totalPaid = sessionsOut.reduce((s, x) => s + x.paid, 0);
     const outstanding = sessionsOut.reduce((s, x) => s + x.outstanding, 0);
     const uncollectedSessions = sessionsOut.filter((x) => x.outstanding > 0.005);
-    const payments = sessionsOut
-      .filter((x) => x.paid > 0.005)
-      .sort((a, b) => (b.paymentDate || "").localeCompare(a.paymentDate || ""));
+
+    // Payment history is built from the per-event payment ledger (one row per
+    // actual recorded payment) rather than the billing-level cumulative total,
+    // so a single payment never appears as multiple lines.
+    const billingSessionMap = new Map(
+      rows.map((r) => [r.billingId, { sessionId: r.sessionId, serviceCode: r.serviceCode, sessionDate: r.sessionDate }])
+    );
+    const txRows = await db
+      .select({
+        id: paymentTransactions.id,
+        sessionBillingId: paymentTransactions.sessionBillingId,
+        source: paymentTransactions.source,
+        amount: paymentTransactions.amount,
+        paymentMethod: paymentTransactions.paymentMethod,
+        referenceNumber: paymentTransactions.referenceNumber,
+        paymentDate: paymentTransactions.paymentDate,
+      })
+      .from(paymentTransactions)
+      .innerJoin(sessionBilling, eq(paymentTransactions.sessionBillingId, sessionBilling.id))
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .where(eq(sessions.clientId, clientId))
+      .orderBy(desc(paymentTransactions.paymentDate));
+
+    const payments: ClientStatementPayment[] = txRows
+      .filter((t) => Math.abs(Number(t.amount || 0)) > 0.005)
+      .map((t) => {
+        const link = billingSessionMap.get(t.sessionBillingId);
+        const code = link?.serviceCode ?? null;
+        return {
+          id: t.id,
+          sessionId: link?.sessionId ?? 0,
+          sessionDate: (link?.sessionDate as unknown as string) ?? null,
+          serviceCode: code,
+          serviceName: (code ? serviceMap.get(code) : null) ?? null,
+          source: t.source,
+          amount: Number(t.amount || 0),
+          paymentMethod: t.paymentMethod ?? null,
+          referenceNumber: t.referenceNumber ?? null,
+          paymentDate: (t.paymentDate as unknown as string) ?? null,
+        };
+      });
+
+    // Completed sessions that have no billing record yet — they still need an
+    // invoice, so surface them even though there is no amount established.
+    const billedSessionIds = new Set(rows.map((r) => r.sessionId));
+    const completedRows = await db
+      .select({
+        id: sessions.id,
+        sessionDate: sessions.sessionDate,
+        serviceId: sessions.serviceId,
+        status: sessions.status,
+      })
+      .from(sessions)
+      .where(and(eq(sessions.clientId, clientId), eq(sessions.status, "completed")))
+      .orderBy(desc(sessions.sessionDate));
+    const unbilledSessions: ClientStatementUnbilledSession[] = completedRows
+      .filter((s) => !billedSessionIds.has(s.id))
+      .map((s) => {
+        const svc = s.serviceId != null ? serviceById.get(s.serviceId) : undefined;
+        return {
+          sessionId: s.id,
+          sessionDate: (s.sessionDate as unknown as string) ?? null,
+          serviceCode: svc?.serviceCode ?? null,
+          serviceName: svc?.serviceName ?? null,
+          status: s.status,
+        };
+      });
 
     return {
       client: { id: client.id, clientId: client.clientId, fullName: client.fullName },
@@ -2003,9 +2070,11 @@ export class DatabaseStorage implements IStorage {
         outstanding,
         sessionCount: sessionsOut.length,
         uncollectedCount: uncollectedSessions.length,
+        unbilledCount: unbilledSessions.length,
       },
       uncollectedSessions,
       payments,
+      unbilledSessions,
       sessions: sessionsOut,
     };
   }

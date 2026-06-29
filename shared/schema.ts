@@ -2978,6 +2978,27 @@ export interface ClientStatementSession {
   insuranceCovered: boolean;
 }
 
+export interface ClientStatementPayment {
+  id: number;
+  sessionId: number;
+  sessionDate: string | null;
+  serviceCode: string | null;
+  serviceName: string | null;
+  source: string;
+  amount: number;
+  paymentMethod: string | null;
+  referenceNumber: string | null;
+  paymentDate: string | null;
+}
+
+export interface ClientStatementUnbilledSession {
+  sessionId: number;
+  sessionDate: string | null;
+  serviceCode: string | null;
+  serviceName: string | null;
+  status: string;
+}
+
 export interface ClientStatement {
   client: { id: number; clientId: string; fullName: string };
   summary: {
@@ -2986,9 +3007,11 @@ export interface ClientStatement {
     outstanding: number;
     sessionCount: number;
     uncollectedCount: number;
+    unbilledCount: number;
   };
   uncollectedSessions: ClientStatementSession[];
-  payments: ClientStatementSession[];
+  payments: ClientStatementPayment[];
+  unbilledSessions: ClientStatementUnbilledSession[];
   sessions: ClientStatementSession[];
 }
 
