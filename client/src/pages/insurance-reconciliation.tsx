@@ -69,6 +69,7 @@ interface StatementLine {
   patientResponsibility: string | null;
   remarkCode: string | null;
   matchedSessionBillingId: number | null;
+  matchedSessionId: number | null;
   matchStatus: MatchStatus;
   matchConfidence: "high" | "medium" | "low" | "partial" | null;
   postedAmount: string | null;
@@ -1021,7 +1022,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                       )}
                     </TableCell>
                     <TableCell>
-                      {line.matchedSessionBillingId ? (
+                      {line.matchedSessionId ? (
                         <div className="text-xs">
                           <div className="font-medium">{line.matchedClientName || "Client"}</div>
                           <div className="text-muted-foreground">
@@ -1029,7 +1030,9 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                             {line.matchedServiceCode ? ` · ${line.matchedServiceCode}` : ""}
                           </div>
                           <div className="text-muted-foreground">
-                            Billing #{line.matchedSessionBillingId}
+                            {line.matchedSessionBillingId
+                              ? `Billing #${line.matchedSessionBillingId}`
+                              : "Not billed yet · a bill is created on confirm"}
                           </div>
                         </div>
                       ) : (
@@ -1041,7 +1044,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                       {canEdit ? (
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex items-center gap-1">
-                            {line.matchStatus === "suggested" && line.matchedSessionBillingId && (
+                            {line.matchStatus === "suggested" && line.matchedSessionId && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1097,7 +1100,7 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                                 Un-skip
                               </Button>
                             )}
-                            {line.matchedSessionBillingId && (
+                            {line.matchedSessionId && (
                               <Button
                                 size="sm"
                                 variant="ghost"

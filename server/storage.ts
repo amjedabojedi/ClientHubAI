@@ -5300,7 +5300,7 @@ export class DatabaseStorage implements IStorage {
   // null when there is no candidate or the candidates are ambiguous (we never
   // guess between multiple billings — the user resolves those manually).
   private async findBillingMatchForLine(line: InsuranceStatementLine): Promise<
-    { billingId: number; sessionId: number; clientId: number; confidence: 'high' | 'medium' | 'low' | 'partial' } | null
+    { billingId: number | null; sessionId: number; clientId: number; confidence: 'high' | 'medium' | 'low' | 'partial' } | null
   > {
     const conds: any[] = [];
     const hasDate = !!line.serviceDate;
@@ -5330,6 +5330,13 @@ export class DatabaseStorage implements IStorage {
     // cannot guarantee the eventual single survivor is globally unique — bail to
     // manual rather than risk a misleading "unique" suggestion.
     const CANDIDATE_CAP = 50;
+    // Match against SESSIONS (left-joining any billing), not only billed
+    // sessions. A real completed / no-show session is then found even when it
+    // was never billed (e.g. historical sessions imported before billing was in
+    // use). An unbilled match returns a null billingId; the bill is created when
+    // the user CONFIRMS the line. Future 'scheduled' and placeholder
+    // 'rescheduled' rows are excluded unless they were deliberately billed, so an
+    // insurance payment can never land on a non-service appointment.
     const rows = await db
       .select({
         billingId: sessionBilling.id,
@@ -5338,11 +5345,19 @@ export class DatabaseStorage implements IStorage {
         clientName: clients.fullName,
         serviceCode: services.serviceCode,
       })
-      .from(sessionBilling)
-      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .from(sessions)
       .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(sessionBilling, eq(sessionBilling.sessionId, sessions.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
-      .where(and(...conds))
+      .where(
+        and(
+          ...conds,
+          or(
+            inArray(sessions.status, ['completed', 'no_show']),
+            isNotNull(sessionBilling.id),
+          ),
+        ),
+      )
       .limit(CANDIDATE_CAP + 1);
 
     if (!rows.length) return null;
@@ -5379,11 +5394,19 @@ export class DatabaseStorage implements IStorage {
         // date (a strong constraint), and even then it is just a suggestion the
         // user confirms. Requires at least one similar word-piece so a stray
         // substring can't pull in an unrelated client.
-        const sharesToken = candidates.filter((r) =>
-          normalizedNameTokens(r.clientName).some((ct) =>
-            nameTokens.some((st) => nameTokensSimilar(ct, st)),
-          ),
-        );
+        // A partial suggestion needs MORE than a single coincidental shared
+        // word-piece: require at least TWO distinct statement tokens to each have
+        // a similar piece in the candidate. This stops a lone shared surname
+        // (e.g. "Ahmed" ≈ "Ahmad") from suggesting an unrelated client whose
+        // first name is completely different. A genuinely weak single-token
+        // overlap is left as "no match" for the user to link by hand.
+        const sharesToken = candidates.filter((r) => {
+          const clientTokens = normalizedNameTokens(r.clientName);
+          const sharedCount = nameTokens.filter((st) =>
+            clientTokens.some((ct) => nameTokensSimilar(st, ct)),
+          ).length;
+          return sharedCount >= 2;
+        });
         if (!sharesToken.length) return null;
         candidates = sharesToken;
         partial = true;
@@ -5546,9 +5569,12 @@ export class DatabaseStorage implements IStorage {
         clientPaid: sessionBilling.clientPaidAmount,
       })
       .from(insuranceStatementLines)
+      // Session/client come from the matched SESSION directly, so a line matched
+      // to an as-yet-unbilled session still shows who/when. Billing amounts come
+      // from the matched billing (null until the line is confirmed & billed).
+      .leftJoin(sessions, eq(insuranceStatementLines.matchedSessionId, sessions.id))
+      .leftJoin(clients, eq(insuranceStatementLines.matchedClientId, clients.id))
       .leftJoin(sessionBilling, eq(insuranceStatementLines.matchedSessionBillingId, sessionBilling.id))
-      .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-      .leftJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(eq(insuranceStatementLines.statementId, id))
       .orderBy(asc(insuranceStatementLines.id));
@@ -5598,9 +5624,10 @@ export class DatabaseStorage implements IStorage {
       .from(insuranceStatementLines)
       .innerJoin(insuranceStatements, eq(insuranceStatementLines.statementId, insuranceStatements.id))
       .leftJoin(users, eq(insuranceStatements.therapistId, users.id))
-      .leftJoin(sessionBilling, eq(insuranceStatementLines.matchedSessionBillingId, sessionBilling.id))
-      .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      // Resolve the matched client via the matched SESSION/CLIENT directly so a
+      // line matched to an unbilled session still shows the client name.
+      .leftJoin(sessions, eq(insuranceStatementLines.matchedSessionId, sessions.id))
+      .leftJoin(clients, eq(insuranceStatementLines.matchedClientId, clients.id))
       .orderBy(desc(insuranceStatements.createdAt), asc(insuranceStatementLines.id));
 
     return rows.map((r) => ({
@@ -5687,14 +5714,44 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Confirming requires a billing target.
+    // Confirming needs something to attach the payment to. Prefer an explicit
+    // billing target; otherwise fall back to the matched SESSION and create its
+    // bill now (back-bill on confirm) so historical / unbilled sessions can be
+    // reconciled. The post step stays unchanged — by the time a line is
+    // confirmed it always carries a billing record.
     if (update.matchStatus === 'confirmed') {
       const targetBilling =
-        update.matchedSessionBillingId !== undefined
-          ? update.matchedSessionBillingId
+        setData.matchedSessionBillingId !== undefined
+          ? setData.matchedSessionBillingId
           : existing.matchedSessionBillingId;
       if (!targetBilling) {
-        throw new Error('Cannot confirm a line with no matched billing record.');
+        const sessionIdForBill =
+          setData.matchedSessionId !== undefined
+            ? setData.matchedSessionId
+            : existing.matchedSessionId;
+        if (!sessionIdForBill) {
+          throw new Error('Cannot confirm a line with no matched session.');
+        }
+        // Back-bill atomically. Hold a transaction-scoped advisory lock keyed on
+        // the session so two concurrent confirms for the SAME session can't both
+        // see "no billing" and each insert a row (session_billing.session_id is
+        // not unique). The re-check and the create both run on the locked
+        // transaction connection; the second confirm blocks until the first
+        // commits and then reuses the freshly-created bill (idempotent).
+        const bill = await db.transaction(async (lockTx) => {
+          await lockTx.execute(
+            sql`SELECT pg_advisory_xact_lock(hashtext('session_billing'), ${sessionIdForBill})`,
+          );
+          const existingBill = await this.getSessionBilling(sessionIdForBill, lockTx);
+          return existingBill ?? (await this.createSessionBilling(sessionIdForBill, lockTx));
+        });
+        if (!bill) {
+          throw new Error(
+            'Cannot create a bill for this session (it has no service set). Add a service to the session first.',
+          );
+        }
+        setData.matchedSessionBillingId = bill.id;
+        setData.matchedSessionId = bill.sessionId;
       }
     }
 
@@ -8445,9 +8502,13 @@ export class DatabaseStorage implements IStorage {
     return updatedSession;
   }
 
-  async createSessionBilling(sessionId: number): Promise<SelectSessionBilling | null> {
+  // `executor` lets a caller run this inside an already-open transaction (e.g.
+  // the advisory-locked back-bill on insurance confirm) so the read-then-create
+  // is atomic and can't produce duplicate billing rows for one session.
+  async createSessionBilling(sessionId: number, executor?: any): Promise<SelectSessionBilling | null> {
+    const ex = executor ?? db;
     // Get session, service, and client information
-    const [sessionData] = await db.select({
+    const [sessionData] = await ex.select({
       session: sessions,
       service: services,
       client: clients
@@ -8489,18 +8550,19 @@ export class DatabaseStorage implements IStorage {
       billingDate: new Date().toISOString().split('T')[0]
     };
     
-    const [billing] = await db.insert(sessionBilling).values(billingData).returning();
+    const [billing] = await ex.insert(sessionBilling).values(billingData).returning();
     
     // Update session with calculated rate
-    await db.update(sessions)
+    await ex.update(sessions)
       .set({ calculatedRate: sessionData.service.baseRate })
       .where(eq(sessions.id, sessionId));
     
     return billing;
   }
 
-  async getSessionBilling(sessionId: number): Promise<SelectSessionBilling | null> {
-    const [billing] = await db.select().from(sessionBilling)
+  async getSessionBilling(sessionId: number, executor?: any): Promise<SelectSessionBilling | null> {
+    const ex = executor ?? db;
+    const [billing] = await ex.select().from(sessionBilling)
       .where(eq(sessionBilling.sessionId, sessionId));
     return billing || null;
   }
