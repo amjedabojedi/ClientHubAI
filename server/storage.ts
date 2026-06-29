@@ -979,6 +979,51 @@ function normalizedNameTokens(raw: string | null | undefined): string[] {
   );
 }
 
+// Edit (Levenshtein) distance between two strings — number of single-character
+// insertions, deletions or substitutions to turn one into the other.
+function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// Whether two *name word-pieces* should be treated as the same piece, tolerant
+// of the differences seen between IFHP statements and stored client names:
+//   - identical                       ("qazan" === "qazan")
+//   - truncation / abbreviation       ("mohs" → "mohsen", "subh" → "subhi",
+//                                       "lutf" → "lutfi", "german" → "germanica")
+//   - transliteration / minor spelling diffs, same first letter
+//                                     ("ghonem" ~ "ghoneim", "mohamed" ~ "mohamad")
+// Kept deliberately conservative (same first letter, length-scaled threshold) so
+// it loosens *spelling*, not identity — the single-candidate + service-date gates
+// downstream still stop a loose piece from pulling in the wrong client.
+function nameTokensSimilar(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  // Truncation / abbreviation: the shorter piece is a prefix of the longer one.
+  if (short.length >= 3 && long.startsWith(short)) return true;
+  // Transliteration / minor spelling variation: same first letter, small edit
+  // distance scaled to length (2 for longer pieces, 1 for shorter).
+  if (short.length >= 4 && a[0] === b[0]) {
+    const threshold = long.length >= 6 ? 2 : 1;
+    if (editDistance(a, b) <= threshold) return true;
+  }
+  return false;
+}
+
 export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
@@ -5310,16 +5355,20 @@ export class DatabaseStorage implements IStorage {
     let partial = false;
 
     if (hasName) {
-      const stmtSet = new Set(nameTokens);
-      // Tier 1 — strong name match: one name's token set is a (non-empty)
-      // subset of the other's. "Gerson Rivas" ⊆ "Gerson Mar Rivas Fernandez";
-      // a genuinely different name ("John Smith" vs "John Doe") does not.
+      // Tier 1 — strong name match: every word-piece of the shorter name has a
+      // similar piece in the other (order-independent), tolerant of truncation
+      // and transliteration spelling differences (see nameTokensSimilar).
+      // "Qazan Ammar Subh" ⊆ "Ammar Subhi Suleiman Qazan"; a genuinely different
+      // name ("John Smith" vs "John Doe") still does not.
       const nameCompatible = candidates.filter((r) => {
         const clientTokens = normalizedNameTokens(r.clientName);
         if (!clientTokens.length) return false;
-        const clientSet = new Set(clientTokens);
-        const clientInStmt = clientTokens.every((t) => stmtSet.has(t));
-        const stmtInClient = nameTokens.every((t) => clientSet.has(t));
+        const clientInStmt = clientTokens.every((ct) =>
+          nameTokens.some((st) => nameTokensSimilar(ct, st)),
+        );
+        const stmtInClient = nameTokens.every((st) =>
+          clientTokens.some((ct) => nameTokensSimilar(st, ct)),
+        );
         return clientInStmt || stmtInClient;
       });
 
@@ -5328,10 +5377,12 @@ export class DatabaseStorage implements IStorage {
       } else if (hasDate) {
         // Tier 2 — partial name overlap. Only attempted when we have a service
         // date (a strong constraint), and even then it is just a suggestion the
-        // user confirms. Requires at least one fully-shared word-piece so a
-        // stray substring can't pull in an unrelated client.
+        // user confirms. Requires at least one similar word-piece so a stray
+        // substring can't pull in an unrelated client.
         const sharesToken = candidates.filter((r) =>
-          normalizedNameTokens(r.clientName).some((t) => stmtSet.has(t)),
+          normalizedNameTokens(r.clientName).some((ct) =>
+            nameTokens.some((st) => nameTokensSimilar(ct, st)),
+          ),
         );
         if (!sharesToken.length) return null;
         candidates = sharesToken;
@@ -5341,24 +5392,31 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    let codeMatched = false;
-    if (line.serviceCode) {
-      const lc = line.serviceCode.toLowerCase();
-      const byCode = candidates.filter((r) => r.serviceCode && r.serviceCode.toLowerCase() === lc);
-      if (byCode.length) {
-        candidates = byCode;
-        codeMatched = true;
-      }
-    }
+    // Matching is name-driven only (service code is intentionally NOT used to
+    // pick or rank a match). The service date above just narrows which sessions
+    // are in play; the name decides the client.
 
     // Only auto-suggest when exactly one candidate survives; ambiguity → manual.
     if (candidates.length !== 1) return null;
 
     const c = candidates[0];
+    // Distinguish an EXACT name match (every piece identical) from a FUZZY one
+    // (some pieces matched only via truncation/transliteration) so we don't label
+    // a spelling-guess as confidently as a verbatim match.
+    let exactName = false;
+    if (hasName && !partial) {
+      const clientTokens = normalizedNameTokens(c.clientName);
+      const stmtSet = new Set(nameTokens);
+      const clientSet = new Set(clientTokens);
+      exactName =
+        clientTokens.length > 0 &&
+        (clientTokens.every((t) => stmtSet.has(t)) ||
+          nameTokens.every((t) => clientSet.has(t)));
+    }
     let confidence: 'high' | 'medium' | 'low' | 'partial' = 'low';
     if (partial) confidence = 'partial';
-    else if (hasName && hasDate && codeMatched) confidence = 'high';
-    else if (hasName && hasDate) confidence = 'medium';
+    else if (exactName) confidence = hasDate ? 'high' : 'medium';
+    else if (hasName) confidence = hasDate ? 'medium' : 'low';
     return { billingId: c.billingId, sessionId: c.sessionId, clientId: c.clientId, confidence };
   }
 
