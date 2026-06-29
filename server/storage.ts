@@ -1999,7 +1999,7 @@ export class DatabaseStorage implements IStorage {
     // actual recorded payment) rather than the billing-level cumulative total,
     // so a single payment never appears as multiple lines.
     const billingSessionMap = new Map(
-      rows.map((r) => [r.billingId, { sessionId: r.sessionId, serviceCode: r.serviceCode, sessionDate: r.sessionDate }])
+      rows.map((r) => [Number(r.billingId), { sessionId: r.sessionId, serviceCode: r.serviceCode, sessionDate: r.sessionDate }])
     );
     const txRows = await db
       .select({
@@ -2020,7 +2020,7 @@ export class DatabaseStorage implements IStorage {
     const payments: ClientStatementPayment[] = txRows
       .filter((t) => Math.abs(Number(t.amount || 0)) > 0.005)
       .map((t) => {
-        const link = billingSessionMap.get(t.sessionBillingId);
+        const link = billingSessionMap.get(Number(t.sessionBillingId));
         const code = link?.serviceCode ?? null;
         return {
           id: t.id,
