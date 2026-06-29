@@ -277,7 +277,8 @@ export default function ClientStatementsPage() {
                     <TableRow>
                       <TableHead>Session date</TableHead>
                       <TableHead>Service</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Session status</TableHead>
+                      <TableHead className="text-right">Expected amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -286,7 +287,10 @@ export default function ClientStatementsPage() {
                         <TableCell>{formatDate(s.sessionDate)}</TableCell>
                         <TableCell>{s.serviceName || s.serviceCode || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">Not billed</Badge>
+                          <Badge variant="outline" className="capitalize">{s.status || "—"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {s.amount != null ? formatCurrency(s.amount) : "—"}
                         </TableCell>
                       </TableRow>
                     ))}

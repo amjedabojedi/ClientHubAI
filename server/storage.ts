@@ -1962,7 +1962,7 @@ export class DatabaseStorage implements IStorage {
 
     const services = await this.getServices();
     const serviceMap = new Map(services.map((s) => [s.serviceCode, s.serviceName]));
-    const serviceById = new Map(services.map((s) => [s.id, s]));
+    const serviceById = new Map(services.map((s) => [Number(s.id), s]));
 
     const sessionsOut: ClientStatementSession[] = rows.map((r) => {
       const total = Number(r.totalAmount || 0);
@@ -2045,6 +2045,7 @@ export class DatabaseStorage implements IStorage {
         sessionDate: sessions.sessionDate,
         serviceId: sessions.serviceId,
         status: sessions.status,
+        calculatedRate: sessions.calculatedRate,
       })
       .from(sessions)
       .where(and(eq(sessions.clientId, clientId), eq(sessions.status, "completed")))
@@ -2052,12 +2053,21 @@ export class DatabaseStorage implements IStorage {
     const unbilledSessions: ClientStatementUnbilledSession[] = completedRows
       .filter((s) => !billedSessionIds.has(s.id))
       .map((s) => {
-        const svc = s.serviceId != null ? serviceById.get(s.serviceId) : undefined;
+        const svc = s.serviceId != null ? serviceById.get(Number(s.serviceId)) : undefined;
+        const calc = Number(s.calculatedRate);
+        const base = Number(svc?.baseRate);
+        const rate =
+          s.calculatedRate != null && Number.isFinite(calc) && calc > 0
+            ? calc
+            : svc?.baseRate != null && Number.isFinite(base)
+            ? base
+            : null;
         return {
           sessionId: s.id,
           sessionDate: (s.sessionDate as unknown as string) ?? null,
           serviceCode: svc?.serviceCode ?? null,
           serviceName: svc?.serviceName ?? null,
+          amount: rate,
           status: s.status,
         };
       });

@@ -2996,6 +2996,7 @@ export interface ClientStatementUnbilledSession {
   sessionDate: string | null;
   serviceCode: string | null;
   serviceName: string | null;
+  amount: number | null;
   status: string;
 }
 
