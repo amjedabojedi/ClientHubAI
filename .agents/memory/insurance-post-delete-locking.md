@@ -33,3 +33,19 @@ an optional `executor?` arg to `recordPayment` so post passes `lockTx` and
 everything stays on one connection (no executor = unchanged behavior, opens its
 own transaction). Any future "hold a lock across a multi-step storage op" must do
 the same — thread the executor through, never let the body grab extra connections.
+
+# All four insurance ops share this one lock now
+
+post, delete, **void**, and **single-line reverse** (`reverseStatementLine`, undo
+ONE posted line without voiding the whole statement) all run inside one
+`db.transaction` and take the SAME key `pg_advisory_xact_lock(hashtext(
+'insurance_statement'), statementId)`, with every read/write and every
+`recordPayment` on `lockTx`. Void was originally NOT locked/transactional — adding
+reverse forced it to be, otherwise reverse-vs-void could interleave and corrupt a
+billing's cumulative `insurancePaidAmount`. **Rule:** any NEW operation that mutates
+a statement's posted lines or its billings MUST join this lock + single-connection
+pattern, or it silently breaks the serialization the others rely on. Reverse takes
+the lock by reading `statementId` first (unlocked), locking, then re-reading the
+line and re-checking `matchStatus==='posted'` + parent `status==='posted'`; it
+re-balances surviving posted siblings with void's exact algorithm but leaves the
+statement 'posted'.

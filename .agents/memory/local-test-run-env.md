@@ -36,3 +36,11 @@ rm -rf /tmp/tsx-1000
 npx tsx test/<the-test>.test.ts > /tmp/run.log 2>&1; echo "EXIT=$?"
 ```
 Then restart the `test-privacy` workflow afterwards to leave it healthy.
+
+## Print-report row finder (scraping generated HTML in tests)
+When a test scrapes a generated print/report HTML by a unique SUFFIX, beware: if
+that same SUFFIX is reused across BOTH a therapist name AND a client name, the
+naive `html.split("<tr>").find(s => s.includes(SUFFIX))` matches the `<h1>` title
+chunk (which also contains the suffix), not the real data row. Also require the
+chunk to contain a data cell, e.g. `&& s.includes('<td class="num')`, so you land
+on the actual table row instead of the heading.

@@ -22,13 +22,13 @@ manual, and auto-matches are only ever 'suggested' (never auto-posted) — a hum
 confirms before any insurance payment posts.
 
 **nameTokensSimilar (fuzzy piece match):** equal OR truncation (shorter is a prefix
-of longer, shorter len>=3 → "mohs"→"mohsen", "subh"→"subhi", "lutf"→"lutfi",
-"german"→"germanica") OR transliteration (same first letter, editDistance<=2 for
-len>=6 else <=1 → "ghonem"~"ghoneim", "mohamed"~"mohamad"). Kept conservative on
-purpose: 2-letter fragments ("Mo") do NOT auto-bind (would fall to 'partial'), so a
-short fragment can't latch onto a common surname. This correctly makes the ambiguous
-Ghoneim pair (Ahmed Ghoneim vs Ahmed Mohsen…Ghonem) BOTH match → 2 candidates →
-manual, which is the desired #9 "flag, don't merge" behavior.
+of longer, shorter len>=3 → e.g. "abcd"→"abcde") OR transliteration (same first
+letter, editDistance<=2 for len>=6 else <=1 → e.g. spelling variants of the same
+transliterated surname). Kept conservative on purpose: 2-letter fragments do NOT
+auto-bind (would fall to 'partial'), so a short fragment can't latch onto a common
+surname. This correctly makes an ambiguous pair (two different people who share a
+first name and a near-identical surname spelling) BOTH match → 2 candidates →
+manual, which is the desired "flag, don't merge" behavior.
 
 **Service code is NOT used (owner directive):** matching is name-driven only. The
 service DATE still narrows which sessions are candidates (structurally needed to pin

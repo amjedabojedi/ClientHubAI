@@ -13299,6 +13299,41 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Reverse a SINGLE posted line without voiding the whole statement. Undoes
+  // just that one line's insurance payment and marks it 'reversed'; the rest of
+  // the statement stays posted.
+  app.post("/api/insurance/lines/:id/reverse", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid line ID" });
+      const reason = (req.body?.reason || '').toString().trim() || undefined;
+
+      const line = await storage.reverseStatementLine(id, req.user!.id, reason);
+
+      await db.insert(auditLogs).values({
+        userId: req.user!.id,
+        username: req.user!.username,
+        action: 'insurance_statement_line_reversed',
+        result: 'success',
+        resourceType: 'insurance_statement_line',
+        resourceId: String(id),
+        details: JSON.stringify({ statementId: line.statementId, reason: reason ?? null }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      const detail = await storage.getInsuranceStatementById(line.statementId);
+      res.json(detail ?? line);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Only a posted line') || msg.includes('Only a line on a posted statement')) {
+        return res.status(400).json({ message: msg });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Post the confirmed lines as insurance payments.
   app.post("/api/insurance/statements/:id/post", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
     try {

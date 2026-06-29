@@ -5909,7 +5909,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async voidInsuranceStatement(id: number, userId: number, reason: string): Promise<InsuranceStatement> {
-    const [statement] = await db
+    // Run the whole void on ONE transaction under the SAME advisory lock that
+    // post/delete/reverse take, so it serializes against a concurrent
+    // post/reverse/delete on this statement (timing could otherwise corrupt the
+    // billing balances). Passing lockTx to every read/write and every
+    // recordPayment keeps it all on one pooled connection (pool max 2 dev / 5
+    // prod) — opening a second connection mid-lock would risk a deadlock. Bonus:
+    // void is now atomic.
+    return await db.transaction(async (lockTx) => {
+    await lockTx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('insurance_statement'), ${id})`);
+    const [statement] = await lockTx
       .select()
       .from(insuranceStatements)
       .where(eq(insuranceStatements.id, id))
@@ -5917,7 +5926,7 @@ export class DatabaseStorage implements IStorage {
     if (!statement) throw new Error('Statement not found');
     if (statement.status === 'voided') throw new Error('Statement already voided.');
 
-    const lines = await db
+    const lines = await lockTx
       .select()
       .from(insuranceStatementLines)
       .where(eq(insuranceStatementLines.statementId, id));
@@ -5939,7 +5948,7 @@ export class DatabaseStorage implements IStorage {
       if (line.matchedSessionBillingId && posted > 0) {
         // Reverse: subtract this line's payment from the billing's cumulative
         // insurance amount (never below zero).
-        const [billing] = await db
+        const [billing] = await lockTx
           .select({ insurancePaid: sessionBilling.insurancePaidAmount })
           .from(sessionBilling)
           .where(eq(sessionBilling.id, line.matchedSessionBillingId))
@@ -5958,7 +5967,7 @@ export class DatabaseStorage implements IStorage {
             recordedBy: userId,
             sourceStatementId: statement.id,
             sourceStatementLineId: line.id,
-          });
+          }, lockTx);
         }
       }
       // Release any MANUAL payments this line had adopted, so they go back to
@@ -5966,7 +5975,7 @@ export class DatabaseStorage implements IStorage {
       // is re-posted. (Statement-created shortfall rows carry sourceStatementLineId,
       // not adoptedByLineId, so they are untouched here and reversed via postedAmount
       // above.)
-      await db
+      await lockTx
         .update(paymentTransactions)
         .set({ adoptedByLineId: null })
         .where(eq(paymentTransactions.adoptedByLineId, line.id));
@@ -5977,7 +5986,7 @@ export class DatabaseStorage implements IStorage {
       // 'confirmed' made it look re-postable and was dead, misleading state, so
       // we mark it 'reversed' to reflect that its posting was undone. postedAmount
       // is cleared since nothing is posted anymore.
-      await db
+      await lockTx
         .update(insuranceStatementLines)
         .set({ matchStatus: 'reversed', postedAmount: null })
         .where(eq(insuranceStatementLines.id, line.id));
@@ -6004,7 +6013,7 @@ export class DatabaseStorage implements IStorage {
       // Live manual insurance already counted on the billing. Statement-sourced
       // shortfall rows are represented by the posted lines' postedAmount below,
       // so they are excluded here to avoid double counting.
-      const manualRows = await db
+      const manualRows = await lockTx
         .select({ amt: paymentTransactions.amount })
         .from(paymentTransactions)
         .where(
@@ -6022,7 +6031,7 @@ export class DatabaseStorage implements IStorage {
       // Posted lines that survive this void (their parent statement is NOT
       // voided), in post order so the shortfall re-distribution is deterministic
       // and matches how the original post built up the cumulative.
-      const remaining = await db
+      const remaining = await lockTx
         .select({
           lineId: insuranceStatementLines.id,
           statementId: insuranceStatementLines.statementId,
@@ -6050,7 +6059,7 @@ export class DatabaseStorage implements IStorage {
         const amt = Number(r.lineAmount) || 0;
         const newPosted = +Math.max(0, +(amt - running).toFixed(2)).toFixed(2);
         running = +(running + newPosted).toFixed(2);
-        await db
+        await lockTx
           .update(insuranceStatementLines)
           .set({ postedAmount: newPosted.toFixed(2) })
           .where(eq(insuranceStatementLines.id, r.lineId));
@@ -6067,7 +6076,7 @@ export class DatabaseStorage implements IStorage {
       // Adjust the billing's cumulative insurance to the re-derived total. When
       // the voided statement was NOT the one holding the money (its sibling was),
       // `running` already equals the current value and nothing changes.
-      const [bill] = await db
+      const [bill] = await lockTx
         .select({ insurancePaid: sessionBilling.insurancePaidAmount })
         .from(sessionBilling)
         .where(eq(sessionBilling.id, billingId))
@@ -6086,17 +6095,203 @@ export class DatabaseStorage implements IStorage {
             recordedBy: userId,
             sourceStatementId: ownerStatementId ?? undefined,
             sourceStatementLineId: ownerLineId ?? undefined,
-          });
+          }, lockTx);
         }
       }
     }
 
-    const [updated] = await db
+    const [updated] = await lockTx
       .update(insuranceStatements)
       .set({ status: 'voided', voidedAt: new Date(), voidedBy: userId, voidReason: reason })
       .where(eq(insuranceStatements.id, id))
       .returning();
     return updated;
+    });
+  }
+
+  // Reverse a SINGLE posted line without voiding its whole statement. Undoes
+  // just that one line's insurance payment (its postedAmount), releases any
+  // manual payments it had adopted, marks the line terminal 'reversed', and
+  // re-balances any sibling posted lines on the same billing — exactly like a
+  // whole-statement void does per line, but scoped to one line. The parent
+  // statement STAYS 'posted' so its other lines are untouched. The whole thing
+  // runs on one transaction under the same advisory lock post/delete take, so it
+  // serializes against a concurrent post/delete on that statement and never
+  // needs a second pooled connection.
+  async reverseStatementLine(
+    lineId: number,
+    userId: number,
+    reason?: string,
+  ): Promise<InsuranceStatementLine> {
+    return await db.transaction(async (lockTx) => {
+      // The lock key is the statement id, so read it first (without the lock),
+      // take the lock, then re-read the line so a concurrent post/void/delete
+      // that changed it is observed before we act.
+      const [pre] = await lockTx
+        .select({ statementId: insuranceStatementLines.statementId })
+        .from(insuranceStatementLines)
+        .where(eq(insuranceStatementLines.id, lineId))
+        .limit(1);
+      if (!pre) throw new Error('Statement line not found');
+      await lockTx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('insurance_statement'), ${pre.statementId})`,
+      );
+
+      const [line] = await lockTx
+        .select()
+        .from(insuranceStatementLines)
+        .where(eq(insuranceStatementLines.id, lineId))
+        .limit(1);
+      if (!line) throw new Error('Statement line not found');
+      if (line.matchStatus !== 'posted') {
+        throw new Error('Only a posted line can be reversed.');
+      }
+
+      const [statement] = await lockTx
+        .select()
+        .from(insuranceStatements)
+        .where(eq(insuranceStatements.id, line.statementId))
+        .limit(1);
+      if (!statement) throw new Error('Statement not found');
+      // Defensive: a posted line should only ever live on a posted statement,
+      // but guard explicitly so a voided statement's line can never be reversed
+      // (its money was already undone by the void).
+      if (statement.status !== 'posted') {
+        throw new Error('Only a line on a posted statement can be reversed.');
+      }
+
+      const paymentDate = new Date().toISOString().slice(0, 10);
+      const billingId = line.matchedSessionBillingId;
+      const posted = Number(line.postedAmount) || 0;
+      const reasonText = (reason && reason.trim()) || 'Single-line reversal';
+
+      // 1) Reverse this line's posted shortfall from the billing's cumulative
+      //    insurance (never below zero) — same as void's per-line reversal.
+      if (billingId && posted > 0) {
+        const [billing] = await lockTx
+          .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.id, billingId))
+          .limit(1);
+        if (billing) {
+          const currentInsurance = Number(billing.insurancePaid) || 0;
+          const newCumulative = Math.max(0, +(currentInsurance - posted).toFixed(2));
+          await this.recordPayment(billingId, {
+            status: 'billed',
+            amount: newCumulative,
+            date: paymentDate,
+            method: 'insurance',
+            source: 'insurance',
+            reference: statement.checkNumber || undefined,
+            notes: `Reverse line of insurance statement #${statement.id}: ${reasonText}`,
+            recordedBy: userId,
+            sourceStatementId: statement.id,
+            sourceStatementLineId: line.id,
+          }, lockTx);
+        }
+      }
+
+      // 2) Release any MANUAL payments this line had adopted so they go back to
+      //    unattributed manual payments (re-adoptable by a future post).
+      await lockTx
+        .update(paymentTransactions)
+        .set({ adoptedByLineId: null })
+        .where(eq(paymentTransactions.adoptedByLineId, line.id));
+
+      // 3) Move the line to the terminal 'reversed' state, clearing postedAmount.
+      const [updatedLine] = await lockTx
+        .update(insuranceStatementLines)
+        .set({ matchStatus: 'reversed', postedAmount: null })
+        .where(eq(insuranceStatementLines.id, line.id))
+        .returning();
+
+      // 4) Re-balance surviving posted lines on the SAME billing. Releasing this
+      //    line's coverage may let a sibling statement (that documented the same
+      //    real-world payment with a $0 shortfall) re-absorb it, so collected
+      //    insurance stays correct. Identical to void's re-balance pass, scoped
+      //    to this one billing. The just-reversed line is excluded automatically
+      //    because it's no longer 'posted'.
+      if (billingId) {
+        const manualRows = await lockTx
+          .select({ amt: paymentTransactions.amount })
+          .from(paymentTransactions)
+          .where(
+            and(
+              eq(paymentTransactions.sessionBillingId, billingId),
+              eq(paymentTransactions.source, 'insurance'),
+              isNull(paymentTransactions.sourceStatementLineId),
+              isNull(paymentTransactions.voidedAt),
+            ),
+          );
+        const manualSum = +manualRows
+          .reduce((s, r) => s + (Number(r.amt) || 0), 0)
+          .toFixed(2);
+
+        const remaining = await lockTx
+          .select({
+            lineId: insuranceStatementLines.id,
+            statementId: insuranceStatementLines.statementId,
+            lineAmount: insuranceStatementLines.insurancePaidAmount,
+          })
+          .from(insuranceStatementLines)
+          .innerJoin(
+            insuranceStatements,
+            eq(insuranceStatementLines.statementId, insuranceStatements.id),
+          )
+          .where(
+            and(
+              eq(insuranceStatementLines.matchedSessionBillingId, billingId),
+              eq(insuranceStatementLines.matchStatus, 'posted'),
+              ne(insuranceStatements.status, 'voided'),
+            ),
+          )
+          .orderBy(asc(insuranceStatementLines.id));
+
+        let running = manualSum;
+        let ownerLineId: number | null = null;
+        let ownerStatementId: number | null = null;
+        let ownerShare = 0;
+        for (const r of remaining) {
+          const amt = Number(r.lineAmount) || 0;
+          const newPosted = +Math.max(0, +(amt - running).toFixed(2)).toFixed(2);
+          running = +(running + newPosted).toFixed(2);
+          await lockTx
+            .update(insuranceStatementLines)
+            .set({ postedAmount: newPosted.toFixed(2) })
+            .where(eq(insuranceStatementLines.id, r.lineId));
+          if (newPosted > ownerShare) {
+            ownerShare = newPosted;
+            ownerLineId = r.lineId;
+            ownerStatementId = r.statementId;
+          }
+        }
+
+        const [bill] = await lockTx
+          .select({ insurancePaid: sessionBilling.insurancePaidAmount })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.id, billingId))
+          .limit(1);
+        if (bill) {
+          const current = Number(bill.insurancePaid) || 0;
+          if (Math.abs(current - running) > 0.005 && ownerLineId != null) {
+            await this.recordPayment(billingId, {
+              status: running > 0 ? 'paid' : 'billed',
+              amount: running,
+              date: paymentDate,
+              method: 'insurance',
+              source: 'insurance',
+              reference: statement.checkNumber || undefined,
+              notes: `Rebalance after reversing a line of insurance statement #${statement.id}: surviving statement #${ownerStatementId} retains the payment`,
+              recordedBy: userId,
+              sourceStatementId: ownerStatementId ?? undefined,
+              sourceStatementLineId: ownerLineId ?? undefined,
+            }, lockTx);
+          }
+        }
+      }
+
+      return updatedLine;
+    });
   }
 
   async deleteInsuranceStatement(id: number): Promise<void> {

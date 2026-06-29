@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   FileText, Upload, Loader2, ArrowLeft, CheckCircle2, Ban, AlertTriangle,
-  Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks, Trash2,
+  Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks, Trash2, Undo2,
   ChevronsUpDown,
 } from "lucide-react";
 
@@ -641,6 +641,8 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
   const [voidReason, setVoidReason] = useState("");
   const [reopenOpen, setReopenOpen] = useState(false);
   const [rematchBillingId, setRematchBillingId] = useState<Record<number, string>>({});
+  const [reverseLineId, setReverseLineId] = useState<number | null>(null);
+  const [reverseReason, setReverseReason] = useState("");
 
   const queryKey = [`/api/insurance/statements/${id}`];
   const { data, isLoading } = useQuery<StatementDetail>({ queryKey });
@@ -682,6 +684,27 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
     },
     onError: (err: Error) => {
       toast({ title: "Could not update line", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const reverseLineMutation = useMutation({
+    mutationFn: async (vars: { lineId: number; reason: string }) =>
+      apiRequest(`/api/insurance/lines/${vars.lineId}/reverse`, "POST", {
+        reason: vars.reason,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/transactions"] });
+      setReverseLineId(null);
+      setReverseReason("");
+      toast({
+        title: "Line reversed",
+        description: "That one payment was undone. The rest of the statement stays posted.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not reverse line", description: err.message, variant: "destructive" });
     },
   });
 
@@ -1134,10 +1157,30 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                             </Button>
                           </div>
                         </div>
+                      ) : line.matchStatus === "posted" ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs text-muted-foreground">
+                            {money(line.postedAmount)}
+                          </span>
+                          {!isVoided && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-amber-700 hover:text-amber-800"
+                              title="Undo just this one payment (keeps the rest of the statement posted)"
+                              disabled={reverseLineMutation.isPending}
+                              onClick={() => {
+                                setReverseReason("");
+                                setReverseLineId(line.id);
+                              }}
+                              data-testid={`button-reverse-${line.id}`}
+                            >
+                              <Undo2 className="h-3.5 w-3.5 mr-1" /> Reverse
+                            </Button>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {line.matchStatus === "posted" ? money(line.postedAmount) : "—"}
-                        </span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -1147,6 +1190,50 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={reverseLineId !== null} onOpenChange={(o) => { if (!o) setReverseLineId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reverse just this one payment?</DialogTitle>
+            <DialogDescription>
+              This undoes only this single line's insurance payment and removes it
+              from the billing. The rest of the statement stays posted. You can add
+              a short reason for the audit log (optional).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reverse-reason">Reason (optional)</Label>
+            <Textarea
+              id="reverse-reason"
+              value={reverseReason}
+              onChange={(e) => setReverseReason(e.target.value)}
+              placeholder="e.g. This line was matched to the wrong session"
+              data-testid="input-reverse-reason"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReverseLineId(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={reverseLineMutation.isPending}
+              onClick={() => {
+                if (reverseLineId !== null) {
+                  reverseLineMutation.mutate({ lineId: reverseLineId, reason: reverseReason.trim() });
+                }
+              }}
+              data-testid="button-confirm-reverse"
+            >
+              {reverseLineMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Undo2 className="h-4 w-4 mr-2" />
+              )}
+              Reverse this line
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
         <DialogContent>
