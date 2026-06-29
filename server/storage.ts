@@ -144,6 +144,8 @@ import type {
   InsuranceStatementLine,
   InsertInsuranceStatementLine,
   ClientInvoice,
+  ClientStatement,
+  ClientStatementSession,
   UserProfile,
   InsertUserProfile,
   SupervisorAssignment,
@@ -661,6 +663,7 @@ export interface IStorage {
   }>;
   getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]>;
   getClientInvoices(clientId: number): Promise<ClientInvoice[]>;
+  getClientStatement(clientId: number): Promise<ClientStatement | null>;
 
   // ===== CLIENT PORTAL AUTHENTICATION =====
   getClientByPortalEmail(portalEmail: string): Promise<Client | undefined>;
@@ -1928,6 +1931,83 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessionBilling.billingDate));
 
     return result;
+  }
+
+  async getClientStatement(clientId: number): Promise<ClientStatement | null> {
+    const client = await this.getClient(clientId);
+    if (!client) return null;
+
+    const rows = await db
+      .select({
+        billingId: sessionBilling.id,
+        sessionId: sessionBilling.sessionId,
+        serviceCode: sessionBilling.serviceCode,
+        totalAmount: sessionBilling.totalAmount,
+        discountAmount: sessionBilling.discountAmount,
+        insuranceCovered: sessionBilling.insuranceCovered,
+        billingDate: sessionBilling.billingDate,
+        paymentStatus: sessionBilling.paymentStatus,
+        paymentAmount: sessionBilling.paymentAmount,
+        paymentDate: sessionBilling.paymentDate,
+        paymentReference: sessionBilling.paymentReference,
+        paymentMethod: sessionBilling.paymentMethod,
+        sessionDate: sessions.sessionDate,
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .where(eq(sessions.clientId, clientId))
+      .orderBy(desc(sessions.sessionDate));
+
+    const services = await this.getServices();
+    const serviceMap = new Map(services.map((s) => [s.serviceCode, s.serviceName]));
+
+    const sessionsOut: ClientStatementSession[] = rows.map((r) => {
+      const total = Number(r.totalAmount || 0);
+      const discount = Number(r.discountAmount || 0);
+      const billed = Math.max(total - discount, 0);
+      const paid = Number(r.paymentAmount || 0);
+      const outstanding = Math.max(billed - paid, 0);
+      return {
+        billingId: r.billingId,
+        sessionId: r.sessionId,
+        sessionDate: (r.sessionDate as unknown as string) ?? null,
+        billingDate: (r.billingDate as unknown as string) ?? null,
+        serviceCode: r.serviceCode ?? null,
+        serviceName: (r.serviceCode ? serviceMap.get(r.serviceCode) : null) ?? null,
+        totalAmount: total,
+        discountAmount: discount,
+        billed,
+        paid,
+        outstanding,
+        paymentStatus: r.paymentStatus,
+        paymentDate: (r.paymentDate as unknown as string) ?? null,
+        paymentMethod: r.paymentMethod ?? null,
+        paymentReference: r.paymentReference ?? null,
+        insuranceCovered: !!r.insuranceCovered,
+      };
+    });
+
+    const totalBilled = sessionsOut.reduce((s, x) => s + x.billed, 0);
+    const totalPaid = sessionsOut.reduce((s, x) => s + x.paid, 0);
+    const outstanding = sessionsOut.reduce((s, x) => s + x.outstanding, 0);
+    const uncollectedSessions = sessionsOut.filter((x) => x.outstanding > 0.005);
+    const payments = sessionsOut
+      .filter((x) => x.paid > 0.005)
+      .sort((a, b) => (b.paymentDate || "").localeCompare(a.paymentDate || ""));
+
+    return {
+      client: { id: client.id, clientId: client.clientId, fullName: client.fullName },
+      summary: {
+        totalBilled,
+        totalPaid,
+        outstanding,
+        sessionCount: sessionsOut.length,
+        uncollectedCount: uncollectedSessions.length,
+      },
+      uncollectedSessions,
+      payments,
+      sessions: sessionsOut,
+    };
   }
 
   async deleteClient(id: number): Promise<void> {

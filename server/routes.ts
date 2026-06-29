@@ -625,6 +625,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client Statements - view a single client's billing summary, uncollected sessions, and payments
+  app.get("/api/client-pay/statement/:clientId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client id" });
+      }
+
+      const statement = await storage.getClientStatement(clientId);
+      if (!statement) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      await AuditLogger.logAction({
+        userId: req.user?.id ?? null,
+        username: req.user?.username || 'unknown',
+        action: 'client_viewed',
+        result: 'success',
+        resourceType: 'billing',
+        resourceId: clientId.toString(),
+        clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ feature: 'client_statement' }),
+        accessReason: 'Client statement viewing',
+      });
+
+      res.json(statement);
+    } catch (error) {
+      console.error("Client statement error:", error);
+      res.status(500).json({ message: "Failed to fetch client statement" });
+    }
+  });
+
   // Client stats - moved before the :id route to avoid conflicts
   app.get("/api/clients/stats", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {

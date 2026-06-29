@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign, Receipt } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -47,6 +47,7 @@ import HIPAAAuditPage from "@/pages/hipaa-audit";
 import AdminConsentPage from "@/pages/admin-consent";
 import BillingDashboard from "@/pages/billing-dashboard";
 import TherapistPaymentsPage from "@/pages/therapist-payments";
+import ClientStatementsPage from "@/pages/client-statements";
 import InsuranceReconciliationPage from "@/pages/insurance-reconciliation";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
@@ -149,6 +150,7 @@ function Navigation() {
     // Billing staff manage therapist payments but don't have the Administration menu
     if (user?.role?.toLowerCase().trim() === 'billing') {
       baseItems.push({ path: "/therapist-payments", label: "Payments", icon: DollarSign });
+      baseItems.push({ path: "/client-statements", label: "Client Statements", icon: Receipt });
       baseItems.push({ path: "/insurance-reconciliation", label: "Insurance", icon: FileText });
     }
 
@@ -182,6 +184,7 @@ function Navigation() {
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
           { path: "/therapist-payments", label: "Therapist Payments", icon: DollarSign },
+          { path: "/client-statements", label: "Client Statements", icon: Receipt },
           { path: "/insurance-reconciliation", label: "Insurance Reconciliation", icon: FileText },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
@@ -391,6 +394,15 @@ function Router() {
               return <AccessRestricted message="Therapist payments are restricted to administrators and billing staff." />;
             }
             return <TherapistPaymentsPage />;
+          }} />
+          <Route path="/client-statements" component={() => {
+            const { user } = useAuth();
+            const role = user?.role?.toLowerCase().trim();
+            const allowed = role === 'admin' || role === 'administrator' || role === 'billing';
+            if (!allowed) {
+              return <AccessRestricted message="Client statements are restricted to administrators and billing staff." />;
+            }
+            return <ClientStatementsPage />;
           }} />
           <Route path="/insurance-reconciliation" component={() => {
             const { user } = useAuth();

@@ -2959,6 +2959,39 @@ export interface ClientInvoice {
   sessionType: string;
 }
 
+export interface ClientStatementSession {
+  billingId: number;
+  sessionId: number;
+  sessionDate: string | null;
+  billingDate: string | null;
+  serviceCode: string | null;
+  serviceName: string | null;
+  totalAmount: number;
+  discountAmount: number;
+  billed: number;
+  paid: number;
+  outstanding: number;
+  paymentStatus: string;
+  paymentDate: string | null;
+  paymentMethod: string | null;
+  paymentReference: string | null;
+  insuranceCovered: boolean;
+}
+
+export interface ClientStatement {
+  client: { id: number; clientId: string; fullName: string };
+  summary: {
+    totalBilled: number;
+    totalPaid: number;
+    outstanding: number;
+    sessionCount: number;
+    uncollectedCount: number;
+  };
+  uncollectedSessions: ClientStatementSession[];
+  payments: ClientStatementSession[];
+  sessions: ClientStatementSession[];
+}
+
 // Checklist Types
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
