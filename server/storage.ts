@@ -2017,24 +2017,90 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessions.clientId, clientId))
       .orderBy(desc(paymentTransactions.paymentDate));
 
-    const payments: ClientStatementPayment[] = txRows
-      .filter((t) => Math.abs(Number(t.amount || 0)) > 0.005)
-      .map((t) => {
-        const link = billingSessionMap.get(Number(t.sessionBillingId));
-        const code = link?.serviceCode ?? null;
-        return {
-          id: t.id,
-          sessionId: link?.sessionId ?? 0,
-          sessionDate: (link?.sessionDate as unknown as string) ?? null,
-          serviceCode: code,
-          serviceName: (code ? serviceMap.get(code) : null) ?? null,
-          source: t.source,
-          amount: Number(t.amount || 0),
-          paymentMethod: t.paymentMethod ?? null,
-          referenceNumber: t.referenceNumber ?? null,
-          paymentDate: (t.paymentDate as unknown as string) ?? null,
-        };
-      });
+    // Group the raw ledger by (session billing, payer, method). Within a group we
+    // ONLY collapse to a single net line when the group contains a reversal (a
+    // negative amount) — that is the correction case (e.g. an amount posted, later
+    // voided, then re-posted), which otherwise shows up as confusing +/- duplicate
+    // rows. Groups made up only of positive payments are genuinely separate
+    // payments (e.g. two cash installments on different days) and are kept as
+    // individual lines. Insurance vs cash always stay separate (different
+    // source/method).
+    const lineFor = (
+      t: { id: number; sessionBillingId: number | string | null; source: string; paymentMethod: string | null; referenceNumber: string | null; paymentDate: unknown },
+      amount: number,
+      paymentDate: string | null,
+      referenceNumber: string | null,
+    ): ClientStatementPayment => {
+      const link = billingSessionMap.get(Number(t.sessionBillingId));
+      const code = link?.serviceCode ?? null;
+      return {
+        id: t.id,
+        sessionId: link?.sessionId ?? 0,
+        sessionDate: (link?.sessionDate as unknown as string) ?? null,
+        serviceCode: code,
+        serviceName: (code ? serviceMap.get(code) : null) ?? null,
+        source: t.source,
+        amount,
+        paymentMethod: t.paymentMethod ?? null,
+        referenceNumber,
+        paymentDate,
+      };
+    };
+
+    const txGroups = new Map<string, typeof txRows>();
+    for (const t of txRows) {
+      const key = `${Number(t.sessionBillingId)}|${t.source}|${t.paymentMethod ?? ""}`;
+      const arr = txGroups.get(key);
+      if (arr) arr.push(t);
+      else txGroups.set(key, [t]);
+    }
+
+    const payments: ClientStatementPayment[] = [];
+    for (const group of Array.from(txGroups.values())) {
+      const positives = group.filter((t) => Number(t.amount || 0) > 0.005);
+      const negatives = group.filter((t) => Number(t.amount || 0) < -0.005);
+
+      // Cancel each reversal against a matching positive of the SAME magnitude
+      // (a void reverses an exact prior posting). The matched pair disappears, so a
+      // correction chain (+476, -476, +119) leaves only the surviving +119, while
+      // two genuine $50 payments with one $50 refund leave one real $50 line.
+      const remainingPos = [...positives];
+      const unmatchedNeg: typeof negatives = [];
+      for (const neg of negatives) {
+        const mag = Math.abs(Number(neg.amount || 0));
+        const idx = remainingPos.findIndex((p) => Math.abs(Number(p.amount || 0) - mag) < 0.005);
+        if (idx >= 0) remainingPos.splice(idx, 1);
+        else unmatchedNeg.push(neg);
+      }
+
+      if (unmatchedNeg.length === 0) {
+        // No leftover adjustments: every surviving payment is a real, distinct line.
+        for (const t of remainingPos) {
+          payments.push(lineFor(t, Number(t.amount || 0), (t.paymentDate as unknown as string) ?? null, t.referenceNumber ?? null));
+        }
+      } else {
+        // Leftover adjustment(s) that don't map to a clean posting: net the
+        // remaining amounts into one accurate line so totals stay correct.
+        let net = 0;
+        let latestTs = -1;
+        let latestDate: string | null = null;
+        let ref: string | null = null;
+        for (const t of [...remainingPos, ...unmatchedNeg]) {
+          net += Number(t.amount || 0);
+          const dateRaw = (t.paymentDate as unknown as string) ?? null;
+          const ts = dateRaw ? new Date(dateRaw as any).getTime() : 0;
+          if (ts > latestTs) { latestTs = ts; latestDate = dateRaw; }
+          if (!ref && t.referenceNumber) ref = t.referenceNumber;
+        }
+        if (Math.abs(net) > 0.005) payments.push(lineFor(group[0], net, latestDate, ref));
+      }
+    }
+
+    payments.sort((a, b) => {
+      const ta = a.paymentDate ? new Date(a.paymentDate as any).getTime() : 0;
+      const tb = b.paymentDate ? new Date(b.paymentDate as any).getTime() : 0;
+      return tb - ta; // newest first
+    });
 
     // Completed sessions that have no billing record yet — they still need an
     // invoice, so surface them even though there is no amount established.
