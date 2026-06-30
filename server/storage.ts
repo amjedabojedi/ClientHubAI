@@ -2019,7 +2019,12 @@ export class DatabaseStorage implements IStorage {
       .from(paymentTransactions)
       .innerJoin(sessionBilling, eq(paymentTransactions.sessionBillingId, sessionBilling.id))
       .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-      .where(eq(sessions.clientId, clientId))
+      // Exclude VOIDED payments: a voided transaction has been reversed out of the
+      // billing-level paid total, so it must never appear in the client's payment
+      // history as a live (green) payment. Including them made a corrected payment
+      // look like several duplicate payments (e.g. one real $170 plus two voided
+      // $170s) and inflated the visible ledger above the real "Total paid".
+      .where(and(eq(sessions.clientId, clientId), isNull(paymentTransactions.voidedAt)))
       .orderBy(desc(paymentTransactions.paymentDate));
 
     // Group the raw ledger by (session billing, payer, method). Within a group we

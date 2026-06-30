@@ -63,3 +63,4 @@
 - [Payment cumulative-per-source](payment-cumulative-per-source.md) — recordPayment.amount = cumulative total PER source (basis = stored paid columns, not txn sums); statement-sourced voids blocked (409); optimistic-concurrency via expectedPreviousForSource.
 - [Insurance unbilled matching](insurance-unbilled-matching.md) — matcher must scan sessions (not only billed); confirm back-bills atomically under a session-keyed advisory lock; partial name tier needs ≥2 shared tokens.
 - [Bulk money-action scope](bulk-money-action-scope.md) — filtered bulk re-scan/post must scope to on-screen working set; client sends explicit statementIds[], empty []=act on nothing, absent=global; per-statement failed[] not fail-fast.
+- [Client statement voided ledger](client-statement-voided-ledger.md) — getClientStatement payment-history MUST filter isNull(voidedAt) or corrected payments show as duplicate green rows; totals (from stored billing cols) stay right regardless.
