@@ -3006,9 +3006,11 @@ export interface ClientStatement {
     totalBilled: number;
     totalPaid: number;
     outstanding: number;
+    credit: number;
     sessionCount: number;
     uncollectedCount: number;
     unbilledCount: number;
+    overpaidCount: number;
   };
   uncollectedSessions: ClientStatementSession[];
   payments: ClientStatementPayment[];

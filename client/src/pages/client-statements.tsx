@@ -167,7 +167,7 @@ export default function ClientStatementsPage() {
 
       {selectedClient && statement && !isLoadingStatement && (
         <div className="space-y-6" data-testid="client-statement-content">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card data-testid="card-total-billed">
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center gap-2">
@@ -208,6 +208,26 @@ export default function ClientStatementsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {statement.summary.uncollectedCount} session{statement.summary.uncollectedCount === 1 ? "" : "s"} not collected
+                </p>
+              </CardContent>
+            </Card>
+            <Card data-testid="card-credit">
+              <CardHeader className="pb-2">
+                <CardDescription className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" /> Credit (overpaid)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={cn(
+                    "text-2xl font-bold",
+                    statement.summary.credit > 0 ? "text-blue-600" : "text-muted-foreground"
+                  )}
+                >
+                  {formatCurrency(statement.summary.credit)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {statement.summary.overpaidCount} session{statement.summary.overpaidCount === 1 ? "" : "s"} overpaid
                 </p>
               </CardContent>
             </Card>
@@ -260,6 +280,52 @@ export default function ClientStatementsPage() {
               )}
             </CardContent>
           </Card>
+
+          {statement.sessions.filter((s) => s.paid - s.billed > 0.005).length > 0 && (
+            <Card data-testid="card-overpaid-sessions">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-blue-600" /> Sessions overpaid (credit owed back)
+                </CardTitle>
+                <CardDescription>
+                  More money was received than these sessions were billed — usually the client paid and insurance also paid the same visit. The extra sits as a credit.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Session date</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead className="text-right">Billed</TableHead>
+                      <TableHead className="text-right">Paid</TableHead>
+                      <TableHead className="text-right">Overpaid</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statement.sessions
+                      .filter((s) => s.paid - s.billed > 0.005)
+                      .map((s) => (
+                        <TableRow key={s.billingId} data-testid={`row-overpaid-${s.billingId}`}>
+                          <TableCell>{formatDate(s.sessionDate)}</TableCell>
+                          <TableCell>
+                            {s.serviceName || s.serviceCode || "—"}
+                            {s.insuranceCovered && (
+                              <Badge variant="secondary" className="ml-2 text-xs">Insurance</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(s.billed)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(s.paid)}</TableCell>
+                          <TableCell className="text-right font-medium text-blue-600">
+                            {formatCurrency(s.paid - s.billed)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

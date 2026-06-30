@@ -1993,7 +1993,12 @@ export class DatabaseStorage implements IStorage {
     const totalBilled = sessionsOut.reduce((s, x) => s + x.billed, 0);
     const totalPaid = sessionsOut.reduce((s, x) => s + x.paid, 0);
     const outstanding = sessionsOut.reduce((s, x) => s + x.outstanding, 0);
+    // Overpaid = money received beyond what a session was billed (e.g. the client
+    // paid AND insurance later paid the same visit). Surfacing this as a credit is
+    // what reconciles the otherwise confusing "paid more than billed yet still owes".
+    const credit = sessionsOut.reduce((s, x) => s + Math.max(x.paid - x.billed, 0), 0);
     const uncollectedSessions = sessionsOut.filter((x) => x.outstanding > 0.005);
+    const overpaidSessions = sessionsOut.filter((x) => x.paid - x.billed > 0.005);
 
     // Payment history is built from the per-event payment ledger (one row per
     // actual recorded payment) rather than the billing-level cumulative total,
@@ -2144,9 +2149,11 @@ export class DatabaseStorage implements IStorage {
         totalBilled,
         totalPaid,
         outstanding,
+        credit,
         sessionCount: sessionsOut.length,
         uncollectedCount: uncollectedSessions.length,
         unbilledCount: unbilledSessions.length,
+        overpaidCount: overpaidSessions.length,
       },
       uncollectedSessions,
       payments,
