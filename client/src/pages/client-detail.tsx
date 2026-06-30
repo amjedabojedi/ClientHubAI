@@ -1240,6 +1240,10 @@ export default function ClientDetailPage({
     notes: ''
   });
   const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
+  const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const canVoidPayment = ['administrator', 'admin', 'supervisor', 'accountant', 'billing']
+    .includes((user?.role || '').toLowerCase());
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isDeleteSessionDialogOpen, setIsDeleteSessionDialogOpen] = useState(false);
@@ -1928,6 +1932,25 @@ export default function ClientDetailPage({
   const { data: paymentRecordTransactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', paymentBillingRecord?.id, 'transactions'],
     enabled: !!paymentBillingRecord?.id && topInlineKey === "payment-record",
+  });
+
+  // Void an individual payment transaction (admin/billing/accountant/supervisor).
+  // Reverses the payment and re-syncs the invoice totals automatically.
+  const voidPaymentMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      const response = await apiRequest(`/api/payment-transactions/${id}/void`, 'POST', { reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment voided", description: "Totals updated automatically" });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', paymentBillingRecord?.id, 'transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      setVoidTargetId(null);
+      setVoidReason('');
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not void payment", description: err?.message || 'Error', variant: "destructive" });
+    },
   });
 
   // Detect a likely-duplicate posted-statement amount REGARDLESS of the chosen
@@ -5801,6 +5824,65 @@ export default function ClientDetailPage({
           <p className="text-sm text-muted-foreground mb-4">
             Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
           </p>
+
+          {paymentRecordTransactions.length > 0 && (
+            <div className="border rounded-lg mb-4">
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b flex items-center justify-between">
+                <span>Payment History</span>
+                <span>{paymentRecordTransactions.length} {paymentRecordTransactions.length === 1 ? 'entry' : 'entries'}</span>
+              </div>
+              <div className="max-h-40 overflow-y-auto divide-y">
+                {paymentRecordTransactions.map((tx: any) => {
+                  const voided = !!tx.voidedAt;
+                  const isClient = tx.source === 'client';
+                  return (
+                    <div key={tx.id} className={`px-3 py-2 text-xs flex items-center justify-between gap-2 ${voided ? 'opacity-50' : ''}`} data-testid={`payment-tx-${tx.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`font-medium ${voided ? 'line-through' : ''} ${isClient ? '' : 'text-blue-700 dark:text-blue-400'}`}>
+                            {isClient ? 'Client' : 'Insurance'}
+                          </span>
+                          {tx.sourceStatementId && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                              From statement #{tx.sourceStatementId}
+                            </span>
+                          )}
+                          {voided && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800" title={tx.voidReason || ''}>Voided</span>
+                          )}
+                        </div>
+                        <div className={`text-muted-foreground truncate ${voided ? 'line-through' : ''}`}>
+                          {tx.paymentDate ? new Date(tx.paymentDate).toLocaleDateString() : (tx.recordedAt ? new Date(tx.recordedAt).toLocaleDateString() : '')}
+                          {tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}
+                          {tx.referenceNumber ? ` · ${tx.referenceNumber}` : ''}
+                        </div>
+                        {voided && tx.voidReason && (
+                          <div className="text-[10px] text-red-600 dark:text-red-400 italic mt-0.5">Voided: {tx.voidReason}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={`font-semibold tabular-nums ${voided ? 'line-through text-muted-foreground' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
+                        </div>
+                        {!voided && canVoidPayment && (
+                          <button
+                            type="button"
+                            onClick={() => { setVoidTargetId(tx.id); setVoidReason(''); }}
+                            className="text-[10px] px-2 py-0.5 rounded border hover:bg-red-50 hover:text-red-700 hover:border-red-300 dark:hover:bg-red-950 transition-colors"
+                            data-testid={`void-payment-${tx.id}`}
+                            title="Void this payment"
+                          >
+                            Void
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={(e) => {
             e.preventDefault();
             if (!paymentForm.amount || !paymentForm.method) {
@@ -5893,6 +5975,38 @@ export default function ClientDetailPage({
         </>,
         drawerOutletEl
       )}
+
+      {/* Void payment reason dialog */}
+      <Dialog open={voidTargetId !== null} onOpenChange={(o) => !o && setVoidTargetId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Void payment</DialogTitle>
+            <DialogDescription>
+              This reverses the payment and updates the invoice totals automatically. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label htmlFor="void-reason-cd">Reason (required) *</Label>
+            <Textarea
+              id="void-reason-cd"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. Duplicate payment, or recorded on the wrong session"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setVoidTargetId(null)}>Cancel</Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={voidReason.trim().length < 3 || voidPaymentMutation.isPending}
+              onClick={() => voidTargetId && voidPaymentMutation.mutate({ id: voidTargetId, reason: voidReason })}
+            >
+              {voidPaymentMutation.isPending ? "Voiding..." : "Void payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Full Edit Session — rendered as a RecordDrawer slide-over */}
       {drawerOutletEl && topInlineKey === "full-edit-session" && createPortal(
