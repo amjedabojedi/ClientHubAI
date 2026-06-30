@@ -226,6 +226,15 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       onClose();
     },
     onError: (error: any) => {
+      if (error?.code === 'STALE_PAYMENT_STATE') {
+        toast({
+          title: "Bill was updated by someone else",
+          description:
+            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({ 
         title: "Error recording payment", 
         description: error?.message || "Failed to record payment",
@@ -324,6 +333,18 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       onPaymentRecorded();
       onClose();
     } catch (err: any) {
+      // The bill changed between opening this form and saving (server 409 /
+      // STALE_PAYMENT_STATE). Give a specific instruction to reopen and
+      // re-enter rather than a generic failure.
+      if (err?.code === 'STALE_PAYMENT_STATE') {
+        toast({
+          title: "Bill was updated by someone else",
+          description:
+            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({ title: "Error recording payment", description: err?.message || 'Failed', variant: "destructive" });
     }
   };

@@ -1920,6 +1920,18 @@ export default function ClientDetailPage({
       });
     },
     onError: (error: any) => {
+      // The bill was changed by someone else between opening the form and
+      // saving (server returns 409 / STALE_PAYMENT_STATE). Tell the user
+      // exactly what to do — close and reopen — rather than a generic error.
+      if (error?.code === 'STALE_PAYMENT_STATE') {
+        toast({
+          title: "Bill was updated by someone else",
+          description:
+            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to update payment details. Please try again.",

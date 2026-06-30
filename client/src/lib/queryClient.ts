@@ -1,15 +1,33 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Error thrown for non-OK responses. Carries the HTTP status and any
+// server-provided machine-readable `code` (e.g. STALE_PAYMENT_STATE) so callers
+// can branch on the exact failure instead of string-matching the message.
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // Try to parse as JSON and extract clean message
-    let errorMessage = null;
+    // Try to parse as JSON and extract clean message + code
+    let errorMessage: string | null = null;
+    let errorCode: string | undefined = undefined;
     try {
       const json = JSON.parse(text);
       if (json.message) {
         errorMessage = json.message;
+      }
+      if (json.code) {
+        errorCode = json.code;
       }
     } catch (parseError) {
       // Not valid JSON, will use fallback
@@ -17,9 +35,9 @@ async function throwIfResNotOk(res: Response) {
     
     // Throw the appropriate error message
     if (errorMessage) {
-      throw new Error(errorMessage);
+      throw new ApiError(errorMessage, res.status, errorCode);
     } else {
-      throw new Error(`${res.status}: ${text}`);
+      throw new ApiError(`${res.status}: ${text}`, res.status, errorCode);
     }
   }
 }

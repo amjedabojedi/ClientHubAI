@@ -94,6 +94,7 @@ SUITES=(
   "test/insurance-duplicate-payment-override-submit-ui.test.ts"
   "test/billing-payment-authz.test.ts"
   "test/billing-payment-stale-concurrency.test.ts"
+  "test/billing-payment-stale-message-ui.test.ts"
   "test/billing-transactions-void-authz.test.ts"
   "test/billing-transaction-void-restores-balance.test.ts"
   "test/insurance-payment-void-restores-balance.test.ts"
