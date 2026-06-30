@@ -4981,6 +4981,12 @@ export default function ClientDetailPage({
                               )}
                               {billing.paymentStatus === 'paid' && (
                                 <>
+                                  {canVoidPayment && (
+                                    <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                      <CreditCard className="h-4 w-4 mr-2" />
+                                      Manage / Void Payments
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download Invoice
