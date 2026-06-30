@@ -127,6 +127,9 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [editTxTargetId, setEditTxTargetId] = useState<number | null>(null);
+  const [editTxAmount, setEditTxAmount] = useState('');
+  const [editTxReason, setEditTxReason] = useState('');
   // Concurrency UX: when another staffer changes the bill while this form is
   // open the server rejects with 409 / STALE_PAYMENT_STATE. Instead of forcing
   // a manual close/reopen we flag the conflict and let the user pull the latest
@@ -252,6 +255,13 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   const { data: transactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
+    // Explicit queryFn: the default fetcher drops a numeric key segment and would
+    // hit /api/billing/transactions (the wrong URL), leaving the history empty so
+    // the Void/Edit buttons never render. Build the correct URL ourselves.
+    queryFn: async () => {
+      const res = await apiRequest(`/api/billing/${billingRecord?.id}/transactions`, 'GET');
+      return res.json();
+    },
     enabled: isOpen && !!billingRecord?.id,
   });
 
@@ -270,6 +280,27 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     },
     onError: (err: any) => {
       toast({ title: "Could not void payment", description: err?.message || 'Error', variant: "destructive" });
+    },
+  });
+
+  // Edit (update in place) a payment transaction's amount. Replaces the recorded
+  // amount and re-syncs the invoice totals/balance automatically.
+  const editPaymentMutation = useMutation({
+    mutationFn: async ({ id, amount, reason }: { id: number; amount: number; reason: string }) => {
+      const response = await apiRequest(`/api/payment-transactions/${id}`, 'PATCH', { amount, reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment updated", description: "Totals updated automatically" });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', billingRecord?.id, 'transactions'] });
+      setEditTxTargetId(null);
+      setEditTxAmount('');
+      setEditTxReason('');
+      onPaymentRecorded();
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not update payment", description: err?.message || 'Error', variant: "destructive" });
     },
   });
 
@@ -583,6 +614,17 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                         <div className={`font-semibold tabular-nums ${voided ? 'line-through text-slate-400' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
                           {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
                         </div>
+                        {!voided && canVoid && !tx.sourceStatementId && !tx.sourceStatementLineId && Number(tx.amount) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditTxTargetId(tx.id); setEditTxAmount(Math.abs(Number(tx.amount)).toFixed(2)); setEditTxReason(''); }}
+                            className="text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950 transition-colors"
+                            data-testid={`edit-payment-${tx.id}`}
+                            title="Edit this payment amount"
+                          >
+                            Edit
+                          </button>
+                        )}
                         {!voided && canVoid && !tx.sourceStatementId && !tx.sourceStatementLineId && (
                           <button
                             type="button"
@@ -953,6 +995,52 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 data-testid="confirm-void-button"
               >
                 {voidMutation.isPending ? 'Voiding...' : 'Confirm Void'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editTxTargetId !== null} onOpenChange={(o) => !o && setEditTxTargetId(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit payment amount</DialogTitle>
+              <DialogDescription>
+                Change what this payment was for. The new amount replaces the old one — the invoice, the client's outstanding balance, and the assigned therapist's earnings for this session all recalculate automatically. To remove a payment completely, use Void instead.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="editTxAmount">New amount *</Label>
+                <Input
+                  id="editTxAmount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={editTxAmount}
+                  onChange={(e) => setEditTxAmount(e.target.value)}
+                  placeholder="0.00"
+                  data-testid="input-edit-payment-amount"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="editTxReason">Reason (optional)</Label>
+                <Textarea
+                  id="editTxReason"
+                  value={editTxReason}
+                  onChange={(e) => setEditTxReason(e.target.value)}
+                  placeholder="e.g., Entered the wrong amount"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setEditTxTargetId(null)}>Cancel</Button>
+              <Button
+                disabled={!(parseFloat(editTxAmount) > 0) || editPaymentMutation.isPending}
+                onClick={() => editTxTargetId && editPaymentMutation.mutate({ id: editTxTargetId, amount: parseFloat(editTxAmount), reason: editTxReason })}
+                data-testid="button-save-edit-payment"
+              >
+                {editPaymentMutation.isPending ? 'Saving...' : 'Save changes'}
               </Button>
             </DialogFooter>
           </DialogContent>

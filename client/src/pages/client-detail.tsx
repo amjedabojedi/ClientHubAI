@@ -1252,6 +1252,9 @@ export default function ClientDetailPage({
   const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [editTxTargetId, setEditTxTargetId] = useState<number | null>(null);
+  const [editTxAmount, setEditTxAmount] = useState('');
+  const [editTxReason, setEditTxReason] = useState('');
   const canVoidPayment = ['administrator', 'admin', 'supervisor', 'accountant', 'billing']
     .includes((user?.role || '').toLowerCase());
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
@@ -1984,6 +1987,26 @@ export default function ClientDetailPage({
     },
     onError: (err: any) => {
       toast({ title: "Could not void payment", description: err?.message || 'Error', variant: "destructive" });
+    },
+  });
+
+  // Edit (update in place) an individual payment transaction's amount. Replaces
+  // the recorded amount and re-syncs the invoice totals/balance automatically.
+  const editPaymentMutation = useMutation({
+    mutationFn: async ({ id, amount, reason }: { id: number; amount: number; reason: string }) => {
+      const response = await apiRequest(`/api/payment-transactions/${id}`, 'PATCH', { amount, reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment updated", description: "Totals updated automatically" });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', paymentBillingRecord?.id, 'transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      setEditTxTargetId(null);
+      setEditTxAmount('');
+      setEditTxReason('');
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not update payment", description: err?.message || 'Error', variant: "destructive" });
     },
   });
 
@@ -6032,6 +6055,17 @@ export default function ClientDetailPage({
                         <div className={`font-semibold tabular-nums ${voided ? 'line-through text-muted-foreground' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
                           {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
                         </div>
+                        {!voided && canVoidPayment && !tx.sourceStatementId && !tx.sourceStatementLineId && Number(tx.amount) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditTxTargetId(tx.id); setEditTxAmount(Math.abs(Number(tx.amount)).toFixed(2)); setEditTxReason(''); }}
+                            className="text-[10px] px-2 py-0.5 rounded border hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950 transition-colors"
+                            data-testid={`edit-payment-${tx.id}`}
+                            title="Edit this payment amount"
+                          >
+                            Edit
+                          </button>
+                        )}
                         {!voided && canVoidPayment && !tx.sourceStatementId && !tx.sourceStatementLineId && (
                           <button
                             type="button"
@@ -6297,6 +6331,53 @@ export default function ClientDetailPage({
               onClick={() => voidTargetId && voidPaymentMutation.mutate({ id: voidTargetId, reason: voidReason })}
             >
               {voidPaymentMutation.isPending ? "Voiding..." : "Void payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit payment amount dialog */}
+      <Dialog open={editTxTargetId !== null} onOpenChange={(o) => !o && setEditTxTargetId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit payment amount</DialogTitle>
+            <DialogDescription>
+              Change what this payment was for. The new amount replaces the old one — the invoice, the client's outstanding balance, and the assigned therapist's earnings for this session all recalculate automatically. To remove a payment completely, use Void instead.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="edit-tx-amount-cd">New amount *</Label>
+              <Input
+                id="edit-tx-amount-cd"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={editTxAmount}
+                onChange={(e) => setEditTxAmount(e.target.value)}
+                placeholder="0.00"
+                data-testid="input-edit-payment-amount"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-tx-reason-cd">Reason (optional)</Label>
+              <Textarea
+                id="edit-tx-reason-cd"
+                value={editTxReason}
+                onChange={(e) => setEditTxReason(e.target.value)}
+                placeholder="e.g. Entered the wrong amount"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditTxTargetId(null)}>Cancel</Button>
+            <Button
+              type="button"
+              disabled={!(parseFloat(editTxAmount) > 0) || editPaymentMutation.isPending}
+              onClick={() => editTxTargetId && editPaymentMutation.mutate({ id: editTxTargetId, amount: parseFloat(editTxAmount), reason: editTxReason })}
+              data-testid="button-save-edit-payment"
+            >
+              {editPaymentMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

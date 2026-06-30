@@ -4027,6 +4027,103 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Edit the AMOUNT of an existing payment transaction in place, then recompute
+  // the billing's totals/status atomically. This is the "update a payment"
+  // operation staff expect: changing a recorded payment from $170 to $20 simply
+  // makes that payment $20 (the old value is replaced, not added to), and the
+  // outstanding balance, status, invoice and therapist earnings all recompute
+  // from the new total — no leftover rows, no fake "overpayment".
+  async editPaymentTransaction(
+    transactionId: number,
+    newAmount: number,
+    editedBy: number,
+    reason?: string,
+  ): Promise<{ billingId: number }> {
+    const amt = Number(newAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      throw new Error(
+        "Enter a payment amount greater than 0. To remove a payment entirely, use Void instead.",
+      );
+    }
+    return await db.transaction(async (tx) => {
+      // Lock the transaction row
+      const txRows = await tx.execute(
+        sql`SELECT id, session_billing_id, amount, source, voided_at, source_statement_id, source_statement_line_id, notes
+            FROM payment_transactions WHERE id = ${transactionId} FOR UPDATE`,
+      );
+      const txRow: any = (txRows as any).rows?.[0] || (txRows as any)[0];
+      if (!txRow) throw new Error("Transaction not found");
+      if (txRow.voided_at) throw new Error("This payment was voided and can't be edited.");
+
+      // A negative row is a correction/adjustment, not a real payment — editing
+      // it in place would be confusing. Block it (the UI also hides Edit for these).
+      const oldAmount = Number(txRow.amount) || 0;
+      if (oldAmount < 0) {
+        throw new Error("This is an adjustment entry and can't be edited directly.");
+      }
+
+      // Statement-sourced payments must be changed via their insurance statement
+      // so the statement and the invoice stay in agreement (same rule as void).
+      const fromStatementId = txRow.source_statement_id ?? txRow.source_statement_line_id;
+      if (fromStatementId != null) {
+        const err: any = new Error(
+          txRow.source_statement_id != null
+            ? `This payment was posted from insurance statement #${txRow.source_statement_id}. To change it, edit or reverse that statement from the Insurance Statements page so the statement and the invoice stay in agreement.`
+            : `This payment came from an insurance statement. To change it, edit or reverse that statement from the Insurance Statements page so the statement and the invoice stay in agreement.`,
+        );
+        err.code = 'STATEMENT_SOURCED_PAYMENT';
+        throw err;
+      }
+
+      const billingId: number = txRow.session_billing_id;
+
+      // Keep a small trace of the original amount on the row so the change is
+      // never silently lost (payment_transactions has no dedicated edit columns).
+      const stamp = new Date().toISOString().slice(0, 10);
+      const trace = `[edited ${stamp}: $${oldAmount.toFixed(2)} → $${amt.toFixed(2)}${reason && reason.trim() ? ` — ${reason.trim()}` : ''}]`;
+      const newNotes = txRow.notes ? `${txRow.notes} ${trace}` : trace;
+
+      await tx
+        .update(paymentTransactions)
+        .set({ amount: amt.toString(), notes: newNotes })
+        .where(eq(paymentTransactions.id, transactionId));
+
+      // Lock the billing row + recompute totals from the (non-voided) transactions
+      await tx.execute(sql`SELECT id FROM session_billing WHERE id = ${billingId} FOR UPDATE`);
+      const sumRows = await tx.execute(sql`
+        SELECT
+          COALESCE(SUM(CASE WHEN source = 'client'    THEN amount::numeric ELSE 0 END), 0) AS client_total,
+          COALESCE(SUM(CASE WHEN source = 'insurance' THEN amount::numeric ELSE 0 END), 0) AS insurance_total
+        FROM payment_transactions
+        WHERE session_billing_id = ${billingId} AND voided_at IS NULL
+      `);
+      const sums: any = (sumRows as any).rows?.[0] || (sumRows as any)[0];
+      const clientTotal = Number(sums.client_total) || 0;
+      const insuranceTotal = Number(sums.insurance_total) || 0;
+      const combined = +(clientTotal + insuranceTotal).toFixed(2);
+
+      const billRows = await tx.execute(
+        sql`SELECT total_amount, discount_amount FROM session_billing WHERE id = ${billingId}`,
+      );
+      const bill: any = (billRows as any).rows?.[0] || (billRows as any)[0];
+      const billAmount = +(Number(bill.total_amount) - Number(bill.discount_amount || 0)).toFixed(2);
+      const newStatus = combined >= billAmount ? 'paid' : combined > 0 ? 'billed' : 'pending';
+
+      await tx
+        .update(sessionBilling)
+        .set({
+          clientPaidAmount: clientTotal.toString(),
+          insurancePaidAmount: insuranceTotal.toString(),
+          paymentAmount: combined.toString(),
+          paymentStatus: newStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionBilling.id, billingId));
+
+      return { billingId };
+    });
+  }
+
   // Fetch the transaction history for a billing record
   async getPaymentTransactions(
     billingId: number,

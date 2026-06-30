@@ -15050,6 +15050,41 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Edit (update in place) the amount of an existing payment transaction.
+  // Mirrors the void route's authz + 409 handling. Changing a payment from $170
+  // to $20 makes that payment $20 — the invoice, balance, status and therapist
+  // earnings all recompute from the new total (no extra rows, no fake overpayment).
+  app.patch("/api/payment-transactions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const txId = parseInt(req.params.id);
+      if (!Number.isFinite(txId)) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
+      const userRole = (req.user?.role || '').toLowerCase();
+      if (!['administrator', 'admin', 'supervisor', 'accountant', 'billing'].includes(userRole)) {
+        return res.status(403).json({ message: "Access denied. Only admin/billing can edit payments." });
+      }
+      const amount = Number(req.body?.amount);
+      const reason = (req.body?.reason || '').toString();
+      const result = await storage.editPaymentTransaction(txId, amount, req.user!.id, reason);
+      res.json({ message: "Payment updated", billingId: result.billingId });
+    } catch (error: any) {
+      // A statement-sourced payment can't be edited here — it must be changed via
+      // its insurance statement so both stay in agreement. Surface a clear 409.
+      if (error?.code === 'STATEMENT_SOURCED_PAYMENT') {
+        return res.status(409).json({ message: error.message, code: error.code });
+      }
+      console.error('[EDIT PAYMENT ERROR]', error);
+      const msg = error?.message || "Internal server error";
+      const code = msg.includes('not found')
+        ? 404
+        : (msg.includes('greater than 0') || msg.includes("can't be edited") || msg.includes('adjustment'))
+          ? 400
+          : 500;
+      res.status(code).json({ message: msg });
+    }
+  });
+
   // Apply discount to billing record
   app.patch("/api/billing/:billingId/discount", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
