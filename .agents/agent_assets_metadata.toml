@@ -42,3 +42,9 @@ id = "5ex1Cf4XRLLFPjn7fZHBF"
 uri = "file://exports/fake-users.csv"
 type = "table"
 title = "Fake test user accounts (743) — review before any deletion"
+
+[[outputs]]
+id = "78ky39OIA8V-dQsR7_NO7"
+uri = "file://overpaid-sessions-review.csv"
+type = "table"
+title = "Overpaid sessions for review (136)"

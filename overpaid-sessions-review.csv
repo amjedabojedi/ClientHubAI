@@ -1,0 +1,137 @@
+Client,Session billing #,Billed,Total paid,Overpaid,# payments,Payment details (amount | date | paid-by | method),Category
+Diana Carolina Pedraza,2241,0.00,820.00,820.00,1,820 | 2026-04-23 | insurance | insurance,Single payment over bill
+Dildar Begum,844,0.00,800.00,800.00,1,800 | 2025-11-13 | insurance | insurance,Single payment over bill
+Enzo Pedraza,1753,0.00,205.02,205.02,1,205.02 | 2026-04-04 | insurance | insurance,Single payment over bill
+Wajeeh Ma’in Wajeeh Amer,1393,200.00,400.00,200.00,1,400 | 2026-01-29 | insurance | insurance,Single payment over bill
+Layla-Lynn Taylor,1435,150.00,340.00,190.00,1,340 | 2026-06-28 | insurance | insurance,Single payment over bill
+Fahad,2804,0.00,150.00,150.00,1,150 | 2026-06-04 | client | cash,Single payment over bill
+Fatuma Ahmed,704,150.00,269.00,119.00,2,119 | 2026-06-29 | insurance | insurance  ;  150 | 2026-06-29 | client | cash,Extra payment on top
+Jai Inder Singh ,625,700.00,800.00,100.00,1,800 | 2025-09-25 | insurance | insurance,Single payment over bill
+Williams Oladapo,1616,100.00,200.00,100.00,1,200 | 2026-03-08 | insurance | insurance,Single payment over bill
+Nawal H M Inshasi,2280,100.00,200.00,100.00,1,200 | 2026-04-23 | insurance | insurance,Single payment over bill
+Luna Besaiso,2087,90.00,180.00,90.00,2,90 | 2026-05-12 | client | bank_transfer  ;  90 | 2026-05-20 | insurance | insurance,DUPLICATE (same amount twice)
+Luna Besaiso,2231,90.00,180.00,90.00,2,90 | 2026-05-12 | client | bank_transfer  ;  90 | 2026-05-20 | insurance | insurance,DUPLICATE (same amount twice)
+Fatuma Ahmed,624,170.00,242.00,72.00,2,72 | 2026-06-29 | insurance | insurance  ;  170 | 2026-06-29 | client | cash,Extra payment on top
+Brenda Yahaira De La Cruz Morales,869,150.00,205.00,55.00,2,205 | 2025-12-31 | insurance | insurance  ;  205 | 2025-12-31 | insurance | insurance  ;  -205 | 2026-06-26 | insurance | insurance,Single payment over bill
+Jessica Tatiana Pinzon Pedraza,672,150.00,200.00,50.00,3,150 | 2025-10-11 | insurance | insurance  ;  200 | 2025-10-02 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance  ;  50 | 2025-10-02 | insurance | insurance,Extra payment on top
+Paul Vallejo Ortega,732,150.00,200.00,50.00,1,200 | 2025-10-16 | insurance | insurance,Single payment over bill
+Brenda Yahaira De La Cruz Morales,740,150.00,200.00,50.00,2,200 | 2025-10-16 | insurance | insurance  ;  200 | 2025-10-16 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Paul Vallejo Ortega,748,150.00,200.00,50.00,1,200 | 2025-11-06 | insurance | insurance,Single payment over bill
+Andrea Calderon Castro,805,150.00,200.00,50.00,2,200 | 2025-11-06 | insurance | insurance  ;  200 | 2025-11-06 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Paula Vallejo Robles,810,150.00,200.00,50.00,1,200 | 2025-10-09 | insurance | insurance,Single payment over bill
+Paula Vallejo Robles,820,150.00,200.00,50.00,2,150 | 2026-03-01 | insurance | insurance  ;  50 | 2025-10-30 | insurance | insurance,Extra payment on top
+Brenda Yahaira De La Cruz Morales,836,150.00,200.00,50.00,2,200 | 2025-11-06 | insurance | insurance  ;  200 | 2025-11-06 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Jessica Tatiana Pinzon Pedraza,846,150.00,200.00,50.00,2,200 | 2025-11-06 | insurance | insurance  ;  200 | 2025-11-06 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Andrea Calderon Castro,2026,150.00,200.00,50.00,2,200 | 2025-10-16 | insurance | insurance  ;  200 | 2025-10-16 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Jessica Tatiana Pinzon Pedraza,2043,150.00,200.00,50.00,2,200 | 2025-11-06 | insurance | insurance  ;  200 | 2025-11-06 | insurance | insurance  ;  -200 | 2026-06-26 | insurance | insurance,Single payment over bill
+Abdullah Al Mantafji,2384,125.68,160.00,34.32,1,160 | 2026-06-27 | insurance | insurance,Single payment over bill
+Asra (Athena) Hamdani,599,170.00,200.00,30.00,2,170 | 2026-03-01 | insurance | insurance  ;  30 | 2025-09-18 | insurance | insurance,Extra payment on top
+Mireya Gazca Trujillo,667,170.00,200.00,30.00,1,200 | 2025-10-02 | insurance | insurance,Single payment over bill
+Jacobo Carvajal Moreno,723,170.00,200.00,30.00,1,200 | 2025-10-09 | insurance | insurance,Single payment over bill
+Rakan Omer ,1234,820.00,850.00,30.00,1,850 | 2026-06-28 | insurance | insurance,Single payment over bill
+Nizar Alzahayqa,2650,69.82,99.75,29.93,2,60 | 2026-05-21 | client | check  ;  39.75 | 2026-05-21 | insurance | insurance,Extra payment on top
+Gurnoor K. Gehlon ,2103,150.00,170.00,20.00,1,170 | 2026-06-28 | insurance | insurance,Single payment over bill
+Fatuma Ahmed,556,100.00,119.00,19.00,1,119 | 2026-06-29 | insurance | insurance,Single payment over bill
+Fatuma Ahmed,557,100.00,119.00,19.00,2,476 | 2026-06-28 | insurance | insurance  ;  -476 | 2026-06-29 | insurance | insurance  ;  119 | 2026-06-29 | insurance | insurance,Single payment over bill
+Fatuma Ahmed,574,100.00,119.00,19.00,1,119 | 2026-06-29 | insurance | insurance,Single payment over bill
+Jessica Tatiana Pinzon Pedraza,894,200.00,205.00,5.00,3,200 | 2026-03-18 | insurance | insurance  ;  205 | 2025-12-31 | insurance | insurance  ;  -205 | 2026-06-26 | insurance | insurance  ;  5 | 2025-12-31 | insurance | insurance,Extra payment on top
+Brenda Yahaira De La Cruz Morales,1037,200.00,205.00,5.00,3,200 | 2026-03-18 | insurance | insurance  ;  205 | 2025-12-31 | insurance | insurance  ;  -205 | 2026-06-26 | insurance | insurance  ;  5 | 2025-12-31 | insurance | insurance,Extra payment on top
+Sahar Albattniji,1421,200.00,205.00,5.00,1,205 | 2026-03-08 | insurance | insurance,Single payment over bill
+Mohamad Jawad Ghadboun,1422,200.00,205.00,5.00,1,205 | 2026-03-08 | insurance | insurance,Single payment over bill
+Enzo Pedraza,1564,200.00,205.00,5.00,2,200 | 2026-03-07 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Enzo Pedraza,1620,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Lujain Ajlouni ,1840,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Enzo Pedraza,1851,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Mary Jasmi Almatarneh,1869,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Elias Mata Galindo,1870,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Hadi Choko Sulaiman Silo,1881,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Jacobo Carvajal Moreno,1889,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Gabriel Carvajal Moreno,1890,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Samuel Carvajal Moreno,1891,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Heberth Carvajal Garcia,1892,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Amani Adna Mala,1901,200.00,205.00,5.00,2,200 | 2026-04-03 | insurance | insurance  ;  5 | 2026-03-19 | insurance | insurance,Extra payment on top
+Enzo Pedraza,1904,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Asra (Athena) Hamdani,1908,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Mary Jasmi Almatarneh,1933,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Hadi Choko Sulaiman Silo,1935,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Samuel Carvajal Moreno,1940,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Jacobo Carvajal Moreno,1941,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Gabriel Carvajal Moreno,1942,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Heberth Carvajal Garcia,1945,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-03-26 | insurance | insurance,Extra payment on top
+Enzo Pedraza,1965,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Asra (Athena) Hamdani,1966,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Amani Adna Mala,1967,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Samuel Carvajal Moreno,1982,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Gabriel Carvajal Moreno,1983,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Amatun Noor,1984,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Mary Jasmi Almatarneh,1985,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Hadi Choko Sulaiman Silo,1989,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Elias Mata Galindo,1996,200.00,205.00,5.00,2,200 | 2026-04-04 | insurance | insurance  ;  5 | 2026-04-02 | insurance | insurance,Extra payment on top
+Amatun Noor,2097,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Enzo Pedraza,2098,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Asra (Athena) Hamdani,2099,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Hadi Choko Sulaiman Silo,2102,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Farid Hajili,2117,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Elias Mata Galindo,2121,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Nofa Sarhan Ali Omar,2127,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Lujain Ajlouni ,2131,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Lujain Ajlouni ,2132,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Jacobo Carvajal Moreno,2133,200.00,205.00,5.00,1,205 | 2026-04-04 | insurance | insurance,Single payment over bill
+Eiyad Barood,2143,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Abdalmajid Z A Inshasi,2144,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Ammar Haifawi,2145,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Enzo Pedraza,2155,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Enzo Pedraza,2172,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Amani Adna Mala,2173,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Al-Dakhi Wanis Bada,2175,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Mary Jasmi Almatarneh,2176,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Jacobo Carvajal Moreno,2178,200.00,205.00,5.00,1,205 | 2026-04-16 | insurance | insurance,Single payment over bill
+Samuel Carvajal Moreno,2179,200.00,205.00,5.00,1,205 | 2026-04-16 | insurance | insurance,Single payment over bill
+Gabriel Carvajal Moreno,2180,200.00,205.00,5.00,2,200 | 2026-04-16 | insurance | insurance  ;  5 | 2026-04-16 | insurance | insurance,Extra payment on top
+Amatun Noor,2202,200.00,205.00,5.00,1,205 | 2026-04-16 | insurance | insurance,Single payment over bill
+Jai Inder Singh ,2205,200.00,205.00,5.00,1,205 | 2026-04-16 | insurance | insurance,Single payment over bill
+Elias Mata Galindo,2208,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Heberth Carvajal Garcia,2218,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Nofa Sarhan Ali Omar,2220,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Hadi Choko Sulaiman Silo,2221,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Lujain Ajlouni ,2224,200.00,205.00,5.00,1,205 | 2026-04-11 | insurance | insurance,Single payment over bill
+Hadi Choko Sulaiman Silo,2262,200.00,205.00,5.00,2,200 | 2026-06-04 | insurance | insurance  ;  5 | 2026-06-04 | insurance | insurance,Extra payment on top
+Jai Inder Singh ,2274,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Amani Adna Mala,2285,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Jacobo Carvajal Moreno,2288,200.00,205.00,5.00,2,200 | 2026-06-04 | insurance | insurance  ;  5 | 2026-06-04 | insurance | insurance,Extra payment on top
+Elias Mata Galindo,2290,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Enzo Pedraza,2297,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Mary Jasmi Almatarneh,2321,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Amatun Noor,2322,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Amatun Noor,2323,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Mary Jasmi Almatarneh,2325,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Gabriel Carvajal Moreno,2337,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Samuel Carvajal Moreno,2338,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Jai Inder Singh ,2348,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Heberth Carvajal Garcia,2353,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Elias Mata Galindo,2354,200.00,205.00,5.00,1,205 | 2026-04-23 | insurance | insurance,Single payment over bill
+Amani Adna Mala,2358,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Asra (Athena) Hamdani,2373,200.00,205.00,5.00,1,205 | 2026-04-09 | insurance | insurance,Single payment over bill
+Jai Inder Singh ,2375,200.00,205.00,5.00,1,205 | 2026-04-30 | insurance | insurance,Single payment over bill
+Enzo Pedraza,2378,200.00,205.00,5.00,1,205 | 2026-06-18 | insurance | insurance,Single payment over bill
+Bassam W M Hamad,2388,200.00,205.00,5.00,2,200 | 2026-05-21 | insurance | insurance  ;  5 | 2026-05-21 | insurance | insurance,Extra payment on top
+Al-Dakhi Wanis Bada,2392,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Mary Jasmi Almatarneh,2399,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Amatun Noor,2414,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Gabriel Carvajal Moreno,2415,200.00,205.00,5.00,2,200 | 2026-06-04 | insurance | insurance  ;  5 | 2026-06-04 | insurance | insurance,Extra payment on top
+Jacobo Carvajal Moreno,2416,200.00,205.00,5.00,2,200 | 2026-06-04 | insurance | insurance  ;  5 | 2026-06-04 | insurance | insurance,Extra payment on top
+Samuel Carvajal Moreno,2417,200.00,205.00,5.00,2,200 | 2026-05-28 | insurance | insurance  ;  5 | 2026-05-28 | insurance | insurance,Extra payment on top
+Rasheedat Olamide Sanni-Olalere ,2430,200.00,205.00,5.00,2,200 | 2026-05-21 | insurance | insurance  ;  5 | 2026-05-21 | insurance | insurance,Extra payment on top
+Elias Mata Galindo,2437,200.00,205.00,5.00,2,200 | 2026-05-14 | insurance | insurance  ;  5 | 2026-05-14 | insurance | insurance,Extra payment on top
+Hadi Choko Sulaiman Silo,2439,200.00,205.00,5.00,2,200 | 2026-05-07 | insurance | insurance  ;  5 | 2026-05-07 | insurance | insurance,Extra payment on top
+Gabriel Carvajal Moreno,2462,200.00,205.00,5.00,2,200 | 2026-04-30 | insurance | insurance  ;  5 | 2026-04-30 | insurance | insurance,Extra payment on top
+Samuel Carvajal Moreno,2463,200.00,205.00,5.00,2,200 | 2026-04-30 | insurance | insurance  ;  5 | 2026-04-30 | insurance | insurance,Extra payment on top
+Jacobo Carvajal Moreno,2731,200.00,205.00,5.00,2,200 | 2026-06-04 | insurance | insurance  ;  5 | 2026-06-04 | insurance | insurance,Extra payment on top
+Abdullah Al Mantafji,1495,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Abdullah Al Mantafji,1785,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Hanen Ali,1806,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Abdullah Al Mantafji,1844,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Abdullah Al Mantafji,1862,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Hanen Ali,1898,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Abdullah Al Mantafji,1902,125.68,125.86,0.18,1,125.86 | 2026-06-27 | insurance | insurance,Single payment over bill
+Omar Salha,2771,69.82,69.83,0.01,1,69.83 | 2026-06-27 | insurance | insurance,Single payment over bill
