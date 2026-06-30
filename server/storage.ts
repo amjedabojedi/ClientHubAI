@@ -3766,6 +3766,7 @@ export class DatabaseStorage implements IStorage {
     sourceStatementId?: number;
     sourceStatementLineId?: number;
     acknowledgeDuplicate?: boolean;
+    expectedPreviousForSource?: number;
   }, executor?: any): Promise<SelectSessionBilling> {
     // When an `executor` (an already-open transaction) is supplied, run on it
     // instead of opening a new transaction — this lets callers that already hold
@@ -3793,6 +3794,30 @@ export class DatabaseStorage implements IStorage {
       const previousForSource = Number(
         source === 'client' ? current.client_paid_amount : current.insurance_paid_amount
       ) || 0;
+
+      // Optimistic-concurrency guard for the UI record-payment path. Both
+      // billing screens compute the cumulative amount as
+      // (already-paid-for-source + this new payment) from a value they READ
+      // earlier. If two staff record a payment for the same bill+source at
+      // nearly the same time, the second submit would have been computed against
+      // a now-stale "already paid" figure, so writing its cumulative would
+      // silently overwrite the first payment (or push a wrong delta). When the
+      // caller tells us what it believed the prior per-source total was, reject
+      // the write if the locked, authoritative value has since changed and ask
+      // the user to reopen. Internal statement callers (post/void/reverse) never
+      // send this field — they already compute the cumulative inside the lock —
+      // so they are unaffected.
+      if (paymentData.expectedPreviousForSource != null) {
+        const expected = Number(paymentData.expectedPreviousForSource);
+        if (Number.isFinite(expected) && Math.abs(expected - previousForSource) > 0.005) {
+          const err: any = new Error(
+            `This bill was just updated by someone else (the amount already paid changed). Please close and reopen the payment form so you're working from the latest totals, then re-enter this payment.`
+          );
+          err.code = 'STALE_PAYMENT_STATE';
+          throw err;
+        }
+      }
+
       const delta = +(cumulativeForSource - previousForSource).toFixed(2);
 
       // Server-side duplicate-insurance guard (defense-in-depth for the
@@ -3920,11 +3945,31 @@ export class DatabaseStorage implements IStorage {
     return await db.transaction(async (tx) => {
       // Lock the transaction row
       const txRows = await tx.execute(
-        sql`SELECT id, session_billing_id, voided_at FROM payment_transactions WHERE id = ${transactionId} FOR UPDATE`
+        sql`SELECT id, session_billing_id, voided_at, source_statement_id, source_statement_line_id
+            FROM payment_transactions WHERE id = ${transactionId} FOR UPDATE`
       );
       const txRow: any = (txRows as any).rows?.[0] || (txRows as any)[0];
       if (!txRow) throw new Error("Transaction not found");
       if (txRow.voided_at) throw new Error("Transaction already voided");
+
+      // Statement-sourced payments must NOT be voided directly here. Doing so
+      // would zero the money on the invoice while leaving the insurance
+      // statement's posted total/line state untouched and skipping the
+      // cross-statement re-balance, so the statement and the invoice would
+      // silently disagree. The correct, statement-aware reversal lives on the
+      // Insurance Statements page (void the statement or reverse the single
+      // line), which updates BOTH sides together. Block here as defense-in-depth
+      // for the UI, which already hides the Void button for these rows.
+      const fromStatementId = txRow.source_statement_id ?? txRow.source_statement_line_id;
+      if (fromStatementId != null) {
+        const err: any = new Error(
+          txRow.source_statement_id != null
+            ? `This payment was posted from insurance statement #${txRow.source_statement_id}. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and the invoice stay in agreement.`
+            : `This payment came from an insurance statement. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and the invoice stay in agreement.`
+        );
+        err.code = 'STATEMENT_SOURCED_PAYMENT';
+        throw err;
+      }
 
       const billingId: number = txRow.session_billing_id;
 

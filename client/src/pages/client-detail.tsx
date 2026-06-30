@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
@@ -1237,7 +1237,8 @@ export default function ClientDetailPage({
     date: new Date().toISOString().split('T')[0],
     reference: '',
     method: 'cash',
-    notes: ''
+    notes: '',
+    source: 'client' as 'client' | 'insurance',
   });
   const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
@@ -1914,7 +1915,8 @@ export default function ClientDetailPage({
         date: new Date().toISOString().split('T')[0],
         reference: '',
         method: 'cash',
-        notes: ''
+        notes: '',
+        source: 'client',
       });
     },
     onError: (error: any) => {
@@ -1969,19 +1971,74 @@ export default function ClientDetailPage({
   const { duplicateStatementMatch } = useDuplicateInsurancePayment({
     transactions: paymentRecordTransactions,
     amount: parseFloat(paymentForm.amount || '0') || 0,
-    isInsurancePayment: true,
+    isInsurancePayment: paymentForm.source === 'insurance',
   });
+
+  // How much has ALREADY been collected per source for the billing the mini-form
+  // is editing, derived from the live (non-voided) transactions. This is the same
+  // basis the server uses for `previousForSource`, so the cumulative we submit
+  // (already-paid-for-source + newly entered) reconciles exactly and never
+  // overwrites or mis-buckets a payment the way sending a raw amount did.
+  const paymentClientAlreadyPaid = useMemo(
+    () =>
+      paymentRecordTransactions
+        .filter((t: any) => !t.voidedAt && t.source === 'client')
+        .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0),
+    [paymentRecordTransactions],
+  );
+  const paymentInsuranceAlreadyPaid = useMemo(
+    () =>
+      paymentRecordTransactions
+        .filter((t: any) => !t.voidedAt && t.source === 'insurance')
+        .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0),
+    [paymentRecordTransactions],
+  );
+  const paymentBillAfterDiscount = Math.max(
+    0,
+    Number(paymentBillingRecord?.totalAmount || paymentBillingRecord?.amount || 0) -
+      Number(paymentBillingRecord?.discountAmount || 0),
+  );
+  const paymentNewAmount = parseFloat(paymentForm.amount || '0') || 0;
+  // The authoritative "already paid per source" is the billing record's stored
+  // clientPaidAmount/insurancePaidAmount — that is EXACTLY what the server uses
+  // as `previousForSource`. We submit the cumulative and the optimistic-
+  // concurrency check against this same basis so they always reconcile, even on
+  // legacy/manually-corrected rows where the transaction history might not sum
+  // to the stored column. The transaction-sum memos are kept only as a fallback
+  // for rows that somehow lack the stored columns.
+  const paymentStoredClientPaid =
+    paymentBillingRecord?.clientPaidAmount != null
+      ? Number(paymentBillingRecord.clientPaidAmount) || 0
+      : paymentClientAlreadyPaid;
+  const paymentStoredInsurancePaid =
+    paymentBillingRecord?.insurancePaidAmount != null
+      ? Number(paymentBillingRecord.insurancePaidAmount) || 0
+      : paymentInsuranceAlreadyPaid;
+  const paymentAlreadyForSource =
+    paymentForm.source === 'insurance' ? paymentStoredInsurancePaid : paymentStoredClientPaid;
+  const paymentNewTotalCollected = +(
+    paymentStoredClientPaid +
+    paymentStoredInsurancePaid +
+    paymentNewAmount
+  ).toFixed(2);
+  const paymentRemainingAfter = Math.max(
+    0,
+    +(paymentBillAfterDiscount - paymentNewTotalCollected).toFixed(2),
+  );
 
   const handleRecordPayment = (billing: any) => {
     setPaymentBillingRecord(billing);
     setConfirmDuplicateInsurance(false);
     setPaymentForm({
       status: 'paid',
-      amount: billing.totalAmount || billing.amount || '',
+      // Start blank: the amount field is the NEW payment being added, not the
+      // bill total. The summary box shows what's already paid and what remains.
+      amount: '',
       date: new Date().toISOString().split('T')[0],
       reference: '',
       method: 'cash',
-      notes: ''
+      notes: '',
+      source: 'client',
     });
     openInlineDrawer("payment-record", {
       title: "Record Payment",
@@ -1999,11 +2056,33 @@ export default function ClientDetailPage({
       return;
     }
     if (paymentBillingRecord && paymentForm.amount && paymentForm.method) {
+      // The amount field is the NEW payment being added; it must be a positive
+      // number. A zero or negative value would either do nothing or implicitly
+      // REDUCE what's recorded, which is never the intent on this "record a
+      // payment" form.
+      if (!(paymentNewAmount > 0)) {
+        toast({
+          title: "Enter a payment amount",
+          description: "The payment amount must be greater than zero.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const source: 'client' | 'insurance' =
+        paymentForm.source === 'insurance' ? 'insurance' : 'client';
+      // The server treats `amount` as the cumulative total for THIS source, so
+      // send (already-paid-for-source + the newly entered amount). Sending the
+      // raw new amount alone would overwrite the source's bucket (a 2nd payment
+      // would erase the first) — the bug this screen had. Status is derived from
+      // the combined client+insurance total against the bill.
+      const cumulativeForSource = +(paymentAlreadyForSource + paymentNewAmount).toFixed(2);
+      const status = paymentNewTotalCollected >= paymentBillAfterDiscount ? 'paid' : 'billed';
       updatePaymentStatusMutation.mutate({
         billingId: paymentBillingRecord.id,
         paymentData: {
-          status: 'paid',
-          amount: parseFloat(paymentForm.amount),
+          status,
+          amount: cumulativeForSource,
+          source,
           date: new Date().toISOString().split('T')[0],
           reference: paymentForm.reference || null,
           method: paymentForm.method,
@@ -2012,6 +2091,11 @@ export default function ClientDetailPage({
           // Forward the staffer's explicit override so the server-side
           // duplicate-insurance guard lets a deliberate, separate payment through.
           acknowledgeDuplicate: confirmDuplicateInsurance,
+          // Optimistic-concurrency check: tell the server what we believed was
+          // already paid for this source. If someone else recorded a payment for
+          // this same bill+source since this form opened, the server rejects with
+          // 409 instead of silently overwriting their payment.
+          expectedPreviousForSource: paymentAlreadyForSource,
         }
       });
     } else {
@@ -5855,9 +5939,9 @@ export default function ClientDetailPage({
                           <span className={`font-medium ${voided ? 'line-through' : ''} ${isClient ? '' : 'text-blue-700 dark:text-blue-400'}`}>
                             {isClient ? 'Client' : 'Insurance'}
                           </span>
-                          {tx.sourceStatementId && (
+                          {(tx.sourceStatementId || tx.sourceStatementLineId) && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                              From statement #{tx.sourceStatementId}
+                              {tx.sourceStatementId ? `From statement #${tx.sourceStatementId}` : 'From statement'}
                             </span>
                           )}
                           {voided && (
@@ -5877,7 +5961,7 @@ export default function ClientDetailPage({
                         <div className={`font-semibold tabular-nums ${voided ? 'line-through text-muted-foreground' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
                           {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
                         </div>
-                        {!voided && canVoidPayment && (
+                        {!voided && canVoidPayment && !tx.sourceStatementId && !tx.sourceStatementLineId && (
                           <button
                             type="button"
                             onClick={() => { setVoidTargetId(tx.id); setVoidReason(''); }}
@@ -5887,6 +5971,16 @@ export default function ClientDetailPage({
                           >
                             Void
                           </button>
+                        )}
+                        {!voided && (tx.sourceStatementId || tx.sourceStatementLineId) && (
+                          <span
+                            className="text-[10px] text-muted-foreground italic"
+                            title={tx.sourceStatementId
+                              ? `This payment came from insurance statement #${tx.sourceStatementId}. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`
+                              : `This payment came from an insurance statement. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`}
+                          >
+                            Reverse via statement
+                          </span>
                         )}
                       </div>
                     </div>
@@ -5908,17 +6002,76 @@ export default function ClientDetailPage({
             }
             handlePaymentSubmit();
           }} className="space-y-4">
+            {/* Live summary so the staffer always sees what's already collected
+                and exactly what this new payment will leave outstanding. */}
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Service Amount</span>
+                <span className="font-semibold">${paymentBillAfterDiscount.toFixed(2)}</span>
+              </div>
+              {(paymentStoredClientPaid > 0 || paymentStoredInsurancePaid > 0) && (
+                <div className="pt-2 border-t space-y-1">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Already Paid</div>
+                  {paymentStoredClientPaid > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span>From Client</span>
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">${paymentStoredClientPaid.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {paymentStoredInsurancePaid > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-700 dark:text-blue-400">From Insurance</span>
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">${paymentStoredInsurancePaid.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {paymentNewAmount > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span>This payment ({paymentForm.source === 'insurance' ? 'Insurance' : 'Client'})</span>
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">+${paymentNewAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-2 border-t font-medium">
+                <span>Remaining after this payment</span>
+                <span className={`font-bold ${paymentRemainingAfter <= 0.009 ? 'text-emerald-700 dark:text-emerald-400' : ''}`}>
+                  ${paymentRemainingAfter.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="payment-source">Paid By *</Label>
+              <Select
+                value={paymentForm.source}
+                onValueChange={(value) => setPaymentForm({...paymentForm, source: value as 'client' | 'insurance'})}
+              >
+                <SelectTrigger id="payment-source" data-testid="payment-source-select">
+                  <SelectValue placeholder="Who paid?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pick who this payment came from. Client and insurance are tracked separately on the invoice.
+              </p>
+            </div>
             <div>
               <Label htmlFor="payment-amount">Payment Amount *</Label>
               <Input
                 id="payment-amount"
                 type="number"
                 step="0.01"
+                min="0"
                 placeholder="0.00"
                 value={paymentForm.amount}
                 onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter just this new payment — not the running total. It's added to what's already been paid.
+              </p>
             </div>
             <div>
               <Label htmlFor="payment-method">Payment Method *</Label>
@@ -5995,7 +6148,7 @@ export default function ClientDetailPage({
           <DialogHeader>
             <DialogTitle>Void payment</DialogTitle>
             <DialogDescription>
-              This reverses the payment and updates the invoice totals automatically. This can't be undone.
+              This reverses the payment and everything that depends on it recalculates automatically — the invoice, the client's balance, and the assigned therapist's earnings and payout for this session. If the therapist was already paid for it, the difference becomes a credit applied to their next sessions. This can't be undone.
             </DialogDescription>
           </DialogHeader>
           <div>

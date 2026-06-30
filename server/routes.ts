@@ -14916,7 +14916,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status, amount, date, reference, method, notes, clientId, source, acknowledgeDuplicate } = req.body;
+      const { status, amount, date, reference, method, notes, clientId, source, acknowledgeDuplicate, expectedPreviousForSource } = req.body;
       
       // Use centralized storage method to get billing data for authorization
       // clientId is passed from frontend to use getBillingForInvoice
@@ -14963,6 +14963,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         notes,
         source,
         acknowledgeDuplicate: acknowledgeDuplicate === true,
+        expectedPreviousForSource:
+          expectedPreviousForSource == null ? undefined : Number(expectedPreviousForSource),
         recordedBy: req.user?.id
       });
       
@@ -14974,6 +14976,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // when staff deliberately override, which bypasses this.
       if (error?.code === 'DUPLICATE_INSURANCE_PAYMENT') {
         return res.status(422).json({ message: error.message, code: error.code });
+      }
+      // Optimistic-concurrency guard: the bill's already-paid total changed since
+      // the form was opened (a near-simultaneous payment by someone else). Return
+      // a clear 409 so the UI can tell the user to reopen and re-enter, instead of
+      // silently overwriting the other payment.
+      if (error?.code === 'STALE_PAYMENT_STATE') {
+        return res.status(409).json({ message: error.message, code: error.code });
       }
       console.error('[PAYMENT ERROR]', error);
       res.status(500).json({ message: "Internal server error" });
@@ -15028,6 +15037,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const result = await storage.voidPaymentTransaction(txId, reason, req.user!.id);
       res.json({ message: "Payment voided", billingId: result.billingId });
     } catch (error: any) {
+      // A statement-sourced payment can't be voided here — it must be reversed
+      // via its insurance statement so both stay in agreement. Surface a clear
+      // 409 (conflict) with the guidance message instead of a generic 500.
+      if (error?.code === 'STATEMENT_SOURCED_PAYMENT') {
+        return res.status(409).json({ message: error.message, code: error.code });
+      }
       console.error('[VOID ERROR]', error);
       const msg = error?.message || "Internal server error";
       const code = msg.includes('not found') ? 404 : msg.includes('required') || msg.includes('already voided') ? 400 : 500;

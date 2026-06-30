@@ -287,6 +287,10 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           notes: paymentNotes,
           date: clientDate,
           clientId,
+          // Optimistic-concurrency check: if someone else recorded a client
+          // payment for this bill since the dialog opened, the server rejects
+          // (409) instead of silently overwriting it.
+          expectedPreviousForSource: clientAlreadyPaid,
         });
       }
 
@@ -306,6 +310,10 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           // Forward the staffer's explicit override so the server-side
           // duplicate-insurance guard lets a deliberate, separate payment through.
           acknowledgeDuplicate: confirmDuplicateInsurance,
+          // Optimistic-concurrency check: if someone else recorded an insurance
+          // payment for this bill since the dialog opened, the server rejects
+          // (409) instead of silently overwriting it.
+          expectedPreviousForSource: insuranceAlreadyPaid,
         });
       }
 
@@ -399,13 +407,17 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                           {tx.isHistoricalLump && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Historical total</span>
                           )}
-                          {tx.sourceStatementId && (
+                          {(tx.sourceStatementId || tx.sourceStatementLineId) && (
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                              title={`Posted from uploaded insurance statement #${tx.sourceStatementId}${tx.statementCheckNumber ? ` · check ${tx.statementCheckNumber}` : ''}`}
+                              title={tx.sourceStatementId
+                                ? `Posted from uploaded insurance statement #${tx.sourceStatementId}${tx.statementCheckNumber ? ` · check ${tx.statementCheckNumber}` : ''}`
+                                : `Posted from an uploaded insurance statement`}
                               data-testid={`tx-statement-source-${tx.id}`}
                             >
-                              From statement #{tx.sourceStatementId}{tx.statementPayerName ? ` · ${tx.statementPayerName}` : ''}
+                              {tx.sourceStatementId
+                                ? `From statement #${tx.sourceStatementId}${tx.statementPayerName ? ` · ${tx.statementPayerName}` : ''}`
+                                : 'From statement'}
                             </span>
                           )}
                           {voided && (
@@ -432,7 +444,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                         <div className={`font-semibold tabular-nums ${voided ? 'line-through text-slate-400' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
                           {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
                         </div>
-                        {!voided && canVoid && (
+                        {!voided && canVoid && !tx.sourceStatementId && !tx.sourceStatementLineId && (
                           <button
                             type="button"
                             onClick={() => { setVoidTargetId(tx.id); setVoidReason(''); }}
@@ -442,6 +454,16 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                           >
                             Void
                           </button>
+                        )}
+                        {!voided && (tx.sourceStatementId || tx.sourceStatementLineId) && (
+                          <span
+                            className="text-[10px] text-slate-400 dark:text-slate-500 italic"
+                            title={tx.sourceStatementId
+                              ? `This payment came from insurance statement #${tx.sourceStatementId}. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`
+                              : `This payment came from an insurance statement. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`}
+                          >
+                            Reverse via statement
+                          </span>
                         )}
                       </div>
                     </div>
@@ -768,7 +790,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             <DialogHeader>
               <DialogTitle>Void this payment?</DialogTitle>
               <DialogDescription>
-                The payment will be marked as voided and totals will be recalculated automatically. This action is logged for audit.
+                The payment will be marked as voided and everything that depends on it recalculates automatically — the invoice, the client's balance, and the assigned therapist's earnings and payout for this session. If the therapist was already paid for it, the difference becomes a credit applied to their next sessions. This action is logged for audit.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
