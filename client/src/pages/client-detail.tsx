@@ -1931,6 +1931,13 @@ export default function ClientDetailPage({
   // was already posted from an uploaded statement (an EOB).
   const { data: paymentRecordTransactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', paymentBillingRecord?.id, 'transactions'],
+    // Explicit queryFn: the default fetcher joins only string key segments, so a
+    // numeric billing id would be dropped and the request would hit the wrong URL
+    // (returning no transactions). Build the correct URL ourselves.
+    queryFn: async () => {
+      const res = await apiRequest(`/api/billing/${paymentBillingRecord?.id}/transactions`, 'GET');
+      return res.json();
+    },
     enabled: !!paymentBillingRecord?.id && topInlineKey === "payment-record",
   });
 
