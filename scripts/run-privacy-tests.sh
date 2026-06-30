@@ -96,6 +96,7 @@ SUITES=(
   "test/billing-payment-stale-concurrency.test.ts"
   "test/billing-payment-stale-message-ui.test.ts"
   "test/client-detail-payment-stale-message-ui.test.ts"
+  "test/client-detail-insurance-payment-stale-message-ui.test.ts"
   "test/billing-transactions-void-authz.test.ts"
   "test/billing-transaction-void-restores-balance.test.ts"
   "test/insurance-payment-void-restores-balance.test.ts"
