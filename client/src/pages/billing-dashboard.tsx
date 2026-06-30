@@ -127,6 +127,15 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [confirmDuplicateInsurance, setConfirmDuplicateInsurance] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
+  // Concurrency UX: when another staffer changes the bill while this form is
+  // open the server rejects with 409 / STALE_PAYMENT_STATE. Instead of forcing
+  // a manual close/reopen we flag the conflict and let the user pull the latest
+  // already-paid figures in place.
+  const [staleConflict, setStaleConflict] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [freshPaid, setFreshPaid] = useState<
+    { client: number; insurance: number; prevClient: number; prevInsurance: number } | null
+  >(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -164,9 +173,18 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       : 0;
   const clientPortion = hasInsurance && hasKnownCopay ? copayValue : amountAfterDiscount;
   const insurancePortion = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
-  const clientAlreadyPaid = Number((billingRecord as any)?.clientPaidAmount || 0);
-  const insuranceAlreadyPaid = Number((billingRecord as any)?.insurancePaidAmount || 0);
-  const alreadyPaid = Number(billingRecord?.paymentAmount || 0) || (clientAlreadyPaid + insuranceAlreadyPaid);
+  // Prefer freshly-reloaded figures (after a concurrency conflict) over the
+  // snapshot the dialog opened with, so re-submitting uses the same basis the
+  // server now considers authoritative.
+  const clientAlreadyPaid = freshPaid
+    ? freshPaid.client
+    : Number((billingRecord as any)?.clientPaidAmount || 0);
+  const insuranceAlreadyPaid = freshPaid
+    ? freshPaid.insurance
+    : Number((billingRecord as any)?.insurancePaidAmount || 0);
+  const alreadyPaid = freshPaid
+    ? clientAlreadyPaid + insuranceAlreadyPaid
+    : Number(billingRecord?.paymentAmount || 0) || (clientAlreadyPaid + insuranceAlreadyPaid);
   const clientRemaining = Math.max(clientPortion - clientAlreadyPaid, 0);
   const insuranceRemaining = Math.max(insurancePortion - insuranceAlreadyPaid, 0);
   const remainingDue = Math.max(amountAfterDiscount - alreadyPaid, 0);
@@ -186,8 +204,51 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       setPaymentNotes('');
       setConfirmOverpay(false);
       setConfirmDuplicateInsurance(false);
+      setStaleConflict(false);
+      setFreshPaid(null);
     }
   }, [isOpen, billingRecord]);
+
+  // Pull the latest already-paid figures for this bill straight into the open
+  // dialog after a concurrency conflict, so the user can re-submit without a
+  // manual close/reopen. Reads the freshly-refetched reports cache, which holds
+  // the same stored columns the server uses for its optimistic-concurrency check.
+  const refreshLatestTotals = async () => {
+    if (!billingRecord?.id) return;
+    setIsRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ queryKey: ['billing', 'reports'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/billing', billingRecord.id, 'transactions'] });
+      const caches = queryClient.getQueriesData({ queryKey: ['billing', 'reports'] });
+      let fresh: any = null;
+      for (const [, data] of caches) {
+        const list: any[] = Array.isArray(data) ? data : ((data as any)?.billingRecords || []);
+        const rec = list.find((r: any) => (r.billing?.id || r.id) === billingRecord.id);
+        if (rec) { fresh = rec.billing || rec; break; }
+      }
+      if (!fresh) {
+        toast({
+          title: "Couldn't reload totals",
+          description: "Please close and reopen the payment form to load the latest amounts.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFreshPaid({
+        client: Number(fresh.clientPaidAmount || 0),
+        insurance: Number(fresh.insurancePaidAmount || 0),
+        prevClient: clientAlreadyPaid,
+        prevInsurance: insuranceAlreadyPaid,
+      });
+      setStaleConflict(false);
+      toast({
+        title: "Totals reloaded",
+        description: "The latest amounts paid are loaded. Review and submit your payment again.",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const { data: transactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
@@ -227,10 +288,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     },
     onError: (error: any) => {
       if (error?.code === 'STALE_PAYMENT_STATE') {
+        setStaleConflict(true);
         toast({
           title: "Bill was updated by someone else",
           description:
-            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+            "The amount already paid changed while this form was open, so this payment wasn't saved. Use \"Reload latest totals\" to pull the new figures, then submit again.",
           variant: "destructive",
         });
         return;
@@ -337,10 +399,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       // STALE_PAYMENT_STATE). Give a specific instruction to reopen and
       // re-enter rather than a generic failure.
       if (err?.code === 'STALE_PAYMENT_STATE') {
+        setStaleConflict(true);
         toast({
           title: "Bill was updated by someone else",
           description:
-            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+            "The amount already paid changed while this form was open, so this payment wasn't saved. Use \"Reload latest totals\" to pull the new figures, then submit again.",
           variant: "destructive",
         });
         return;
@@ -359,6 +422,61 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Concurrency conflict: another staffer changed the bill while this
+              form was open. Offer a one-click reload of the latest totals. */}
+          {staleConflict && (
+            <div
+              className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-3 space-y-2"
+              data-testid="payment-stale-banner"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-semibold">This bill was just updated by someone else</p>
+                  <p>
+                    The amount already paid changed while this form was open, so your payment wasn't
+                    saved. Reload the latest totals, then submit again.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={refreshLatestTotals}
+                disabled={isRefreshing}
+                data-testid="button-reload-totals"
+              >
+                {isRefreshing ? 'Reloading…' : 'Reload latest totals'}
+              </Button>
+            </div>
+          )}
+          {/* After a reload, show exactly what changed so the user can re-enter
+              with confidence. */}
+          {freshPaid && !staleConflict && (
+            <div
+              className="rounded-lg border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 p-3 text-sm text-blue-800 dark:text-blue-200 space-y-0.5"
+              data-testid="payment-refreshed-note"
+            >
+              <p className="font-semibold">Latest totals loaded</p>
+              {freshPaid.prevClient !== freshPaid.client && (
+                <div data-testid="refreshed-client-delta">
+                  Client already paid: ${freshPaid.prevClient.toFixed(2)} →{' '}
+                  <span className="font-semibold">${freshPaid.client.toFixed(2)}</span>
+                </div>
+              )}
+              {freshPaid.prevInsurance !== freshPaid.insurance && (
+                <div data-testid="refreshed-insurance-delta">
+                  Insurance already paid: ${freshPaid.prevInsurance.toFixed(2)} →{' '}
+                  <span className="font-semibold">${freshPaid.insurance.toFixed(2)}</span>
+                </div>
+              )}
+              {freshPaid.prevClient === freshPaid.client &&
+                freshPaid.prevInsurance === freshPaid.insurance && (
+                  <div>No change to the amounts already paid.</div>
+                )}
+            </div>
+          )}
           {/* Amount Summary Section */}
           <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">

@@ -1231,6 +1231,15 @@ export default function ClientDetailPage({
   const [noteStatusFilter, setNoteStatusFilter] = useState<string>("all");
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
   const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
+  // Concurrency UX for the payment mini-form: when another staffer changes the
+  // bill mid-edit the server rejects with 409 / STALE_PAYMENT_STATE. Flag the
+  // conflict and let the user reload the latest already-paid figures in place
+  // instead of forcing a manual close/reopen.
+  const [paymentStale, setPaymentStale] = useState(false);
+  const [paymentRefreshing, setPaymentRefreshing] = useState(false);
+  const [paymentRefreshInfo, setPaymentRefreshInfo] = useState<
+    { prevClient: number; prevIns: number; newClient: number; newIns: number } | null
+  >(null);
   const [paymentForm, setPaymentForm] = useState({
     status: 'paid',
     amount: '',
@@ -1909,6 +1918,8 @@ export default function ClientDetailPage({
       closeTopDrawer();
       setPaymentBillingRecord(null);
       setConfirmDuplicateInsurance(false);
+      setPaymentStale(false);
+      setPaymentRefreshInfo(null);
       setPaymentForm({
         status: 'paid',
         amount: '',
@@ -1921,13 +1932,15 @@ export default function ClientDetailPage({
     },
     onError: (error: any) => {
       // The bill was changed by someone else between opening the form and
-      // saving (server returns 409 / STALE_PAYMENT_STATE). Tell the user
-      // exactly what to do — close and reopen — rather than a generic error.
+      // saving (server returns 409 / STALE_PAYMENT_STATE). Flag the conflict so
+      // the form can offer an in-place "Reload latest totals" instead of forcing
+      // a manual close/reopen.
       if (error?.code === 'STALE_PAYMENT_STATE') {
+        setPaymentStale(true);
         toast({
           title: "Bill was updated by someone else",
           description:
-            "This payment was rejected because the amount already paid changed while this form was open. Close and reopen the payment form to load the latest totals, then re-enter this payment.",
+            "The amount already paid changed while this form was open, so this payment wasn't saved. Use \"Reload latest totals\" to pull the new figures, then submit again.",
           variant: "destructive",
         });
         return;
@@ -2041,6 +2054,8 @@ export default function ClientDetailPage({
   const handleRecordPayment = (billing: any) => {
     setPaymentBillingRecord(billing);
     setConfirmDuplicateInsurance(false);
+    setPaymentStale(false);
+    setPaymentRefreshInfo(null);
     setPaymentForm({
       status: 'paid',
       // Start blank: the amount field is the NEW payment being added, not the
@@ -2116,6 +2131,50 @@ export default function ClientDetailPage({
         description: "Please fill in the payment amount and method.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Pull the latest already-paid figures for this bill straight into the open
+  // mini-form after a concurrency conflict, so the user can re-submit without a
+  // manual close/reopen. Refetches the client's billing list (the same source
+  // the form opened from) so the stored paid columns — exactly what the server
+  // uses for its optimistic-concurrency check — are current.
+  const refreshLatestPaymentTotals = async () => {
+    if (!paymentBillingRecord?.id) return;
+    setPaymentRefreshing(true);
+    try {
+      const res = await apiRequest(`/api/clients/${clientId}/billing`, 'GET');
+      const list = await res.json();
+      const fresh = Array.isArray(list)
+        ? list.find((b: any) => b.id === paymentBillingRecord.id)
+        : null;
+      await queryClient.invalidateQueries({
+        queryKey: ['/api/billing', paymentBillingRecord.id, 'transactions'],
+      });
+      queryClient.invalidateQueries({ queryKey: ['billing', 'client', clientId] });
+      if (!fresh) {
+        toast({
+          title: "Couldn't reload totals",
+          description: "Please close and reopen the payment form to load the latest amounts.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const prevClient = paymentStoredClientPaid;
+      const prevIns = paymentStoredInsurancePaid;
+      const newClient =
+        fresh.clientPaidAmount != null ? Number(fresh.clientPaidAmount) || 0 : prevClient;
+      const newIns =
+        fresh.insurancePaidAmount != null ? Number(fresh.insurancePaidAmount) || 0 : prevIns;
+      setPaymentBillingRecord(fresh);
+      setPaymentRefreshInfo({ prevClient, prevIns, newClient, newIns });
+      setPaymentStale(false);
+      toast({
+        title: "Totals reloaded",
+        description: "The latest amounts paid are loaded. Review and submit your payment again.",
+      });
+    } finally {
+      setPaymentRefreshing(false);
     }
   };
 
@@ -6014,6 +6073,61 @@ export default function ClientDetailPage({
             }
             handlePaymentSubmit();
           }} className="space-y-4">
+            {/* Concurrency conflict: another staffer changed the bill while this
+                form was open. Offer a one-click reload of the latest totals. */}
+            {paymentStale && (
+              <div
+                className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-3 space-y-2"
+                data-testid="payment-stale-banner"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-sm text-amber-800 dark:text-amber-200">
+                    <p className="font-semibold">This bill was just updated by someone else</p>
+                    <p>
+                      The amount already paid changed while this form was open, so your payment
+                      wasn't saved. Reload the latest totals, then submit again.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={refreshLatestPaymentTotals}
+                  disabled={paymentRefreshing}
+                  data-testid="button-reload-totals"
+                >
+                  {paymentRefreshing ? 'Reloading…' : 'Reload latest totals'}
+                </Button>
+              </div>
+            )}
+            {/* After a reload, show exactly what changed so the user can re-enter
+                with confidence. */}
+            {paymentRefreshInfo && !paymentStale && (
+              <div
+                className="rounded-lg border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 p-3 text-sm text-blue-800 dark:text-blue-200 space-y-0.5"
+                data-testid="payment-refreshed-note"
+              >
+                <p className="font-semibold">Latest totals loaded</p>
+                {paymentRefreshInfo.prevClient !== paymentRefreshInfo.newClient && (
+                  <div data-testid="refreshed-client-delta">
+                    Client already paid: ${paymentRefreshInfo.prevClient.toFixed(2)} →{' '}
+                    <span className="font-semibold">${paymentRefreshInfo.newClient.toFixed(2)}</span>
+                  </div>
+                )}
+                {paymentRefreshInfo.prevIns !== paymentRefreshInfo.newIns && (
+                  <div data-testid="refreshed-insurance-delta">
+                    Insurance already paid: ${paymentRefreshInfo.prevIns.toFixed(2)} →{' '}
+                    <span className="font-semibold">${paymentRefreshInfo.newIns.toFixed(2)}</span>
+                  </div>
+                )}
+                {paymentRefreshInfo.prevClient === paymentRefreshInfo.newClient &&
+                  paymentRefreshInfo.prevIns === paymentRefreshInfo.newIns && (
+                    <div>No change to the amounts already paid.</div>
+                  )}
+              </div>
+            )}
             {/* Live summary so the staffer always sees what's already collected
                 and exactly what this new payment will leave outstanding. */}
             <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2 text-sm">
@@ -6138,6 +6252,8 @@ export default function ClientDetailPage({
                   closeTopDrawer();
                   setPaymentBillingRecord(null);
                   setConfirmDuplicateInsurance(false);
+                  setPaymentStale(false);
+                  setPaymentRefreshInfo(null);
                 }}
               >
                 Cancel
