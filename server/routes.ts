@@ -13772,6 +13772,47 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Payment Check (integrity) report — read-only. Lists every session whose
+  // payment status/recorded money disagrees with reality (or with the uploaded
+  // insurer amount) so mismatches can be reviewed in one place.
+  app.get("/api/billing/payment-check", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      let resolvedTherapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      if (req.user.role === "supervisor") {
+        const assignments = await storage.getSupervisorAssignments(req.user.id);
+        if (assignments.length === 0) return res.json([]);
+        supervisedTherapistIds = assignments.map((a) => a.therapistId);
+      } else if (req.user.role === "therapist") {
+        resolvedTherapistId = req.user.id;
+      }
+
+      let issues = await storage.getPaymentIntegrityIssues({
+        therapistId: resolvedTherapistId,
+        supervisedTherapistIds,
+      });
+
+      // Redact client identity for accountant role (matches /api/billing/reports).
+      // These rows are flat (no nested client object), so redact the flat fields:
+      // show initials only and strip the client code + drill-through id.
+      if (req.user.role === "accountant" && Array.isArray(issues)) {
+        issues = issues.map((r: any) => ({
+          ...r,
+          clientName: formatClientInitial({ fullName: r.clientName }),
+          clientCode: null,
+          clientId: null,
+        }));
+      }
+
+      res.json(issues);
+    } catch (error) {
+      console.error("Payment check report error:", error);
+      res.status(500).json({ message: "Failed to build payment check report" });
+    }
+  });
+
   // Billing routes
   app.get("/api/sessions/:sessionId/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {

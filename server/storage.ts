@@ -8946,6 +8946,108 @@ export class DatabaseStorage implements IStorage {
     return billing || null;
   }
 
+  // Payment integrity / cross-check report. Surfaces every session whose payment
+  // STATUS or recorded money disagrees with reality, so mismatches can be
+  // reviewed in one place instead of hunting price-by-price. Buckets:
+  //   'denied_but_paid'  — status='paid' but an uploaded insurance statement line
+  //                        shows the insurer DENIED the claim ($0), and nothing
+  //                        recorded covers the bill.
+  //   'paid_but_short'   — status='paid' yet the money actually recorded
+  //                        (client + insurance) is less than what's owed.
+  //   'insurer_paid_more'— an uploaded insurance statement line reports the
+  //                        insurer paid MORE than what's recorded on the billing
+  //                        (money that may have been missed).
+  // Read-only: it never changes any money.
+  async getPaymentIntegrityIssues(params: {
+    therapistId?: number;
+    supervisedTherapistIds?: number[];
+  }): Promise<any[]> {
+    const therapistFilter =
+      params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0
+        ? sql`AND s.therapist_id IN (${sql.join(
+            params.supervisedTherapistIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`
+        : params.therapistId
+          ? sql`AND s.therapist_id = ${params.therapistId}`
+          : sql``;
+
+    const result = await db.execute(sql`
+      WITH stmt AS (
+        -- Only lines that were actually APPLIED count as insurer money. We use the
+        -- largest single posted line (MAX) rather than a SUM, because a session
+        -- routinely has the same claim reported across 2-3 statements (dedup design)
+        -- and summing them would double-count into false "insurer paid more" alarms.
+        SELECT matched_session_billing_id AS billing_id,
+               MAX(COALESCE(insurance_paid_amount, 0)) AS uploaded_ins,
+               BOOL_OR(COALESCE(insurance_paid_amount, 0) = 0) AS any_denied
+        FROM insurance_statement_lines
+        WHERE matched_session_billing_id IS NOT NULL
+          AND match_status IN ('posted', 'confirmed')
+        GROUP BY matched_session_billing_id
+      )
+      SELECT
+        sb.id AS billing_id,
+        s.id AS session_id,
+        c.id AS client_id,
+        c.full_name AS client_name,
+        c.client_id AS client_code,
+        s.session_date::date AS session_date,
+        COALESCE(svc.service_name, sb.service_code, 'Session') AS service_name,
+        (sb.total_amount::numeric - COALESCE(sb.discount_amount, 0)::numeric) AS billed,
+        COALESCE(sb.client_paid_amount, 0)::numeric AS client_paid,
+        COALESCE(sb.insurance_paid_amount, 0)::numeric AS insurance_paid,
+        (COALESCE(sb.client_paid_amount, 0)::numeric + COALESCE(sb.insurance_paid_amount, 0)::numeric) AS recorded,
+        sb.payment_status AS status,
+        st.uploaded_ins AS uploaded_insurer_amount,
+        CASE
+          WHEN sb.payment_status = 'paid'
+               AND (COALESCE(sb.client_paid_amount,0)::numeric + COALESCE(sb.insurance_paid_amount,0)::numeric)
+                   < (sb.total_amount::numeric - COALESCE(sb.discount_amount,0)::numeric)
+               AND COALESCE(st.any_denied, false)
+            THEN 'denied_but_paid'
+          WHEN sb.payment_status = 'paid'
+               AND (COALESCE(sb.client_paid_amount,0)::numeric + COALESCE(sb.insurance_paid_amount,0)::numeric)
+                   < (sb.total_amount::numeric - COALESCE(sb.discount_amount,0)::numeric)
+            THEN 'paid_but_short'
+          ELSE 'insurer_paid_more'
+        END AS reason
+      FROM session_billing sb
+      JOIN sessions s ON s.id = sb.session_id
+      JOIN clients c ON c.id = s.client_id
+      LEFT JOIN services svc ON svc.id = s.service_id
+      LEFT JOIN stmt st ON st.billing_id = sb.id
+      WHERE (
+        (sb.payment_status = 'paid'
+         AND (COALESCE(sb.client_paid_amount,0)::numeric + COALESCE(sb.insurance_paid_amount,0)::numeric)
+             < (sb.total_amount::numeric - COALESCE(sb.discount_amount,0)::numeric))
+        OR
+        (st.uploaded_ins IS NOT NULL
+         AND st.uploaded_ins > COALESCE(sb.insurance_paid_amount,0)::numeric + 0.01)
+      )
+      ${therapistFilter}
+      ORDER BY s.session_date DESC
+    `);
+    const data: any[] = ((result as any).rows || result) as any[];
+    return data.map((r) => ({
+      billingId: Number(r.billing_id),
+      sessionId: Number(r.session_id),
+      clientId: Number(r.client_id),
+      clientName: r.client_name,
+      clientCode: r.client_code,
+      sessionDate: typeof r.session_date === "string" ? r.session_date.split("T")[0] : r.session_date,
+      serviceName: r.service_name,
+      billed: Number(r.billed),
+      clientPaid: Number(r.client_paid),
+      insurancePaid: Number(r.insurance_paid),
+      recorded: Number(r.recorded),
+      status: r.status,
+      uploadedInsurerAmount:
+        r.uploaded_insurer_amount == null ? null : Number(r.uploaded_insurer_amount),
+      reason: r.reason,
+    }));
+  }
+
   async getBillingReports(params: {
     startDate?: string;
     endDate?: string;

@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign, Receipt } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign, Receipt, ShieldAlert } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -49,6 +49,7 @@ import BillingDashboard from "@/pages/billing-dashboard";
 import TherapistPaymentsPage from "@/pages/therapist-payments";
 import ClientStatementsPage from "@/pages/client-statements";
 import InsuranceReconciliationPage from "@/pages/insurance-reconciliation";
+import PaymentCheckPage from "@/pages/payment-check";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
@@ -152,6 +153,7 @@ function Navigation() {
       baseItems.push({ path: "/therapist-payments", label: "Payments", icon: DollarSign });
       baseItems.push({ path: "/client-statements", label: "Client Statements", icon: Receipt });
       baseItems.push({ path: "/insurance-reconciliation", label: "Insurance", icon: FileText });
+      baseItems.push({ path: "/payment-check", label: "Payment Check", icon: ShieldAlert });
     }
 
     // Supervisor: limited Administration menu (clinical tools only, no system admin)
@@ -186,6 +188,7 @@ function Navigation() {
           { path: "/therapist-payments", label: "Therapist Payments", icon: DollarSign },
           { path: "/client-statements", label: "Client Statements", icon: Receipt },
           { path: "/insurance-reconciliation", label: "Insurance Reconciliation", icon: FileText },
+          { path: "/payment-check", label: "Payment Check", icon: ShieldAlert },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
@@ -412,6 +415,15 @@ function Router() {
               return <AccessRestricted message="Insurance reconciliation is restricted to administrators and billing staff." />;
             }
             return <InsuranceReconciliationPage />;
+          }} />
+          <Route path="/payment-check" component={() => {
+            const { user } = useAuth();
+            const role = user?.role?.toLowerCase().trim();
+            const allowed = role === 'admin' || role === 'administrator' || role === 'billing';
+            if (!allowed) {
+              return <AccessRestricted message="Payment Check is restricted to administrators and billing staff." />;
+            }
+            return <PaymentCheckPage />;
           }} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
