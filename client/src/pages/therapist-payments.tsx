@@ -623,34 +623,53 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
               {shownServices.length === 0 ? (
                 <p className="text-sm text-gray-500">No overrides yet. Search for a service above and click Add to set a rule just for it.</p>
               ) : (
-                <div className="space-y-3">
-                  {shownServices.map((svc) => (
-                    <div key={svc.id} className="rounded-lg border p-3" data-testid={`service-rule-${svc.id}`}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <div>
-                          <span className="font-medium">{svc.serviceName}</span>
-                          <span className="ml-2 text-xs text-gray-500">{svc.serviceCode} · base {money(svc.baseRate)}</span>
-                        </div>
-                        {ruleByService.has(svc.id) && <Badge variant="secondary">Override set</Badge>}
-                      </div>
-                      <RuleEditor
-                        key={`${svc.id}-${ruleByService.get(svc.id)?.id ?? "new"}`}
-                        label={svc.serviceName}
-                        initial={ruleByService.get(svc.id) || null}
-                        onSave={(payType, payValue) => upsert.mutate({ serviceId: svc.id, payType, payValue })}
-                        onDelete={
-                          ruleByService.has(svc.id)
-                            ? () => {
-                                remove.mutate(ruleByService.get(svc.id)!.id);
-                                setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id));
+                <div className="rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Service</TableHead>
+                        <TableHead>Base rate</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Pay rule</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {shownServices.map((svc) => (
+                        <TableRow key={svc.id} data-testid={`service-rule-${svc.id}`}>
+                          <TableCell className="align-top">
+                            <div className="font-medium">{svc.serviceName}</div>
+                            <div className="text-xs text-gray-500">{svc.serviceCode}</div>
+                          </TableCell>
+                          <TableCell className="align-top whitespace-nowrap">{money(svc.baseRate)}</TableCell>
+                          <TableCell className="align-top">
+                            {ruleByService.has(svc.id) ? (
+                              <Badge variant="secondary">Override set</Badge>
+                            ) : (
+                              <span className="text-xs text-gray-400">Not saved</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <RuleEditor
+                              key={`${svc.id}-${ruleByService.get(svc.id)?.id ?? "new"}`}
+                              label={svc.serviceName}
+                              initial={ruleByService.get(svc.id) || null}
+                              onSave={(payType, payValue) => upsert.mutate({ serviceId: svc.id, payType, payValue })}
+                              onDelete={
+                                ruleByService.has(svc.id)
+                                  ? () => {
+                                      remove.mutate(ruleByService.get(svc.id)!.id);
+                                      setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id));
+                                    }
+                                  : () => setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id))
                               }
-                            : () => setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id))
-                        }
-                        saving={upsert.isPending}
-                        testIdPrefix={`service-${svc.id}`}
-                      />
-                    </div>
-                  ))}
+                              saving={upsert.isPending}
+                              testIdPrefix={`service-${svc.id}`}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </>
