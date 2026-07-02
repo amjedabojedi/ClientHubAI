@@ -24,6 +24,7 @@ interface AssessmentSectionSummaryProps {
   onEditSection: (sectionIndex: number) => void;
   onGenerateReport: () => void;
   isGenerating?: boolean;
+  canGenerate?: boolean;
 }
 
 export function AssessmentSectionSummary({
@@ -31,7 +32,8 @@ export function AssessmentSectionSummary({
   responses,
   onEditSection,
   onGenerateReport,
-  isGenerating = false
+  isGenerating = false,
+  canGenerate = true
 }: AssessmentSectionSummaryProps) {
   
   const getSectionProgress = (section: AssessmentSection) => {
@@ -242,15 +244,17 @@ export function AssessmentSectionSummary({
           Review All Sections
         </Button>
         
-        <Button
-          onClick={onGenerateReport}
-          disabled={!overall.allRequiredComplete || isGenerating}
-          className="flex-1 bg-blue-600 hover:bg-blue-700"
-          data-testid="button-generate-report"
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          {isGenerating ? 'Generating...' : 'Generate Report'}
-        </Button>
+        {canGenerate && (
+          <Button
+            onClick={onGenerateReport}
+            disabled={!overall.allRequiredComplete || isGenerating}
+            className="flex-1 bg-blue-600 hover:bg-blue-700"
+            data-testid="button-generate-report"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            {isGenerating ? 'Generating...' : 'Generate Report'}
+          </Button>
+        )}
       </div>
       
       {!overall.allRequiredComplete && (

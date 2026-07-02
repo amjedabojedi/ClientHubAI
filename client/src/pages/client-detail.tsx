@@ -1146,6 +1146,7 @@ export default function ClientDetailPage({
   
   // Authentication
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   
   // Recent items tracking
   const { addRecentClient } = useRecentItems();
@@ -4250,21 +4251,23 @@ export default function ClientDetailPage({
           <TabsContent value="assessments" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">Client Assessments</h2>
-              <Select onValueChange={(templateId) => handleAssignAssessment(parseInt(templateId))}>
-                <SelectTrigger className="w-60">
-                  <SelectValue placeholder="Assign Assessment Template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id.toString()}>
-                      <div className="flex items-center space-x-2">
-                        <ClipboardList className="w-4 h-4" />
-                        <span>{template.title}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {!isAdmin && (
+                <Select onValueChange={(templateId) => handleAssignAssessment(parseInt(templateId))}>
+                  <SelectTrigger className="w-60">
+                    <SelectValue placeholder="Assign Assessment Template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id.toString()}>
+                        <div className="flex items-center space-x-2">
+                          <ClipboardList className="w-4 h-4" />
+                          <span>{template.title}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Assessment Stats */}
@@ -4323,15 +4326,17 @@ export default function ClientDetailPage({
                               <span>Category: {template.category}</span>
                               <span>v{template.version}</span>
                             </div>
-                            <Button
-                              onClick={() => handleAssignAssessment(template.id)}
-                              size="sm"
-                              className="w-full"
-                              disabled={assignAssessmentMutation.isPending}
-                            >
-                              <Plus className="w-4 h-4 mr-2" />
-                              Assign to Client
-                            </Button>
+                            {!isAdmin && (
+                              <Button
+                                onClick={() => handleAssignAssessment(template.id)}
+                                size="sm"
+                                className="w-full"
+                                disabled={assignAssessmentMutation.isPending}
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Assign to Client
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

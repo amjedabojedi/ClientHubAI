@@ -27,6 +27,7 @@ import { EditTemplateModal } from "@/components/assessments/edit-template-modal"
 import { TemplateBuilder } from "@/components/assessments/template-builder";
 import { AssignAssessmentModal } from "@/components/assessments/assign-assessment-modal";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "@/hooks/useAuth";
 
 // Types
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
@@ -69,6 +70,8 @@ export default function AssessmentsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
 
   // Fetch assessment templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<AssessmentTemplateWithDetails[]>({
@@ -477,13 +480,15 @@ export default function AssessmentsPage() {
                           <Settings className="h-4 w-4 mr-2" />
                           Build
                         </Button>
-                        <Button 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => handleAssignTemplate(template)}
-                        >
-                          Assign
-                        </Button>
+                        {!isAdmin && (
+                          <Button 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleAssignTemplate(template)}
+                          >
+                            Assign
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -589,10 +594,12 @@ export default function AssessmentsPage() {
                   ? "No assignments match your current search." 
                   : "No clients have been assigned assessments yet."}
               </p>
-              <Button onClick={() => setShowAssignModal(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Assign Assessment
-              </Button>
+              {!isAdmin && (
+                <Button onClick={() => setShowAssignModal(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Assign Assessment
+                </Button>
+              )}
             </Card>
           )}
         </TabsContent>

@@ -5571,6 +5571,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients/:clientId/assessments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      // Admins cannot create/assign assessments. Assessments must be created,
+      // completed, and reported on by the client's therapist.
+      if (req.user.role === 'administrator' || req.user.role === 'admin') {
+        return res.status(403).json({ message: "Administrators cannot assign assessments. Assessments must be created by the client's therapist." });
+      }
       const clientId = parseInt(req.params.clientId);
       const { templateId, assignedBy, status = 'assigned' } = req.body;
       
@@ -9545,6 +9553,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   app.post("/api/assessments/assignments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      // Admins cannot create assessments. Assessments (creating, entering
+      // answers, and generating the report) must be handled by the client's
+      // therapist.
+      if (req.user.role === 'administrator' || req.user.role === 'admin') {
+        return res.status(403).json({ message: "Administrators cannot create assessments. Assessments must be created by the client's therapist." });
+      }
       const assignmentData = req.body;
       const assignment = await storage.createAssessmentAssignment(assignmentData);
       res.status(201).json(assignment);

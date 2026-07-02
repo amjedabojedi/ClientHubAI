@@ -130,6 +130,7 @@ export default function AssessmentCompletionPage(props: AssessmentCompletionPage
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
 
   // Fetch assessment assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery<AssessmentAssignment>({
@@ -1107,15 +1108,17 @@ export default function AssessmentCompletionPage(props: AssessmentCompletionPage
                   <ClipboardList className="w-4 h-4 mr-2" />
                   {isSectionLoading ? 'Saving...' : 'Review Summary'}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleGenerateReport}
-                  disabled={generateReportMutation.isPending}
-                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
-                </Button>
+                {!isAdmin && (
+                  <Button
+                    variant="outline"
+                    onClick={handleGenerateReport}
+                    disabled={generateReportMutation.isPending}
+                    className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
+                  </Button>
+                )}
                 <Button
                   onClick={handleCompleteAssessment}
                   disabled={isSubmitting}
@@ -1145,6 +1148,7 @@ export default function AssessmentCompletionPage(props: AssessmentCompletionPage
             onEditSection={handleEditSection}
             onGenerateReport={handleGenerateReport}
             isGenerating={generateReportMutation.isPending}
+            canGenerate={!isAdmin}
           />
         </DialogContent>
       </Dialog>

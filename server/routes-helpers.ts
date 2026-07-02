@@ -494,14 +494,13 @@ export async function checkAssessmentEditPermission(
     return { allowed: false, notFound: true, message: 'Assessment assignment not found' };
   }
 
-  // Admins can create/assign and view assessments, but the clinical work of
-  // generating, editing, and finalizing the AI report must go through the
-  // client's therapist. Admins are intentionally not allowed to edit here —
-  // even if an admin account created the assignment.
+  // Admins can only view assessments. All assessment work (creating, entering
+  // answers, and generating/editing/finalizing the AI report) must go through
+  // the client's therapist. Admins are intentionally not allowed to edit here.
   if (userRole === 'administrator' || userRole === 'admin') {
     return {
       allowed: false,
-      message: "Administrators can create and view assessments, but the report must be completed by the client's therapist.",
+      message: "Administrators can view assessments, but the report must be completed by the client's therapist.",
       assignment
     };
   }

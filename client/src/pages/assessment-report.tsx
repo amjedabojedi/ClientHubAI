@@ -93,6 +93,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
 
   // State for editor and finalization
   const [editorContent, setEditorContent] = useState('');
@@ -567,7 +568,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
-              {!report?.isFinalized && (
+              {!report?.isFinalized && !isAdmin && (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -607,7 +608,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  {!report ? (
+                  {!isAdmin && (!report ? (
                     <DropdownMenuItem 
                       onClick={() => generateReportMutation.mutate()}
                       disabled={generateReportMutation.isPending}
@@ -632,7 +633,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                       <AlertCircle className="w-4 h-4 mr-2" />
                       {unfinalizeReportMutation.isPending ? 'Reopening...' : 'Reopen Report'}
                     </DropdownMenuItem>
-                  )}
+                  ))}
                   
                   <DropdownMenuSeparator />
                   
@@ -827,8 +828,8 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                         onChange={setEditorContent}
                         modules={quillModules}
                         formats={quillFormats}
-                        readOnly={report.isFinalized === true}
-                        className={report.isFinalized ? "readonly-editor" : ""}
+                        readOnly={report.isFinalized === true || isAdmin}
+                        className={report.isFinalized || isAdmin ? "readonly-editor" : ""}
                       />
                       
                       {/* Action Buttons */}
@@ -841,7 +842,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          {!report.isFinalized ? (
+                          {!report.isFinalized ? (!isAdmin && (
                             <>
                               <Button 
                                 variant="outline" 
@@ -861,7 +862,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                                 Save & Finalize
                               </Button>
                             </>
-                          ) : (
+                          )) : (
                             <Badge className="bg-green-100 text-green-800 px-3 py-1">
                               ✅ Finalized {formatDateDisplay(report.finalizedAt)}
                             </Badge>
@@ -889,7 +890,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
                   {isEditMode ? 'Edit responses directly below' : 'Click on each section to view detailed responses'}
                 </p>
               </div>
-              {!report?.isFinalized && (
+              {!report?.isFinalized && !isAdmin && (
                 <Button
                   variant={isEditMode ? "outline" : "default"}
                   size="sm"
@@ -990,7 +991,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
               })}
             </Accordion>
             
-            {isEditMode && (
+            {isEditMode && !isAdmin && (
               <div className="mt-6 flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
                 <Button
                   variant="outline"
