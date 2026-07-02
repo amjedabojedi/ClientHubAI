@@ -7431,7 +7431,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       // Permission check: Only assigned therapist, supervisor with rights, or admin can finalize
       const isAssignedTherapist = note.therapistId === req.user.id;
-      const isAdmin = req.user.role === 'administrator';
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
       
       // Check if user is a supervisor of the assigned therapist
       let isSupervisor = false;
@@ -7499,7 +7499,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Permission check: assigned therapist, admin, or supervisor of the therapist
       const isAssignedTherapist = note.therapistId === req.user.id;
-      const isAdmin = req.user.role === 'administrator';
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
       let isSupervisor = false;
       if (!isAssignedTherapist && !isAdmin) {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
@@ -8406,7 +8406,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
         // Permission check: Only assigned therapist or admin can transcribe
         const isAssignedTherapist = note.therapistId === req.user.id;
-        const isAdmin = req.user.role === 'administrator';
+        const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
         
         if (!isAssignedTherapist && !isAdmin) {
           return res.status(403).json({ message: "You do not have permission to transcribe audio for this session note" });
