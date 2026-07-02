@@ -245,8 +245,28 @@ export default function AssessmentsPage() {
     deleteAssignmentMutation.mutate(assignmentId);
   };
 
+  const adminCannotAdd = () => {
+    toast({
+      title: "You can't add this assessment",
+      description: "Only the client's therapist can add assessments.",
+      variant: "destructive",
+    });
+  };
+
   const handleAssignTemplate = (template: AssessmentTemplate) => {
+    if (isAdmin) {
+      adminCannotAdd();
+      return;
+    }
     setAssigningTemplate(template);
+    setShowAssignModal(true);
+  };
+
+  const handleOpenAssignModal = () => {
+    if (isAdmin) {
+      adminCannotAdd();
+      return;
+    }
     setShowAssignModal(true);
   };
 
@@ -480,15 +500,13 @@ export default function AssessmentsPage() {
                           <Settings className="h-4 w-4 mr-2" />
                           Build
                         </Button>
-                        {!isAdmin && (
-                          <Button 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleAssignTemplate(template)}
-                          >
-                            Assign
-                          </Button>
-                        )}
+                        <Button 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => handleAssignTemplate(template)}
+                        >
+                          Assign
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -594,12 +612,10 @@ export default function AssessmentsPage() {
                   ? "No assignments match your current search." 
                   : "No clients have been assigned assessments yet."}
               </p>
-              {!isAdmin && (
-                <Button onClick={() => setShowAssignModal(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Assign Assessment
-                </Button>
-              )}
+              <Button onClick={handleOpenAssignModal}>
+                <Plus className="h-4 w-4 mr-2" />
+                Assign Assessment
+              </Button>
             </Card>
           )}
         </TabsContent>

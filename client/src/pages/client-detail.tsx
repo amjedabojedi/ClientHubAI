@@ -2237,6 +2237,14 @@ export default function ClientDetailPage({
   });
 
   const handleAssignAssessment = (templateId: number) => {
+    if (isAdmin) {
+      toast({
+        title: "You can't add this assessment",
+        description: "Only the client's therapist can add assessments.",
+        variant: "destructive",
+      });
+      return;
+    }
     assignAssessmentMutation.mutate(templateId);
   };
 
@@ -4251,23 +4259,21 @@ export default function ClientDetailPage({
           <TabsContent value="assessments" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">Client Assessments</h2>
-              {!isAdmin && (
-                <Select onValueChange={(templateId) => handleAssignAssessment(parseInt(templateId))}>
-                  <SelectTrigger className="w-60">
-                    <SelectValue placeholder="Assign Assessment Template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id.toString()}>
-                        <div className="flex items-center space-x-2">
-                          <ClipboardList className="w-4 h-4" />
-                          <span>{template.title}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select onValueChange={(templateId) => handleAssignAssessment(parseInt(templateId))}>
+                <SelectTrigger className="w-60">
+                  <SelectValue placeholder="Assign Assessment Template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id.toString()}>
+                      <div className="flex items-center space-x-2">
+                        <ClipboardList className="w-4 h-4" />
+                        <span>{template.title}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Assessment Stats */}
@@ -4326,17 +4332,15 @@ export default function ClientDetailPage({
                               <span>Category: {template.category}</span>
                               <span>v{template.version}</span>
                             </div>
-                            {!isAdmin && (
-                              <Button
-                                onClick={() => handleAssignAssessment(template.id)}
-                                size="sm"
-                                className="w-full"
-                                disabled={assignAssessmentMutation.isPending}
-                              >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Assign to Client
-                              </Button>
-                            )}
+                            <Button
+                              onClick={() => handleAssignAssessment(template.id)}
+                              size="sm"
+                              className="w-full"
+                              disabled={assignAssessmentMutation.isPending}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Assign to Client
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
