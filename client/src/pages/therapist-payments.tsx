@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
@@ -540,6 +541,17 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
   const ruleByService = new Map<number, PayRule>();
   rules.forEach((r) => { if (r.serviceId != null) ruleByService.set(r.serviceId, r); });
 
+  // Which services to show an editor for: those that already have an override,
+  // plus any the user just picked from the search dropdown to add.
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [addedServiceIds, setAddedServiceIds] = useState<number[]>([]);
+
+  const shownServices = services.filter(
+    (svc) => ruleByService.has(svc.id) || addedServiceIds.includes(svc.id),
+  );
+  const shownIds = new Set(shownServices.map((s) => s.id));
+  const addableServices = services.filter((svc) => !shownIds.has(svc.id));
+
   if (loadingRules || loadingServices) {
     return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading pay profile…</div>;
   }
@@ -569,33 +581,79 @@ function PayProfileTab({ therapistId, toast }: { therapistId: number; toast: Ret
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Per-service overrides</CardTitle>
-          <CardDescription>Set a specific rule for individual services. Leave blank to use the default.</CardDescription>
+          <CardDescription>Set a specific rule for individual services. Search and add a service below; any service without its own override uses the default.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {services.length === 0 ? (
             <p className="text-sm text-gray-500">No active services found.</p>
           ) : (
-            <div className="space-y-3">
-              {services.map((svc) => (
-                <div key={svc.id} className="rounded-lg border p-3" data-testid={`service-rule-${svc.id}`}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div>
-                      <span className="font-medium">{svc.serviceName}</span>
-                      <span className="ml-2 text-xs text-gray-500">{svc.serviceCode} · base {money(svc.baseRate)}</span>
-                    </div>
-                    {ruleByService.has(svc.id) && <Badge variant="secondary">Override set</Badge>}
-                  </div>
-                  <RuleEditor
-                    label={svc.serviceName}
-                    initial={ruleByService.get(svc.id) || null}
-                    onSave={(payType, payValue) => upsert.mutate({ serviceId: svc.id, payType, payValue })}
-                    onDelete={ruleByService.has(svc.id) ? () => remove.mutate(ruleByService.get(svc.id)!.id) : undefined}
-                    saving={upsert.isPending}
-                    testIdPrefix={`service-${svc.id}`}
+            <>
+              {/* Search + add a service to give it its own override */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={addableServices.map((svc) => ({
+                      value: svc.id.toString(),
+                      label: `${svc.serviceName} — ${svc.serviceCode} · base ${money(svc.baseRate)}`,
+                    }))}
+                    value={selectedServiceId}
+                    onValueChange={setSelectedServiceId}
+                    placeholder="Search a service to add an override…"
+                    searchPlaceholder="Search services…"
+                    emptyText="No more services to add."
+                    disabled={addableServices.length === 0}
+                    triggerClassName="w-full"
                   />
                 </div>
-              ))}
-            </div>
+                <Button
+                  onClick={() => {
+                    const id = Number(selectedServiceId);
+                    if (!id) return;
+                    setAddedServiceIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+                    setSelectedServiceId("");
+                  }}
+                  disabled={!selectedServiceId}
+                  data-testid="button-add-service-override"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+
+              {shownServices.length === 0 ? (
+                <p className="text-sm text-gray-500">No overrides yet. Search for a service above and click Add to set a rule just for it.</p>
+              ) : (
+                <div className="space-y-3">
+                  {shownServices.map((svc) => (
+                    <div key={svc.id} className="rounded-lg border p-3" data-testid={`service-rule-${svc.id}`}>
+                      <div className="mb-2 flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">{svc.serviceName}</span>
+                          <span className="ml-2 text-xs text-gray-500">{svc.serviceCode} · base {money(svc.baseRate)}</span>
+                        </div>
+                        {ruleByService.has(svc.id) && <Badge variant="secondary">Override set</Badge>}
+                      </div>
+                      <RuleEditor
+                        key={`${svc.id}-${ruleByService.get(svc.id)?.id ?? "new"}`}
+                        label={svc.serviceName}
+                        initial={ruleByService.get(svc.id) || null}
+                        onSave={(payType, payValue) => upsert.mutate({ serviceId: svc.id, payType, payValue })}
+                        onDelete={
+                          ruleByService.has(svc.id)
+                            ? () => {
+                                remove.mutate(ruleByService.get(svc.id)!.id);
+                                setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id));
+                              }
+                            : () => setAddedServiceIds((prev) => prev.filter((x) => x !== svc.id))
+                        }
+                        saving={upsert.isPending}
+                        testIdPrefix={`service-${svc.id}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
