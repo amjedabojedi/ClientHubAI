@@ -47,6 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { useAuth } from "@/hooks/useAuth";
 import { formatResponseDisplay } from "@/lib/assessment-response";
+import { normalizeReportHtml } from "@shared/report-format";
 
 // Rich Text Editor Configuration
 const quillModules = {
@@ -176,7 +177,7 @@ export default function AssessmentReportPage(props: AssessmentReportPageProps = 
   // Update editor content when report loads (prioritize finalContent if finalized)
   useEffect(() => {
     if (report) {
-      setEditorContent(report.finalContent || report.draftContent || report.generatedContent || '');
+      setEditorContent(normalizeReportHtml(report.finalContent || report.draftContent || report.generatedContent || ''));
     }
   }, [report]);
 

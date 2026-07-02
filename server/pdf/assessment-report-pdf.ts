@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { normalizeReportHtml } from '@shared/report-format';
 
 interface AssessmentAssignment {
   id: number;
@@ -95,7 +96,8 @@ export function generateAssessmentReportHTML(
   }
 
   // Process report content - prioritize finalContent if finalized (matching session notes pattern)
-  let content = report.finalContent || report.draftContent || report.generatedContent || '';
+  // Normalize away redundant empty paragraphs so section titles sit tight against their text.
+  let content = normalizeReportHtml(report.finalContent || report.draftContent || report.generatedContent || '');
   
   // Rich text HTML is already formatted from ReactQuill, but handle legacy markdown if needed
   if (content && !content.includes('<')) {

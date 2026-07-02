@@ -11037,7 +11037,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const PRACTICE_TIMEZONE = 'America/New_York';
       
       // Parse the report content - prioritize finalContent if finalized
-      const reportContent = report.finalContent || report.draftContent || report.generatedContent || '';
+      // Normalize away redundant empty paragraphs so section titles sit tight against their text.
+      const { normalizeReportHtml } = await import("@shared/report-format");
+      const reportContent = normalizeReportHtml(report.finalContent || report.draftContent || report.generatedContent || '');
       const paragraphs = [];
       
       // Header: Practice Information
