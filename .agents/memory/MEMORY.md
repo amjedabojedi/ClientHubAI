@@ -64,6 +64,7 @@
 - [Insurance unbilled matching](insurance-unbilled-matching.md) — matcher must scan sessions (not only billed); confirm back-bills atomically under a session-keyed advisory lock; partial name tier needs ≥2 shared tokens.
 - [Bulk money-action scope](bulk-money-action-scope.md) — filtered bulk re-scan/post must scope to on-screen working set; client sends explicit statementIds[], empty []=act on nothing, absent=global; per-statement failed[] not fail-fast.
 - [Admin role string mismatch](admin-role-string-mismatch.md) — `=== 'administrator'`-only authz checks silently 403 real admins; DB role is 'admin'. Accept both; grep for lone 'administrator' checks.
+- [Assessment report permission](assessment-report-permission.md) — admin-created assessments deadlocked (admin view-only + therapist not creator); client's assignedTherapistId is now an always-allowed editor.
 - [Payment Check report](payment-check-report.md) — statement-line cross-checks: filter to posted/confirmed + MAX per billing (SUM double-counts); any client-identity billing endpoint MUST redact for accountant role.
 - [Edit payment in place](edit-payment-in-place.md) — editPaymentTransaction REPLACES one row's amount + re-sums per source (mirrors void); blocks statement-sourced/negative rows; both histories need explicit queryFn or buttons vanish.
 - [Client statement voided ledger](client-statement-voided-ledger.md) — getClientStatement payment-history MUST filter isNull(voidedAt) or corrected payments show as duplicate green rows; totals (from stored billing cols) stay right regardless.

@@ -494,20 +494,31 @@ export async function checkAssessmentEditPermission(
     return { allowed: false, notFound: true, message: 'Assessment assignment not found' };
   }
 
-  // Admin can only VIEW, not edit
+  // Admins can create/assign and view assessments, but the clinical work of
+  // generating, editing, and finalizing the AI report must go through the
+  // client's therapist. Admins are intentionally not allowed to edit here —
+  // even if an admin account created the assignment.
   if (userRole === 'administrator' || userRole === 'admin') {
     return {
       allowed: false,
-      message: 'Administrators can view assessments but cannot edit them. Only the creator can make changes.',
+      message: "Administrators can create and view assessments, but the report must be completed by the client's therapist.",
       assignment
     };
   }
 
-  // Only the creator (assignedById) can edit/manage
+  // The client's assigned therapist can always manage the report — including
+  // when an admin created/assigned the assessment on their behalf. This is
+  // what lets the therapist pick up an admin-created assessment.
+  const assignedTherapistId = assignment.client?.assignedTherapistId;
+  if (assignedTherapistId != null && assignedTherapistId === userId) {
+    return { allowed: true, assignment };
+  }
+
+  // Otherwise, only the user who created the assignment can edit/manage it.
   if (assignment.assignedById !== userId) {
     return {
       allowed: false,
-      message: 'Access denied. Only the user who created this assessment can make changes.',
+      message: "Access denied. Only the client's therapist (or the user who created this assessment) can make changes.",
       assignment
     };
   }
