@@ -22,7 +22,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   DollarSign, Percent, Users, Receipt, History, Loader2, AlertTriangle,
@@ -1835,6 +1835,20 @@ function MonthlyReportTab({
     typeFilter !== "all" ? `Type: ${typeFilter}` : null,
   ].filter(Boolean).join(" · ");
   const visibleSessions = (data?.sessions ?? []).filter(matchesFilter);
+  // Totals for exactly the rows currently shown (respects every active filter),
+  // so the user can see what the filtered set earns / has been paid at a glance.
+  const visibleTotals = visibleSessions.reduce(
+    (acc, s) => {
+      if (s.billed) {
+        acc.expected += s.expected || 0;
+        acc.collected += s.collected || 0;
+        acc.uncollected += s.uncollected || 0;
+        if (s.hasRule) acc.earned += s.earned || 0;
+      }
+      return acc;
+    },
+    { expected: 0, collected: 0, uncollected: 0, earned: 0 },
+  );
 
   const exportCsv = async () => {
     if (!data) return;
@@ -2086,6 +2100,28 @@ function MonthlyReportTab({
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={5} className="font-medium">
+                        Totals ({visibleSessions.length} shown)
+                      </TableCell>
+                      <TableCell className="text-right font-semibold" data-testid="text-visible-total-expected">
+                        {money(visibleTotals.expected)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold" data-testid="text-visible-total-collected">
+                        {money(visibleTotals.collected)}
+                      </TableCell>
+                      <TableCell
+                        className={cn("text-right font-semibold", visibleTotals.uncollected > 0 && "text-amber-600")}
+                        data-testid="text-visible-total-uncollected"
+                      >
+                        {money(visibleTotals.uncollected)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold" data-testid="text-visible-total-earned">
+                        {money(visibleTotals.earned)}
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </CardContent>
             </Card>
