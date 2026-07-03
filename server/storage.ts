@@ -3,6 +3,7 @@ import { db } from "./db";
 import { eq, ne, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
 import { normalizePhoneE164 } from "@shared/phone";
 import { isDuplicateInsuranceAmount } from "@shared/insurance";
+import { PRACTICE_TIMEZONE } from "./practiceTime";
 
 // Database Schema - Tables
 import { 
@@ -5684,7 +5685,16 @@ export class DatabaseStorage implements IStorage {
     const conds: any[] = [];
     const hasDate = !!line.serviceDate;
     if (hasDate) {
-      conds.push(sql`${sessions.sessionDate}::date = ${line.serviceDate}::date`);
+      // session_date is stored as a UTC timestamp (timestamp without time zone
+      // holding the UTC instant). The whole app DISPLAYS it in the practice
+      // timezone, so an evening session (e.g. 8:00 PM Eastern) is stored on the
+      // NEXT calendar day in UTC. Comparing the raw ::date against the statement's
+      // local service date therefore misses by one day for any session after the
+      // UTC-day boundary. Convert to the practice timezone first so the compared
+      // date matches the date the user actually sees.
+      conds.push(
+        sql`(${sessions.sessionDate} AT TIME ZONE 'UTC' AT TIME ZONE ${PRACTICE_TIMEZONE})::date = ${line.serviceDate}::date`,
+      );
     }
     // Name tokens are normalized (accents stripped, lowercased, order-independent)
     // so "José", "Garcia Lopez, Maria Jose" and "Maria Garcia" all compare on

@@ -51,6 +51,7 @@
 - [Therapist statement earning de-dup](therapist-statement-earning-dedup.md) — running statement must SUM therapist_earnings per billing into one net line; ledger is append-only adjustments.
 - [Therapist adjustments + attention](therapist-adjustments-attention.md) — manual bonus/deduction is net-balance (owed.total stays session-only + separate adjustmentsNet; every surface must fold both); attention panel must seed from getTherapists() or no-rule therapists vanish; pay reads aren't audited.
 - [Insurance claim-line name match](insurance-claim-name-match.md) — name-only fuzzy-subset match (truncation+transliteration tolerant, no service code); date narrows, single-candidate gate keeps it safe.
+- [Insurance match UTC date](insurance-match-utc-date.md) — matcher missed one-day-off sessions: session_date is a UTC instant, must compare via AT TIME ZONE PRACTICE_TIMEZONE, not raw ::date.
 - [Insurance statement double-count guard](insurance-statement-double-count.md) — posting a line must add max(0, lineAmount - billing.insurancePaidAmount); deduping only vs unadopted manual rows let a 2nd statement re-count & inflate pay.
 - [Insurance void terminal state](insurance-void-terminal-state.md) — voiding sets posted lines to 'reversed' (terminal), not 're-postable' 'confirmed'; voided statements can never re-post, only new uploads can.
 - [Insurance void re-balance](insurance-void-rebalance.md) — voiding one of two posted statements on a billing must let the survivor re-absorb the payment; don't blindly subtract postedAmount or collected wrongly drops to $0.
