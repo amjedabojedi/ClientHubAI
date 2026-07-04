@@ -122,6 +122,24 @@ interface MonthlySessionRow {
   earned: number;
   hasRule: boolean;
 }
+// What (if anything) a row needs a human to follow up on. A PARTIAL payment is
+// intentionally NOT flagged: once insurance has paid part, the leftover balance
+// is acceptable and needs no action. We only flag genuine gaps:
+//   - a completed session that was never billed (lost revenue)
+//   - a billed session where NOTHING has been collected yet (unpaid)
+//   - a billed session with no therapist pay rule (can't compute pay)
+// A cancelled session and a fully-paid session are never flagged.
+function followUpFlags(s: MonthlySessionRow): string[] {
+  const flags: string[] = [];
+  if (!s.billed) {
+    if (s.status === "completed") flags.push("Not billed");
+    return flags;
+  }
+  if (s.status === "cancelled") return flags;
+  if (s.collected <= 0 && s.uncollected > 0) flags.push("Unpaid");
+  if (!s.hasRule) flags.push("No rule");
+  return flags;
+}
 interface MonthlyStatementResponse {
   therapistId: number;
   therapistName: string;
@@ -239,6 +257,7 @@ const printHtml = (title: string, bodyHtml: string): boolean => {
       .card .label { font-size: 11px; color: #666; }
       .card .value { font-size: 18px; font-weight: 700; }
       .flag { color: #b45309; font-weight: 600; }
+      .note { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 16px; }
     </style></head><body>${bodyHtml}</body></html>`);
   w.document.close();
   w.focus();
@@ -1779,6 +1798,9 @@ function MonthlyReportTab({
   const [collFilter, setCollFilter] = useState<"all" | "collected" | "uncollected" | "unbilled">("all");
   const [nameQuery, setNameQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  // Free-text note the user can add; it prints on the PDF / CSV export so the
+  // person receiving the statement has context for the filtered set.
+  const [reportNote, setReportNote] = useState("");
 
   const validRange =
     /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
@@ -1863,14 +1885,16 @@ function MonthlyReportTab({
       s.billed ? s.collected.toFixed(2) : "",
       s.billed ? s.uncollected.toFixed(2) : "",
       !s.billed ? "" : s.hasRule ? s.earned.toFixed(2) : "no rule",
+      followUpFlags(s).join("; "),
     ]);
     const csv = toCsv(
-      ["Date", "Client", "Type", "Service", "Billing", "Status", "Expected", "Collected", "Uncollected", "Earned"],
+      ["Date", "Client", "Type", "Service", "Billing", "Status", "Expected", "Collected", "Uncollected", "Earned", "Follow-up"],
       rows,
     );
     const header =
       `Report,${name},${periodLabel}\r\n` +
       `Filter,${activeFilterLabel}\r\n` +
+      (reportNote.trim() ? `Note,${reportNote.trim().replace(/[\r\n]+/g, " ")}\r\n` : "") +
       `Opening balance,${data.openingBalance.toFixed(2)}\r\n` +
       `Earned in period,${data.earnedInMonth.toFixed(2)}\r\n` +
       `Paid in period,${data.paidInMonth.toFixed(2)}\r\n` +
@@ -1892,21 +1916,29 @@ function MonthlyReportTab({
 
   const exportPrint = async () => {
     if (!data) return;
-    const rowsHtml = visibleSessions.map((s) => `
+    const rowsHtml = visibleSessions.map((s) => {
+      const flags = followUpFlags(s);
+      return `
       <tr>
         <td>${fmtDate(s.sessionDate)}</td>
         <td>${escapeHtml(s.clientName)}</td>
         <td>${escapeHtml(s.clientType || "—")}</td>
         <td>${escapeHtml(s.serviceName || s.serviceCode || "—")}</td>
-        <td class="${s.billed ? "" : "flag"}">${s.billed ? "Billed" : "Not billed"}${s.status ? ` (${escapeHtml(s.status)})` : ""}</td>
+        <td>${s.billed ? "Billed" : "Not billed"}${s.status ? ` (${escapeHtml(s.status)})` : ""}</td>
         <td class="num">${s.billed ? money(s.expected) : "—"}</td>
         <td class="num">${s.billed ? money(s.collected) : "—"}</td>
-        <td class="num ${s.billed && s.uncollected > 0 ? "flag" : ""}">${s.billed ? money(s.uncollected) : "—"}</td>
+        <td class="num">${s.billed ? money(s.uncollected) : "—"}</td>
         <td class="num">${!s.billed ? "—" : s.hasRule ? money(s.earned) : "no rule"}</td>
-      </tr>`).join("");
+        <td class="${flags.length ? "flag" : ""}">${flags.length ? escapeHtml(flags.join(", ")) : "—"}</td>
+      </tr>`;
+    }).join("");
+    const noteHtml = reportNote.trim()
+      ? `<div class="note"><strong>Note:</strong> ${escapeHtml(reportNote.trim())}</div>`
+      : "";
     const body = `
       <h1>Statement — ${escapeHtml(name)}</h1>
       <div class="muted">${escapeHtml(periodLabel)} · ${escapeHtml(activeFilterLabel)} · generated ${new Date().toLocaleString()}</div>
+      ${noteHtml}
       <div class="cards">
         <div class="card"><div class="label">Opening balance</div><div class="value">${money(data.openingBalance)}</div></div>
         <div class="card"><div class="label">Earned in period</div><div class="value">${money(data.earnedInMonth)}</div></div>
@@ -1924,7 +1956,7 @@ function MonthlyReportTab({
       </div>
       <h2>Sessions</h2>
       <table>
-        <thead><tr><th>Date</th><th>Client</th><th>Type</th><th>Service</th><th>Billing</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th></tr></thead>
+        <thead><tr><th>Date</th><th>Client</th><th>Type</th><th>Service</th><th>Billing</th><th class="num">Expected</th><th class="num">Collected</th><th class="num">Uncollected</th><th class="num">Earned</th><th>Follow-up</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>`;
     try {
@@ -1952,7 +1984,19 @@ function MonthlyReportTab({
             <Input id="reportTo" type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-report-to" />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="w-56">
+            <Label htmlFor="reportNote" className="mb-1 block text-xs">Note (prints on the report)</Label>
+            <Textarea
+              id="reportNote"
+              rows={1}
+              value={reportNote}
+              onChange={(e) => setReportNote(e.target.value)}
+              placeholder="Optional note for this statement…"
+              className="min-h-9"
+              data-testid="input-report-note"
+            />
+          </div>
           <Button variant="outline" onClick={exportCsv} disabled={!data} data-testid="button-monthly-csv">
             <Download className="mr-2 h-4 w-4" /> CSV
           </Button>
@@ -2060,6 +2104,7 @@ function MonthlyReportTab({
                       <TableHead className="text-right">Collected</TableHead>
                       <TableHead className="text-right">Uncollected</TableHead>
                       <TableHead className="text-right">Earned</TableHead>
+                      <TableHead>Follow-up</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2097,6 +2142,20 @@ function MonthlyReportTab({
                         <TableCell className="text-right font-medium">
                           {!s.billed ? "—" : s.hasRule ? money(s.earned) : <Badge variant="destructive">No rule</Badge>}
                         </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const flags = followUpFlags(s);
+                            return flags.length ? (
+                              <span className="flex flex-wrap gap-1">
+                                {flags.map((f) => (
+                                  <Badge key={f} variant="destructive" className="whitespace-nowrap">{f}</Badge>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            );
+                          })()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -2120,6 +2179,7 @@ function MonthlyReportTab({
                       <TableCell className="text-right font-semibold" data-testid="text-visible-total-earned">
                         {money(visibleTotals.earned)}
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   </TableFooter>
                 </Table>
