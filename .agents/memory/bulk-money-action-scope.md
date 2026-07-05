@@ -32,3 +32,24 @@ touches `matchStatus==='confirmed'`).
 reuse `parseStatementIdFilter` semantics and accept a client-supplied scoped id
 list; return per-statement `failed[]` (HTTP 200) for partial-failure clarity
 rather than fail-fast, since earlier statements may already be committed.
+
+## Bulk actions must include `posted` statements, not just `draft`
+
+A statement can be `posted` while some of its lines are still `unmatched`
+(posting only commits the *confirmed* lines). In practice **every** statement can
+end up `posted` (draft phase skipped), so filtering bulk actions to
+`status === 'draft'` silently makes them no-ops:
+- `rematch-all` filtered to draft → re-scan re-evaluated **zero** statements, so a
+  line that "No session matched" (e.g. fixed later by the evening-session timezone
+  fix) could never be re-matched. Toast reads "No new matches across 0 statements".
+- `post-all` filtered to `statementStatus==='draft'` → a line confirmed *after* a
+  re-scan on a posted statement could never be committed.
+
+**Fix:** both bulk endpoints include `draft` **and** `posted` (exclude terminal
+`voided`). Safe because `autoMatchStatementLines` skips
+confirmed/posted/skipped/reversed lines, and `postInsuranceStatement` is
+idempotent on a re-post (only processes `confirmed` lines; shortfall/adoption
+double-count guard prevents inflation).
+
+**Why:** stranded unmatched/confirmed lines on posted statements are otherwise
+unreachable from the UI's bulk buttons forever.

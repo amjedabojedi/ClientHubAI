@@ -13229,23 +13229,31 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // the on-screen action never silently touches other therapists' statements.
       const idFilter = parseStatementIdFilter(req.body?.statementIds);
       const statements = await storage.getInsuranceStatements();
-      let drafts = statements.filter((s) => s.status === 'draft');
-      if (idFilter) drafts = drafts.filter((s) => idFilter.has(s.id));
-      const draftIds = new Set(drafts.map((s) => s.id));
+      // Re-scan draft AND posted statements. A statement can be posted while
+      // some of its lines are still unmatched (posting only commits the
+      // confirmed lines), and those unmatched lines must stay re-scannable —
+      // otherwise they are stranded forever. Re-matching is safe on a posted
+      // statement because autoMatchStatementLines never disturbs
+      // confirmed/posted/skipped/reversed lines; it only re-evaluates the
+      // still-unmatched (and suggested) ones. Voided statements are terminal
+      // and deliberately excluded.
+      let scannable = statements.filter((s) => s.status === 'draft' || s.status === 'posted');
+      if (idFilter) scannable = scannable.filter((s) => idFilter.has(s.id));
+      const scannableIds = new Set(scannable.map((s) => s.id));
 
       const before = await storage.getAllInsuranceLines();
       const beforeUnmatched = before.filter(
-        (r) => draftIds.has(r.statementId) && r.matchStatus === 'unmatched',
+        (r) => scannableIds.has(r.statementId) && r.matchStatus === 'unmatched',
       ).length;
-      for (const s of drafts) {
+      for (const s of scannable) {
         await storage.autoMatchStatementLines(s.id);
       }
       const after = await storage.getAllInsuranceLines();
       const afterUnmatched = after.filter(
-        (r) => draftIds.has(r.statementId) && r.matchStatus === 'unmatched',
+        (r) => scannableIds.has(r.statementId) && r.matchStatus === 'unmatched',
       ).length;
       const newlyMatched = Math.max(0, beforeUnmatched - afterUnmatched);
-      res.json({ statementsScanned: drafts.length, newlyMatched });
+      res.json({ statementsScanned: scannable.length, newlyMatched });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -13263,10 +13271,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // filtered "Post" never silently commits other therapists' lines.
       const idFilter = parseStatementIdFilter(req.body?.statementIds);
       const lines = await storage.getAllInsuranceLines();
+      // Post confirmed lines on draft statements AND on already-posted ones.
+      // A posted statement can still gain a newly confirmed line (e.g. a line
+      // that only matched after a re-scan and was then confirmed); posting it
+      // again is safe and idempotent — postInsuranceStatement skips lines that
+      // are already posted and its double-count guard prevents any inflation.
+      // Voided statements are terminal and never eligible.
       let eligible = Array.from(
         new Set(
           lines
-            .filter((r) => r.statementStatus === 'draft' && r.matchStatus === 'confirmed')
+            .filter(
+              (r) =>
+                (r.statementStatus === 'draft' || r.statementStatus === 'posted') &&
+                r.matchStatus === 'confirmed',
+            )
             .map((r) => r.statementId),
         ),
       );
