@@ -1795,7 +1795,7 @@ function MonthlyReportTab({
   })();
   const [startDate, setStartDate] = useState<string>(defaultRange.start);
   const [endDate, setEndDate] = useState<string>(defaultRange.end);
-  const [collFilter, setCollFilter] = useState<"all" | "collected" | "uncollected" | "unbilled">("all");
+  const [collFilter, setCollFilter] = useState<"all" | "collected" | "uncollected" | "unpaid" | "unbilled">("all");
   const [nameQuery, setNameQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   // Free-text note the user can add; it prints on the PDF / CSV export so the
@@ -1837,6 +1837,10 @@ function MonthlyReportTab({
     // only appears under "All".
     if (collFilter === "collected") return s.billed && s.status !== "cancelled" && s.uncollected <= 0;
     if (collFilter === "uncollected") return s.billed && s.uncollected > 0;
+    // "Unpaid" = billed but NOTHING collected yet (the red "Unpaid" badge).
+    // Stricter than "uncollected", which also includes partially-paid sessions.
+    if (collFilter === "unpaid")
+      return s.billed && s.status !== "cancelled" && s.collected <= 0 && s.uncollected > 0;
     return true;
   };
   // Type options come from whatever client types actually appear in this period.
@@ -1847,6 +1851,7 @@ function MonthlyReportTab({
     all: "All sessions",
     collected: "Collected only",
     uncollected: "Uncollected only",
+    unpaid: "Unpaid only",
     unbilled: "Not billed only",
   };
   // Human-readable description of EVERY active filter, so exports/empty-state
@@ -2038,6 +2043,7 @@ function MonthlyReportTab({
               ["all", "All"],
               ["collected", "Collected"],
               ["uncollected", "Uncollected"],
+              ["unpaid", "Unpaid"],
               ["unbilled", "Not billed"],
             ] as const).map(([key, label]) => (
               <Button
