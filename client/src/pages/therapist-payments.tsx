@@ -1297,6 +1297,29 @@ function StatementTab({
       return res.json();
     },
   });
+  // The therapist's pay rules, so the statement can show their share (e.g. "60%")
+  // the way a therapy reconciliation sheet does. The default rule (serviceId null)
+  // is the headline share; any per-service rules are noted separately.
+  const { data: payRules = [], isLoading: loadingRules } = useQuery<PayRule[]>({
+    queryKey: ["/api/therapist-pay/rules", therapistId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/rules/${therapistId}`, "GET");
+      return res.json();
+    },
+  });
+  const defaultRule = payRules.find((r) => r.serviceId == null) || null;
+  const hasServiceOverrides = payRules.some((r) => r.serviceId != null);
+  // Plain-language label for the therapist's headline pay share. While the rules
+  // are still loading we show "…" instead of "Not set" so a quick export doesn't
+  // capture a wrong value. Malformed backend values fall back to "Not set" rather
+  // than rendering "NaN%".
+  const shareLabel = (() => {
+    if (loadingRules) return "…";
+    if (!defaultRule) return "Not set";
+    const n = Number(defaultRule.payValue);
+    if (!Number.isFinite(n)) return "Not set";
+    return defaultRule.payType === "percentage" ? `${n}%` : `${money(n)} flat`;
+  })();
   const [lumpOpen, setLumpOpen] = useState(false);
   const [adjOpen, setAdjOpen] = useState(false);
 
@@ -1319,10 +1342,14 @@ function StatementTab({
       e.runningBalance.toFixed(2),
     ]);
     rows.push(["", "", "Totals", "", data.totalEarned.toFixed(2), data.totalPaid.toFixed(2), ""]);
-    const csv = toCsv(
-      ["Date", "Type", "Description", "Reference", "Earned", "Paid", "Running Balance"],
-      rows,
-    );
+    const shareValue = shareLabel + (hasServiceOverrides ? " (some services differ)" : "");
+    const csv =
+      toCsv(["Therapist share", shareValue], []) +
+      "\r\n\r\n" +
+      toCsv(
+        ["Date", "Type", "Description", "Reference", "Earned", "Paid", "Running Balance"],
+        rows,
+      );
     try {
       await auditExport({ therapistId, reportType: "statement", format: "csv" });
     } catch {
@@ -1347,6 +1374,7 @@ function StatementTab({
       <h1>Running Statement — ${escapeHtml(name)}</h1>
       <div class="muted">Generated ${new Date().toLocaleString()}</div>
       <div class="cards">
+        <div class="card"><div class="label">Therapist share</div><div class="value">${escapeHtml(shareLabel)}${hasServiceOverrides ? '<div class="muted" style="font-size:11px">some services differ</div>' : ""}</div></div>
         <div class="card"><div class="label">Total earned</div><div class="value">${money(data.totalEarned)}</div></div>
         <div class="card"><div class="label">Total paid</div><div class="value">${money(data.totalPaid)}</div></div>
         <div class="card"><div class="label">${data.creditBalance > 0 ? "Credit balance" : "Currently owed"}</div><div class="value">${money(data.creditBalance > 0 ? data.creditBalance : data.currentOwed)}</div></div>
@@ -1370,7 +1398,14 @@ function StatementTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-gray-500">Therapist share</p>
+            <p className="text-xl font-bold" data-testid="text-statement-share">{shareLabel}</p>
+            {hasServiceOverrides && (
+              <p className="text-xs text-gray-500">+ some services differ</p>
+            )}
+          </div>
           <div>
             <p className="text-xs text-gray-500">Total earned</p>
             <p className="text-xl font-bold" data-testid="text-statement-earned">{money(data.totalEarned)}</p>
