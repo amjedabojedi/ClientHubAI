@@ -220,7 +220,17 @@ const describeRule = (type: PayType | string | null, value: number | string | nu
 // Build a CSV string from a header row + data rows, quoting every field so
 // commas, quotes and newlines inside values can't break the columns.
 const toCsv = (header: string[], rows: (string | number)[][]) => {
-  const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const esc = (v: string | number) => {
+    let s = String(v ?? "");
+    // Neutralize spreadsheet formula injection: a cell that opens with =, +, @
+    // (or - / tab / CR that isn't a plain number) can execute as a formula when
+    // opened in Excel/Sheets. Prefix an apostrophe so it's treated as text.
+    // Negative numbers like "-123.00" are left intact.
+    if (/^[=+@\t\r]/.test(s) || (/^-/.test(s) && !/^-?\d/.test(s))) {
+      s = "'" + s;
+    }
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   return [header, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");
 };
 
@@ -483,6 +493,9 @@ export default function TherapistPaymentsPage() {
             <TabsTrigger value="monthly" data-testid="tab-monthly">
               <CalendarRange className="mr-2 h-4 w-4" /> Monthly Report
             </TabsTrigger>
+            <TabsTrigger value="summary" data-testid="tab-summary">
+              <CalendarRange className="mr-2 h-4 w-4" /> Monthly Summary
+            </TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">
               <History className="mr-2 h-4 w-4" /> Payout History
             </TabsTrigger>
@@ -499,6 +512,9 @@ export default function TherapistPaymentsPage() {
           </TabsContent>
           <TabsContent value="monthly" className="mt-4">
             <MonthlyReportTab key={`month-${therapistId}`} therapistId={therapistId} therapistName={selectedTherapist?.fullName || ""} toast={toast} />
+          </TabsContent>
+          <TabsContent value="summary" className="mt-4">
+            <MonthlySummaryTab key={`summary-${therapistId}`} therapistId={therapistId} therapistName={selectedTherapist?.fullName || ""} toast={toast} />
           </TabsContent>
           <TabsContent value="history" className="mt-4">
             <HistoryTab therapistId={therapistId} toast={toast} />
@@ -1807,6 +1823,220 @@ function LumpPaymentDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* --------------------------- Monthly Summary --------------------------- */
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+// Turn a "YYYY-MM" bucket key into a friendly label like "Jan 2026". We read the
+// literal year/month digits (never new Date on a date-only value) so the month
+// can't shift a bucket in a non-UTC timezone.
+const monthLabel = (ym: string): string => {
+  const [y, m] = ym.split("-");
+  const idx = Number(m) - 1;
+  return `${MONTH_NAMES[idx] ?? m} ${y}`;
+};
+
+interface MonthRollup {
+  ym: string;        // "YYYY-MM" sort key
+  credit: number;    // earned that month
+  debit: number;     // paid that month
+  balance: number;   // running balance at the END of that month
+}
+
+// A compact "one row per month across the years" view of a therapist's ledger,
+// with Credit (earned), Debit (paid) and a running Balance — like a bank
+// statement summary. Built entirely from the running-statement entries so the
+// numbers always agree with the Statement tab.
+function MonthlySummaryTab({
+  therapistId, therapistName, toast,
+}: {
+  therapistId: number;
+  therapistName: string;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const { data, isLoading } = useQuery<StatementResponse>({
+    queryKey: ["/api/therapist-pay/statement", therapistId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/statement/${therapistId}`, "GET");
+      return res.json();
+    },
+  });
+  const [yearFilter, setYearFilter] = useState<string>("all");
+
+  const name = data?.therapistName || therapistName;
+  const entries = data?.entries ?? [];
+
+  // Group the chronological entries into one rollup per calendar month. Because
+  // the backend returns entries oldest-first, the LAST entry we see for a month
+  // carries that month's end-of-month running balance.
+  const rollups: MonthRollup[] = (() => {
+    const map = new Map<string, MonthRollup>();
+    for (const e of entries) {
+      const ym = (e.date || "").slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+      const cur = map.get(ym) || { ym, credit: 0, debit: 0, balance: 0 };
+      cur.credit = Math.round((cur.credit + (e.earned || 0)) * 100) / 100;
+      cur.debit = Math.round((cur.debit + (e.paid || 0)) * 100) / 100;
+      cur.balance = e.runningBalance; // last one wins = end-of-month balance
+      map.set(ym, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => a.ym.localeCompare(b.ym));
+  })();
+
+  const availableYears = Array.from(new Set(rollups.map((r) => r.ym.slice(0, 4)))).sort();
+  const visible = yearFilter === "all" ? rollups : rollups.filter((r) => r.ym.slice(0, 4) === yearFilter);
+  const totalCredit = visible.reduce((s, r) => s + r.credit, 0);
+  const totalDebit = visible.reduce((s, r) => s + r.debit, 0);
+  const endingBalance = visible.length ? visible[visible.length - 1].balance : 0;
+  const rangeLabel = yearFilter === "all" ? "All years" : yearFilter;
+
+  const exportCsv = async () => {
+    const rows = visible.map((r) => [
+      monthLabel(r.ym),
+      r.credit.toFixed(2),
+      r.debit.toFixed(2),
+      r.balance.toFixed(2),
+    ]);
+    rows.push(["Total", totalCredit.toFixed(2), totalDebit.toFixed(2), endingBalance.toFixed(2)]);
+    const csv =
+      toCsv([`Monthly summary — ${name}`, rangeLabel], []) +
+      "\r\n\r\n" +
+      toCsv(["Month", "Credit (earned)", "Debit (paid)", "Balance"], rows);
+    try {
+      await auditExport({ therapistId, reportType: "monthly", format: "csv" });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
+    downloadFile(`monthly-summary-${name.replace(/\s+/g, "_")}.csv`, csv);
+    toast({ title: "Monthly summary exported", description: "CSV downloaded." });
+  };
+
+  const exportPrint = async () => {
+    const rowsHtml = visible.map((r) => `
+      <tr>
+        <td>${escapeHtml(monthLabel(r.ym))}</td>
+        <td class="num">${money(r.credit)}</td>
+        <td class="num">${money(r.debit)}</td>
+        <td class="num">${money(r.balance)}</td>
+      </tr>`).join("");
+    const body = `
+      <h1>Monthly Summary — ${escapeHtml(name)}</h1>
+      <div class="muted">${escapeHtml(rangeLabel)} · Generated ${new Date().toLocaleString()}</div>
+      <div class="cards">
+        <div class="card"><div class="label">Total earned (credit)</div><div class="value">${money(totalCredit)}</div></div>
+        <div class="card"><div class="label">Total paid (debit)</div><div class="value">${money(totalDebit)}</div></div>
+        <div class="card"><div class="label">Balance owed</div><div class="value">${money(endingBalance)}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Month</th><th class="num">Credit (earned)</th><th class="num">Debit (paid)</th><th class="num">Balance</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot><tr><td><strong>Total</strong></td><td class="num"><strong>${money(totalCredit)}</strong></td><td class="num"><strong>${money(totalDebit)}</strong></td><td class="num"><strong>${money(endingBalance)}</strong></td></tr></tfoot>
+      </table>
+      <p class="muted" style="margin-top:12px">Positive balance = therapist still owed money. Negative = paid ahead of earnings to date.</p>`;
+    try {
+      await auditExport({ therapistId, reportType: "monthly", format: "pdf" });
+    } catch {
+      toast({ title: "Export blocked", description: "Couldn't record this export in the audit log. Please try again.", variant: "destructive" });
+      return;
+    }
+    const ok = printHtml(`Monthly Summary — ${name}`, body);
+    if (!ok) {
+      toast({ title: "Pop-up blocked", description: "Allow pop-ups to print or save as PDF.", variant: "destructive" });
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading monthly summary…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <p className="text-xs text-gray-500">Total earned (credit)</p>
+            <p className="text-xl font-bold" data-testid="text-summary-credit">{money(totalCredit)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Total paid (debit)</p>
+            <p className="text-xl font-bold" data-testid="text-summary-debit">{money(totalDebit)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Balance owed</p>
+            <p className="text-xl font-bold" data-testid="text-summary-balance">{money(endingBalance)}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={yearFilter} onValueChange={setYearFilter}>
+            <SelectTrigger className="h-9 w-36" data-testid="select-summary-year">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All years</SelectItem>
+              {availableYears.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={exportCsv} disabled={visible.length === 0} data-testid="button-summary-csv">
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={exportPrint} disabled={visible.length === 0} data-testid="button-summary-print">
+            <Printer className="mr-2 h-4 w-4" /> Print / PDF
+          </Button>
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
+            No earnings or payments recorded for this therapist yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Month</TableHead>
+                  <TableHead className="text-right">Credit (earned)</TableHead>
+                  <TableHead className="text-right">Debit (paid)</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((r) => (
+                  <TableRow key={r.ym} data-testid={`summary-row-${r.ym}`}>
+                    <TableCell>{monthLabel(r.ym)}</TableCell>
+                    <TableCell className="text-right">{r.credit ? money(r.credit) : "—"}</TableCell>
+                    <TableCell className="text-right">{r.debit ? money(r.debit) : "—"}</TableCell>
+                    <TableCell className="text-right font-medium">{money(r.balance)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t-2 font-semibold">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-right">{money(totalCredit)}</TableCell>
+                  <TableCell className="text-right">{money(totalDebit)}</TableCell>
+                  <TableCell className="text-right">{money(endingBalance)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <p className="text-xs text-gray-500">
+        Positive balance = therapist still owed money. Negative = paid ahead of earnings to date.
+      </p>
+    </div>
   );
 }
 
