@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import {
   FileText, Upload, Loader2, ArrowLeft, CheckCircle2, Ban, AlertTriangle,
   Check, X, RefreshCw, Link2Off, Search, User as UserIcon, ListChecks, Trash2, Undo2,
-  ChevronsUpDown,
+  ChevronsUpDown, Pencil,
 } from "lucide-react";
 
 type MatchStatus = "unmatched" | "suggested" | "confirmed" | "posted" | "skipped" | "reversed";
@@ -644,6 +644,9 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
   const [rematchBillingId, setRematchBillingId] = useState<Record<number, string>>({});
   const [reverseLineId, setReverseLineId] = useState<number | null>(null);
   const [reverseReason, setReverseReason] = useState("");
+  const [editingLineId, setEditingLineId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDate, setEditDate] = useState("");
 
   const queryKey = [`/api/insurance/statements/${id}`];
   const { data, isLoading } = useQuery<StatementDetail>({ queryKey });
@@ -685,6 +688,27 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
     },
     onError: (err: Error) => {
       toast({ title: "Could not update line", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const editLineMutation = useMutation({
+    mutationFn: async (vars: { lineId: number; clientNameRaw: string; serviceDate: string }) =>
+      apiRequest(`/api/insurance/lines/${vars.lineId}/fields`, "PATCH", {
+        clientNameRaw: vars.clientNameRaw,
+        serviceDate: vars.serviceDate || null,
+      }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/insurance/statements"] });
+      setEditingLineId(null);
+      toast({
+        title: "Line updated",
+        description: "Saved your fix and re-checked for a matching session.",
+      });
+      void vars;
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not save changes", description: err.message, variant: "destructive" });
     },
   });
 
@@ -1007,9 +1031,31 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                 const canEdit = line.matchStatus !== "posted" && statement.status !== "voided";
                 return (
                   <TableRow key={line.id} data-testid={`row-line-${line.id}`}>
-                    <TableCell>{fmtDate(line.serviceDate)}</TableCell>
+                    <TableCell>
+                      {editingLineId === line.id ? (
+                        <Input
+                          type="date"
+                          className="h-7 w-36 text-xs"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          data-testid={`input-edit-date-${line.id}`}
+                        />
+                      ) : (
+                        fmtDate(line.serviceDate)
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-[160px] truncate" title={line.clientNameRaw || ""}>
-                      {line.clientNameRaw || "—"}
+                      {editingLineId === line.id ? (
+                        <Input
+                          className="h-7 w-40 text-xs"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Client name"
+                          data-testid={`input-edit-name-${line.id}`}
+                        />
+                      ) : (
+                        line.clientNameRaw || "—"
+                      )}
                     </TableCell>
                     <TableCell>{line.serviceCode || "—"}</TableCell>
                     <TableCell className="text-right">{money(line.insurancePaidAmount)}</TableCell>
@@ -1159,6 +1205,60 @@ function StatementDetailView({ id, onBack }: { id: number; onBack: () => void })
                               Link
                             </Button>
                           </div>
+                          {line.matchStatus !== "reversed" && (
+                          <div className="flex items-center gap-1">
+                            {editingLineId === line.id ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2"
+                                  disabled={editLineMutation.isPending || !editName.trim()}
+                                  onClick={() =>
+                                    editLineMutation.mutate({
+                                      lineId: line.id,
+                                      clientNameRaw: editName.trim(),
+                                      serviceDate: editDate,
+                                    })
+                                  }
+                                  data-testid={`button-save-edit-${line.id}`}
+                                >
+                                  {editLineMutation.isPending ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5 mr-1" />
+                                  )}
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-muted-foreground"
+                                  disabled={editLineMutation.isPending}
+                                  onClick={() => setEditingLineId(null)}
+                                  data-testid={`button-cancel-edit-${line.id}`}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-muted-foreground"
+                                title="Fix the name or date from the upload, then re-check for a match"
+                                onClick={() => {
+                                  setEditingLineId(line.id);
+                                  setEditName(line.clientNameRaw || "");
+                                  setEditDate((line.serviceDate || "").slice(0, 10));
+                                }}
+                                data-testid={`button-edit-${line.id}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-1" /> Fix name/date
+                              </Button>
+                            )}
+                          </div>
+                          )}
                         </div>
                       ) : line.matchStatus === "posted" ? (
                         <div className="flex flex-col items-end gap-1">

@@ -13373,6 +13373,42 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Correct the raw parsed name/date on a line (fix an upload/OCR error), then
+  // auto re-run matching. Only the statement line is changed; the underlying
+  // session is never touched. HIPAA-audited.
+  app.patch("/api/insurance/lines/:id/fields", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid line ID" });
+      const { clientNameRaw, serviceDate } = req.body || {};
+      const fields: { clientNameRaw?: string | null; serviceDate?: string | null } = {};
+      if (clientNameRaw !== undefined) fields.clientNameRaw = clientNameRaw === null ? null : String(clientNameRaw);
+      if (serviceDate !== undefined) fields.serviceDate = serviceDate === null ? null : String(serviceDate);
+      if (fields.clientNameRaw === undefined && fields.serviceDate === undefined) {
+        return res.status(400).json({ message: "Nothing to update" });
+      }
+
+      // The storage method writes the edit, re-runs matching, and records the
+      // HIPAA audit row in one transaction (all-or-nothing).
+      const updated = await storage.editStatementLineFields(id, fields, {
+        userId: req.user!.id,
+        username: req.user!.username,
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      });
+
+      const detail = await storage.getInsuranceStatementById(updated.statementId);
+      res.json(detail ?? updated);
+    } catch (error: any) {
+      const msg = error?.message || "Internal server error";
+      if (msg.includes('not found')) return res.status(404).json({ message: msg });
+      if (msg.includes('Cannot edit') || msg.includes('cannot be empty') || msg.includes('date')) {
+        return res.status(400).json({ message: msg });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Reverse a SINGLE posted line without voiding the whole statement. Undoes
   // just that one line's insurance payment and marks it 'reversed'; the rest of
   // the statement stays posted.

@@ -561,6 +561,14 @@ export interface IStorage {
       matchedSessionBillingId?: number | null;
     },
   ): Promise<InsuranceStatementLine>;
+  // Correct the raw parsed fields on a line (fix an upload/OCR error in the
+  // client name or service date), then automatically re-run matching so a
+  // corrected line can find its session. Never allowed on posted/voided lines.
+  editStatementLineFields(
+    lineId: number,
+    fields: { clientNameRaw?: string | null; serviceDate?: string | null },
+    audit: { userId: number; username: string | null; ipAddress?: string | null; userAgent?: string | null },
+  ): Promise<InsuranceStatementLine>;
   // Record an insurance payment for every confirmed line. Idempotent: lines
   // already posted are skipped, so a retry after a partial failure is safe.
   postInsuranceStatement(
@@ -6150,6 +6158,117 @@ export class DatabaseStorage implements IStorage {
       .where(eq(insuranceStatementLines.id, lineId))
       .returning();
     return updated;
+  }
+
+  async editStatementLineFields(
+    lineId: number,
+    fields: { clientNameRaw?: string | null; serviceDate?: string | null },
+    audit: { userId: number; username: string | null; ipAddress?: string | null; userAgent?: string | null },
+  ): Promise<InsuranceStatementLine> {
+    const [existing] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    if (!existing) throw new Error('Statement line not found');
+    if (existing.matchStatus === 'posted') {
+      throw new Error('Cannot edit a line that has already been posted. Void the statement first.');
+    }
+    // A reversed line represents money that was already posted and then undone;
+    // it is terminal. Re-editing + auto-rematching it could resurrect a path to
+    // re-posting, so treat it as locked (mirrors the posted lock).
+    if (existing.matchStatus === 'reversed') {
+      throw new Error('Cannot edit a reversed line.');
+    }
+    const [parent] = await db
+      .select({ status: insuranceStatements.status })
+      .from(insuranceStatements)
+      .where(eq(insuranceStatements.id, existing.statementId))
+      .limit(1);
+    if (parent?.status === 'voided') {
+      throw new Error('Cannot edit a line on a voided statement.');
+    }
+
+    const setData: any = {};
+    if (fields.clientNameRaw !== undefined) {
+      const name = (fields.clientNameRaw ?? '').trim();
+      if (!name) throw new Error('Client name cannot be empty.');
+      setData.clientNameRaw = name;
+    }
+    if (fields.serviceDate !== undefined) {
+      if (fields.serviceDate === null || fields.serviceDate === '') {
+        setData.serviceDate = null;
+      } else {
+        // Require a real calendar date. A regex alone accepts Feb 30 / month 13;
+        // round-trip the parsed Y/M/D through Date.UTC to reject rollovers.
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fields.serviceDate);
+        if (!m) throw new Error('Service date must be a valid date (YYYY-MM-DD).');
+        const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        const dt = new Date(Date.UTC(y, mo - 1, d));
+        if (
+          dt.getUTCFullYear() !== y ||
+          dt.getUTCMonth() !== mo - 1 ||
+          dt.getUTCDate() !== d
+        ) {
+          throw new Error('Service date is not a real calendar date.');
+        }
+        setData.serviceDate = fields.serviceDate;
+      }
+    }
+    if (Object.keys(setData).length === 0) return existing;
+
+    // Fields that drive matching changed, so re-run the matcher for this one
+    // line: a corrected name/date can now find its session. Compute the match
+    // BEFORE opening the write transaction (findBillingMatchForLine only reads,
+    // and only needs the edited fields) so the transaction holds a single
+    // connection. Mirrors autoMatchStatementLines (suggested on a hit,
+    // unmatched otherwise) and clears any stale prior match/skip.
+    const projected = { ...existing, ...setData } as typeof existing;
+    const match = await this.findBillingMatchForLine(projected);
+    const matchData = match
+      ? {
+          matchedSessionBillingId: match.billingId,
+          matchedSessionId: match.sessionId,
+          matchedClientId: match.clientId,
+          matchStatus: 'suggested' as const,
+          matchConfidence: match.confidence,
+        }
+      : {
+          matchedSessionBillingId: null,
+          matchedSessionId: null,
+          matchedClientId: null,
+          matchStatus: 'unmatched' as const,
+          matchConfidence: null,
+        };
+
+    // The field write, the re-match write, and the HIPAA audit record must be
+    // all-or-nothing: an edit must never commit without its audit row (and vice
+    // versa). Do them in one transaction.
+    const [rematched] = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(insuranceStatementLines)
+        .set({ ...setData, ...matchData })
+        .where(eq(insuranceStatementLines.id, lineId))
+        .returning();
+      await tx.insert(auditLogs).values({
+        userId: audit.userId,
+        username: audit.username,
+        action: 'insurance_statement_line_edited',
+        result: 'success',
+        resourceType: 'insurance_statement_line',
+        resourceId: String(lineId),
+        details: JSON.stringify({
+          statementId: existing.statementId,
+          clientNameRaw: setData.clientNameRaw ?? undefined,
+          serviceDate: 'serviceDate' in setData ? setData.serviceDate : undefined,
+          newMatchStatus: matchData.matchStatus,
+        }),
+        ipAddress: audit.ipAddress ?? null,
+        userAgent: audit.userAgent ?? null,
+      });
+      return [row];
+    });
+    return rematched;
   }
 
   async postInsuranceStatement(
