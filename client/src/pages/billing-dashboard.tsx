@@ -108,6 +108,8 @@ interface PaymentDialogProps {
 }
 
 function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: PaymentDialogProps) {
+  // For the "Void via statement" deep link on statement-sourced payments.
+  const [, setLocation] = useLocation();
   const today = new Date().toISOString().split('T')[0];
 
   // Client payment fields
@@ -637,14 +639,24 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                           </button>
                         )}
                         {!voided && (tx.sourceStatementId || tx.sourceStatementLineId) && (
-                          <span
-                            className="text-[10px] text-slate-400 dark:text-slate-500 italic"
-                            title={tx.sourceStatementId
-                              ? `This payment came from insurance statement #${tx.sourceStatementId}. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`
-                              : `This payment came from an insurance statement. To reverse it, void or reverse that statement from the Insurance Statements page so the statement and invoice stay in agreement.`}
-                          >
-                            Reverse via statement
-                          </span>
+                          tx.sourceStatementId ? (
+                            <button
+                              type="button"
+                              onClick={() => setLocation(`/insurance-reconciliation?statement=${tx.sourceStatementId}`)}
+                              className="text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950 transition-colors"
+                              data-testid={`void-via-statement-${tx.id}`}
+                              title={`This payment was posted from insurance statement #${tx.sourceStatementId}, so it can't be voided here — void it on the statement so the statement and invoice stay in agreement. This button takes you straight there.`}
+                            >
+                              Void via statement →
+                            </button>
+                          ) : (
+                            <span
+                              className="text-[10px] text-slate-400 dark:text-slate-500 italic"
+                              title="This payment came from an insurance statement. To reverse it, void that statement on the Insurance page so the statement and invoice stay in agreement."
+                            >
+                              Reverse via statement
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

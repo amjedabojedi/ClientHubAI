@@ -254,7 +254,14 @@ function matchBadge(line: StatementLine) {
 }
 
 export default function InsuranceReconciliationPage() {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Deep link support: "Reverse via statement" buttons elsewhere in the app
+  // link to /insurance-reconciliation?statement=<id> to open that statement
+  // directly, so the user lands on the exact thing they need to void.
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    const raw = new URLSearchParams(window.location.search).get("statement");
+    const n = Number(raw);
+    return raw && Number.isInteger(n) && n > 0 ? n : null;
+  });
 
   if (selectedId !== null) {
     return <StatementDetailView id={selectedId} onBack={() => setSelectedId(null)} />;
