@@ -51,7 +51,8 @@ export class AzureBlobStorage {
   }
 
   /**
-   * Create container if it doesn't exist
+   * Create container if it doesn't exist (private — no public blob access).
+   * Downloads must go through authenticated backend routes that stream via downloadFile().
    */
   async ensureContainer(): Promise<void> {
     if (!this.isConfigured || !this.containerClient) {
@@ -59,9 +60,9 @@ export class AzureBlobStorage {
     }
     
     try {
-      await this.containerClient.createIfNotExists({
-        access: 'blob' // Blob-level access for security
-      });
+      // Omit access option so the container stays private. Public blob access is
+      // disabled on the storage account (and must stay disabled for PHI).
+      await this.containerClient.createIfNotExists();
     } catch (error) {
       throw new Error(`Failed to create container: ${error}`);
     }
