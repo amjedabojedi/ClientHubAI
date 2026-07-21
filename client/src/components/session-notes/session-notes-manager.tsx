@@ -622,12 +622,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       toast({ title: "AI content generated! Scroll down to see formatted content in the editor." });
     },
     onError: (error: any) => {
-
       setIsGeneratingAI(false);
-      toast({ 
-        title: "Failed to generate AI template", 
-        description: error.message || "Please check your OpenAI API key configuration",
-        variant: "destructive" 
+      toast({
+        title: "Couldn't generate note",
+        description:
+          error?.message ||
+          "AI note generation failed. Please try again, or ask your practice admin if this keeps happening.",
+        variant: "destructive",
       });
     },
   });

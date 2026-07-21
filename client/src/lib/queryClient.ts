@@ -18,13 +18,16 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // Try to parse as JSON and extract clean message + code
+    // Try to parse as JSON and extract clean message + code.
+    // Many API routes return `{ message }`; older AI routes used `{ error }`.
     let errorMessage: string | null = null;
     let errorCode: string | undefined = undefined;
     try {
       const json = JSON.parse(text);
-      if (json.message) {
+      if (typeof json.message === "string" && json.message.trim()) {
         errorMessage = json.message;
+      } else if (typeof json.error === "string" && json.error.trim()) {
+        errorMessage = json.error;
       }
       if (json.code) {
         errorCode = json.code;

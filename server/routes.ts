@@ -22,7 +22,7 @@ import { storage, type TaskQueryParams } from "./storage";
 import { buildTherapistCalendar } from "./ics-service";
 import { clientInitials } from "@shared/privacy";
 // Auth will be implemented later, for now removing to test audit logging
-import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio, toAiServiceError, AiServiceError } from "./ai/openai";
 import { parseInsuranceUpload } from "./insurance/parse";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
@@ -8638,11 +8638,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const { clientId, sessionId, formData, customInstructions } = req.body;
       
       if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        return res.status(503).json({ error: "AI features not available. Please configure OPENAI_API_KEY." });
+        return res.status(503).json({
+          message: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          error: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          code: "AI_NOT_CONFIGURED",
+        });
       }
       
       if (!customInstructions) {
-        return res.status(400).json({ error: "Custom instructions are required" });
+        return res.status(400).json({
+          message: "Please create or select an AI template before generating the final note.",
+          error: "Please create or select an AI template before generating the final note.",
+          code: "TEMPLATE_REQUIRED",
+        });
       }
       
       // GDPR: Check AI processing consent before generating content
@@ -8669,7 +8677,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
           accessReason: 'AI processing attempted without consent'
         });
         
-        return res.status(403).json({ error: consentCheck.message });
+        return res.status(403).json({
+          message: consentCheck.message,
+          error: consentCheck.message,
+          code: "AI_CONSENT_REQUIRED",
+        });
       }
       
       // Get client and session data
@@ -8681,7 +8693,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       // If session requested but not found in filtered results, return error
       if (sessionId && !sessionData) {
-        return res.status(404).json({ error: "Session not found" });
+        return res.status(404).json({
+          message: "Session not found for this client. Refresh the page and select the session again.",
+          error: "Session not found for this client. Refresh the page and select the session again.",
+          code: "SESSION_NOT_FOUND",
+        });
       }
       
       const { generateAITemplate } = await import("./ai/openai");
@@ -8689,7 +8705,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "Failed to generate AI template: " + (error instanceof Error ? error.message : 'Unknown error') });
+      console.error("[AI] /api/ai/generate-template failed:", error);
+      const mapped = error instanceof AiServiceError
+        ? error
+        : toAiServiceError(
+            error,
+            "Could not generate the session note. Please try again, or contact your practice admin if this keeps happening.",
+          );
+      return res.status(mapped.status).json({
+        message: mapped.message,
+        error: mapped.message,
+        code: mapped.code,
+      });
     }
   });
 
@@ -8708,14 +8735,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const { templateId, field, context } = req.body;
       
       if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        return res.status(503).json({ error: "AI features not available" });
+        return res.status(503).json({
+          message: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          error: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          code: "AI_NOT_CONFIGURED",
+        });
       }
       
       const { generateFromTemplate } = await import("./ai/openai");
       const content = await generateFromTemplate(templateId, field, context);
       res.json({ content });
     } catch (error) {
-      res.status(500).json({ error: "Failed to generate from template" });
+      console.error("[AI] /api/ai/generate-from-template failed:", error);
+      const mapped = toAiServiceError(
+        error,
+        "Could not generate that field. Please try again, or contact your practice admin if this keeps happening.",
+      );
+      return res.status(mapped.status).json({
+        message: mapped.message,
+        error: mapped.message,
+        code: mapped.code,
+      });
     }
   });
 
@@ -8887,12 +8927,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const { customPrompt } = req.body;
       
       if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        return res.status(503).json({ error: "AI features not available" });
+        return res.status(503).json({
+          message: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          error: "AI note generation is not configured. Please ask your practice admin to set OPENAI_API_KEY.",
+          code: "AI_NOT_CONFIGURED",
+        });
       }
-      
+
       const sessionNote = await storage.getSessionNote(sessionNoteId);
       if (!sessionNote) {
-        return res.status(404).json({ error: "Session note not found" });
+        return res.status(404).json({
+          message: "Session note not found. Refresh the page and try again.",
+          error: "Session note not found. Refresh the page and try again.",
+          code: "NOTE_NOT_FOUND",
+        });
       }
       
       // GDPR: Check AI processing consent before regenerating content
@@ -8922,7 +8970,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
             accessReason: 'AI processing attempted without consent'
           });
           
-          return res.status(403).json({ error: consentCheck.message });
+          return res.status(403).json({
+            message: consentCheck.message,
+            error: consentCheck.message,
+            code: "AI_CONSENT_REQUIRED",
+          });
         }
       }
       
@@ -8953,8 +9005,23 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       res.json({ content: aiContent.generatedContent, sessionNote: updatedNote });
     } catch (error) {
-      await storage.updateSessionNote(parseInt(req.params.sessionNoteId), { aiProcessingStatus: 'error' });
-      res.status(500).json({ error: "Failed to regenerate AI content" });
+      try {
+        await storage.updateSessionNote(parseInt(req.params.sessionNoteId), { aiProcessingStatus: 'error' });
+      } catch (updateError) {
+        console.error("[AI] Failed to mark session note AI status as error:", updateError);
+      }
+      console.error("[AI] /api/ai/regenerate-content failed:", error);
+      const mapped = error instanceof AiServiceError
+        ? error
+        : toAiServiceError(
+            error,
+            "Could not regenerate the session note. Please try again, or contact your practice admin if this keeps happening.",
+          );
+      return res.status(mapped.status).json({
+        message: mapped.message,
+        error: mapped.message,
+        code: mapped.code,
+      });
     }
   });
 

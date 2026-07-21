@@ -124,7 +124,7 @@ export async function checkAIProcessingConsent(clientId: number): Promise<{ hasC
     if (aiConsents.length === 0) {
       return {
         hasConsent: false,
-        message: 'AI processing consent has not been granted. Please update your privacy settings in the client portal.'
+        message: 'This client has not granted AI processing consent. Ask them to enable it in Client Portal → Privacy, then try again.'
       };
     }
 
@@ -137,7 +137,7 @@ export async function checkAIProcessingConsent(clientId: number): Promise<{ hasC
     if (!latestConsent.granted || latestConsent.withdrawnAt) {
       return {
         hasConsent: false,
-        message: 'AI processing consent has been withdrawn. To use AI features, please grant consent in your privacy settings.'
+        message: 'This client has withdrawn AI processing consent. Ask them to re-enable it in Client Portal → Privacy before generating AI notes.'
       };
     }
 

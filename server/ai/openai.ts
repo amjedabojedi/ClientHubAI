@@ -6,6 +6,9 @@ import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { toAiServiceError } from "./ai-errors";
+
+export { AiServiceError, toAiServiceError } from "./ai-errors";
 
 const execAsync = promisify(exec);
 
@@ -473,7 +476,11 @@ Generate a complete session note template that can be used directly for clinical
       generatedContent
     };
   } catch (error) {
-    throw new Error("Failed to generate AI template: " + (error as Error).message);
+    console.error("[AI] generateAITemplate failed:", error);
+    throw toAiServiceError(
+      error,
+      "Could not generate the session note. Please try again, or contact your practice admin if this keeps happening.",
+    );
   }
 }
 
