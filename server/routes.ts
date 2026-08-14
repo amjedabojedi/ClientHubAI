@@ -12592,15 +12592,38 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Validate an optional pay-period label (both-or-neither, real calendar
+  // dates, start <= end). Returns nulls when omitted so storage derives the
+  // period from the covered sessions.
+  function validatePayPeriod(periodStart: any, periodEnd: any):
+    | { ok: true; start: string | null; end: string | null }
+    | { ok: false; message: string } {
+    const isYmd = (v: any) => {
+      if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+      const [y, m, d] = v.split('-').map(Number);
+      const t = new Date(Date.UTC(y, m - 1, d));
+      return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+    };
+    const hasStart = periodStart != null && periodStart !== '';
+    const hasEnd = periodEnd != null && periodEnd !== '';
+    if (!hasStart && !hasEnd) return { ok: true, start: null, end: null };
+    if (!hasStart || !hasEnd) return { ok: false, message: "Provide both period start and end (or neither)" };
+    if (!isYmd(periodStart) || !isYmd(periodEnd)) return { ok: false, message: "Invalid period dates" };
+    if (periodStart > periodEnd) return { ok: false, message: "Period start must be on or before period end" };
+    return { ok: true, start: periodStart, end: periodEnd };
+  }
+
   // Record a payout for selected owed sessions.
   app.post("/api/therapist-pay/payouts", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
     try {
-      const { therapistId, paymentDate, paymentMethod, referenceNumber, notes, sessionBillingIds } = req.body || {};
+      const { therapistId, paymentDate, paymentMethod, referenceNumber, notes, sessionBillingIds, periodStart, periodEnd } = req.body || {};
       const tId = parseInt(String(therapistId));
       if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
       if (!paymentDate || typeof paymentDate !== 'string') {
         return res.status(400).json({ message: "paymentDate is required" });
       }
+      const period = validatePayPeriod(periodStart, periodEnd);
+      if (!period.ok) return res.status(400).json({ message: period.message });
       if (!Array.isArray(sessionBillingIds) || sessionBillingIds.length === 0) {
         return res.status(400).json({ message: "Select at least one session to pay" });
       }
@@ -12615,6 +12638,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         notes: notes || null,
         sessionBillingIds: ids,
         createdBy: req.user!.id,
+        periodStart: period.start,
+        periodEnd: period.end,
       });
 
       await db.insert(auditLogs).values({
@@ -12743,10 +12768,23 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Period reconciliation: earned vs paid per pay-period label, so late
+  // payments still settle against the service period they cover.
+  app.get("/api/therapist-pay/period-reconciliation/:therapistId", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      if (isNaN(therapistId)) return res.status(400).json({ message: "Invalid therapist ID" });
+      const recon = await storage.getTherapistPeriodReconciliation(therapistId);
+      res.json(recon);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Record a single lump payment, auto-applied oldest-first to outstanding earnings.
   app.post("/api/therapist-pay/lump-payment", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
     try {
-      const { therapistId, amount, paymentDate, paymentMethod, referenceNumber, notes } = req.body || {};
+      const { therapistId, amount, paymentDate, paymentMethod, referenceNumber, notes, periodStart, periodEnd } = req.body || {};
       const tId = parseInt(String(therapistId));
       if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
       const amt = Math.round(Number(amount) * 100) / 100;
@@ -12754,6 +12792,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (!paymentDate || typeof paymentDate !== 'string') {
         return res.status(400).json({ message: "paymentDate is required" });
       }
+      const period = validatePayPeriod(periodStart, periodEnd);
+      if (!period.ok) return res.status(400).json({ message: period.message });
 
       const payout = await storage.createTherapistLumpPayment({
         therapistId: tId,
@@ -12763,6 +12803,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         referenceNumber: referenceNumber || null,
         notes: notes || null,
         createdBy: req.user!.id,
+        periodStart: period.start,
+        periodEnd: period.end,
       });
 
       await db.insert(auditLogs).values({

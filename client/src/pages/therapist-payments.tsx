@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -78,6 +78,8 @@ interface StatementEntry {
   payoutId?: number;
   sessionId?: number;
   adjustmentId?: number;
+  periodStart?: string | null;
+  periodEnd?: string | null;
 }
 interface AdjustmentRow {
   id: number;
@@ -161,6 +163,8 @@ interface PayoutSummary {
   therapistName: string;
   totalAmount: string;
   paymentDate: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
   paymentMethod: string | null;
   referenceNumber: string | null;
   notes: string | null;
@@ -496,6 +500,9 @@ export default function TherapistPaymentsPage() {
             <TabsTrigger value="summary" data-testid="tab-summary">
               <CalendarRange className="mr-2 h-4 w-4" /> Monthly Summary
             </TabsTrigger>
+            <TabsTrigger value="periods" data-testid="tab-periods">
+              <CalendarRange className="mr-2 h-4 w-4" /> Pay Periods
+            </TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">
               <History className="mr-2 h-4 w-4" /> Payout History
             </TabsTrigger>
@@ -515,6 +522,9 @@ export default function TherapistPaymentsPage() {
           </TabsContent>
           <TabsContent value="summary" className="mt-4">
             <MonthlySummaryTab key={`summary-${therapistId}`} therapistId={therapistId} therapistName={selectedTherapist?.fullName || ""} toast={toast} />
+          </TabsContent>
+          <TabsContent value="periods" className="mt-4">
+            <PeriodReconTab key={`periods-${therapistId}`} therapistId={therapistId} />
           </TabsContent>
           <TabsContent value="history" className="mt-4">
             <HistoryTab therapistId={therapistId} toast={toast} />
@@ -1044,6 +1054,18 @@ function RecordPayoutDialog({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
+  // Pay period covered by this payment: pre-filled from the selected sessions
+  // (earliest..latest service date) so a late payment still reconciles against
+  // the right service window. Editable in case the practice uses fixed periods.
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    const dates = items.map((i) => ymd(i.sessionDate)).filter(Boolean).sort();
+    setPeriodStart(dates[0] || "");
+    setPeriodEnd(dates[dates.length - 1] || "");
+  }, [open, items]);
+  const periodInvalid = (!!periodStart !== !!periodEnd) || (!!periodStart && !!periodEnd && periodStart > periodEnd);
 
   const create = useMutation({
     mutationFn: () =>
@@ -1054,6 +1076,8 @@ function RecordPayoutDialog({
         referenceNumber: referenceNumber || null,
         notes: notes || null,
         sessionBillingIds: items.map((i) => i.sessionBillingId),
+        periodStart: periodStart || null,
+        periodEnd: periodEnd || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
@@ -1082,6 +1106,18 @@ function RecordPayoutDialog({
             <Input id="paymentDate" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} data-testid="input-payment-date" />
           </div>
           <div>
+            <Label>Service period covered</Label>
+            <div className="flex items-center gap-2">
+              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} data-testid="input-period-start" />
+              <span className="text-sm text-gray-500">to</span>
+              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} data-testid="input-period-end" />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Pre-filled from the selected sessions. Used to reconcile this payment against the service period, even if paid later.
+            </p>
+            {periodInvalid && <p className="mt-1 text-xs text-red-600">Enter both dates, with the start on or before the end.</p>}
+          </div>
+          <div>
             <Label htmlFor="paymentMethod">Method (optional)</Label>
             <Input id="paymentMethod" placeholder="e.g. Bank transfer, Check" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} data-testid="input-payment-method" />
           </div>
@@ -1097,13 +1133,119 @@ function RecordPayoutDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>Cancel</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || !paymentDate || items.length === 0} data-testid="button-confirm-payout">
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !paymentDate || items.length === 0 || periodInvalid} data-testid="button-confirm-payout">
             {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Confirm payout
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* --------------------------- Pay Periods --------------------------- */
+
+interface PeriodReconRow {
+  periodStart: string;
+  periodEnd: string;
+  earnedInPeriod: number;
+  paidForPeriod: number;
+  remaining: number;
+  closed: boolean;
+  payoutCount: number;
+  lastPaymentDate: string | null;
+}
+interface PeriodReconResponse {
+  therapistId: number;
+  therapistName: string;
+  periods: PeriodReconRow[];
+  unlabeledPayments: { payoutId: number; paymentDate: string; totalAmount: number }[];
+}
+
+// Reconciles each pay period (service window) against the payments labeled to
+// it, regardless of when the money actually moved — so a period paid two weeks
+// late still shows as closed under ITS OWN dates.
+function PeriodReconTab({ therapistId }: { therapistId: number }) {
+  const { data, isLoading } = useQuery<PeriodReconResponse>({
+    queryKey: ["/api/therapist-pay/period-reconciliation", therapistId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/therapist-pay/period-reconciliation/${therapistId}`, "GET");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading pay periods…</div>;
+  }
+  if (!data) return null;
+
+  if (data.periods.length === 0 && data.unlabeledPayments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-gray-500">
+          <CalendarRange className="mx-auto mb-3 h-10 w-10 opacity-40" />
+          No payments recorded yet, so there are no pay periods to reconcile.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500">
+        Each row is a service period a payment declared it covers. "Earned" counts sessions dated inside the period;
+        "Paid" counts the payments labeled with it — even when the money moved weeks later.
+      </p>
+      {data.unlabeledPayments.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>
+            {data.unlabeledPayments.length} payment{data.unlabeledPayments.length === 1 ? "" : "s"} (totaling{" "}
+            {money(data.unlabeledPayments.reduce((s, u) => s + u.totalAmount, 0))}) have no period label and are not
+            counted in any row below.
+          </span>
+        </div>
+      )}
+      {data.periods.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Service period</TableHead>
+                  <TableHead className="text-right">Earned in period</TableHead>
+                  <TableHead className="text-right">Paid for period</TableHead>
+                  <TableHead className="text-right">Remaining</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last payment</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.periods.map((p, idx) => (
+                  <TableRow key={`${p.periodStart}-${p.periodEnd}`} data-testid={`period-row-${idx}`}>
+                    <TableCell className="font-medium">{fmtDate(p.periodStart)} – {fmtDate(p.periodEnd)}</TableCell>
+                    <TableCell className="text-right">{money(p.earnedInPeriod)}</TableCell>
+                    <TableCell className="text-right">{money(p.paidForPeriod)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {p.remaining > 0 ? money(p.remaining) : p.remaining < 0 ? `(${money(-p.remaining)}) over` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {p.closed
+                        ? <Badge variant="secondary">Closed</Badge>
+                        : <Badge variant="destructive">Open</Badge>}
+                    </TableCell>
+                    <TableCell className="text-xs text-gray-500">
+                      {p.lastPaymentDate ? fmtDate(p.lastPaymentDate) : "—"}
+                      {p.payoutCount > 1 ? ` · ${p.payoutCount} payments` : ""}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -1161,6 +1303,11 @@ function HistoryTab({ therapistId, toast }: { therapistId: number; toast: Return
                     {p.paymentMethod ? ` · ${p.paymentMethod}` : ""}
                     {p.referenceNumber ? ` · ${p.referenceNumber}` : ""}
                   </div>
+                  {p.periodStart && p.periodEnd && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400" data-testid={`payout-period-${p.id}`}>
+                      Covers {fmtDate(p.periodStart)} – {fmtDate(p.periodEnd)}
+                    </div>
+                  )}
                 </div>
               </button>
               {p.status !== "voided" && (
@@ -1502,7 +1649,14 @@ function StatementTab({
                         ? <Badge variant="destructive">Adjustment</Badge>
                         : <Badge variant="secondary">Payment</Badge>}
                     </TableCell>
-                    <TableCell>{e.description}</TableCell>
+                    <TableCell>
+                      {e.description}
+                      {e.type === "payment" && e.periodStart && e.periodEnd && (
+                        <span className="block text-xs text-blue-600 dark:text-blue-400">
+                          Covers {fmtDate(e.periodStart)} – {fmtDate(e.periodEnd)}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{e.earned ? money(e.earned) : "—"}</TableCell>
                     <TableCell className="text-right">{e.paid ? money(e.paid) : "—"}</TableCell>
                     <TableCell className="text-right font-medium">{money(e.runningBalance)}</TableCell>
@@ -1741,9 +1895,15 @@ function LumpPaymentDialog({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
+  // Optional pay-period label. Left blank, the server derives it from the
+  // sessions the money actually gets applied to (oldest-first).
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const periodInvalid = (!!periodStart !== !!periodEnd) || (!!periodStart && !!periodEnd && periodStart > periodEnd);
 
   const reset = () => {
     setAmount(""); setPaymentDate(today); setPaymentMethod(""); setReferenceNumber(""); setNotes("");
+    setPeriodStart(""); setPeriodEnd("");
   };
 
   const amt = Number(amount);
@@ -1758,6 +1918,8 @@ function LumpPaymentDialog({
         paymentMethod: paymentMethod || null,
         referenceNumber: referenceNumber || null,
         notes: notes || null,
+        periodStart: periodStart || null,
+        periodEnd: periodEnd || null,
       }),
     onSuccess: async (res) => {
       const payout = await res.json();
@@ -1801,6 +1963,18 @@ function LumpPaymentDialog({
             <Input id="lumpDate" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} data-testid="input-lump-date" />
           </div>
           <div>
+            <Label>Service period covered (optional)</Label>
+            <div className="flex items-center gap-2">
+              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} data-testid="input-lump-period-start" />
+              <span className="text-sm text-gray-500">to</span>
+              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} data-testid="input-lump-period-end" />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Leave blank to fill it automatically from the sessions this payment covers.
+            </p>
+            {periodInvalid && <p className="mt-1 text-xs text-red-600">Enter both dates, with the start on or before the end.</p>}
+          </div>
+          <div>
             <Label htmlFor="lumpMethod">Method (optional)</Label>
             <Input id="lumpMethod" placeholder="e.g. Bank transfer, Check" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} data-testid="input-lump-method" />
           </div>
@@ -1816,7 +1990,7 @@ function LumpPaymentDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={create.isPending}>Cancel</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || !validAmount || !paymentDate} data-testid="button-confirm-lump">
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !validAmount || !paymentDate || periodInvalid} data-testid="button-confirm-lump">
             {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Record payment
           </Button>

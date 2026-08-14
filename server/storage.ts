@@ -3,7 +3,7 @@ import { db } from "./db";
 import { eq, ne, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
 import { normalizePhoneE164 } from "@shared/phone";
 import { isDuplicateInsuranceAmount } from "@shared/insurance";
-import { PRACTICE_TIMEZONE } from "./practiceTime";
+import { PRACTICE_TIMEZONE, utcToLocalDateString } from "./practiceTime";
 
 // Database Schema - Tables
 import { 
@@ -274,6 +274,28 @@ export type SessionQueryResult = {
 // resolved pay rule and computed earnings. `payType` is null when no rule
 // (specific or default) applies — such items are surfaced but excluded from
 // the payable total so nothing is paid by accident.
+// Derive a pay-period label (earliest..latest service date, YYYY-MM-DD in the
+// practice timezone) from the session dates a payment covers. Date-only strings
+// pass through untouched; Date instants are formatted in PRACTICE_TIMEZONE so a
+// late-evening UTC timestamp doesn't shift to the next calendar day.
+export function derivePeriodFromDates(
+  dates: (Date | string | null | undefined)[],
+): { start: string | null; end: string | null } {
+  const ymds: string[] = [];
+  for (const d of dates) {
+    if (!d) continue;
+    if (typeof d === 'string') {
+      const s = d.slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) ymds.push(s);
+    } else {
+      ymds.push(utcToLocalDateString(d));
+    }
+  }
+  if (ymds.length === 0) return { start: null, end: null };
+  ymds.sort();
+  return { start: ymds[0], end: ymds[ymds.length - 1] };
+}
+
 export interface TherapistOwedItem {
   sessionBillingId: number;
   sessionId: number;
@@ -332,6 +354,31 @@ export interface TherapistStatementEntry {
   sessionId?: number;
   // Set on manual bonus/deduction lines so the UI can offer a "void" action.
   adjustmentId?: number;
+  // On payment lines: the service period this payment covers (pay period label).
+  periodStart?: string | null;
+  periodEnd?: string | null;
+}
+
+// One row per pay period in the period reconciliation report: how much was
+// earned for services inside the period vs how much was paid AGAINST that
+// period (by period label), regardless of when the money actually moved.
+export interface TherapistPeriodReconRow {
+  periodStart: string; // YYYY-MM-DD
+  periodEnd: string;   // YYYY-MM-DD
+  earnedInPeriod: number;    // net earnings attributed to session dates in range
+  paidForPeriod: number;     // sum of non-voided payouts labeled with this period
+  remaining: number;         // earned - paid (positive = still open)
+  closed: boolean;           // remaining <= 0 (period fully settled)
+  payoutCount: number;
+  lastPaymentDate: string | null;
+}
+
+export interface TherapistPeriodRecon {
+  therapistId: number;
+  therapistName: string;
+  periods: TherapistPeriodReconRow[];
+  // Payments with no period label (should be empty after backfill).
+  unlabeledPayments: { payoutId: number; paymentDate: string; totalAmount: number }[];
 }
 
 // A manual, non-session ledger item (bonus or deduction) shown in the
@@ -4578,6 +4625,8 @@ export class DatabaseStorage implements IStorage {
     notes?: string | null;
     sessionBillingIds: number[];
     createdBy: number;
+    periodStart?: string | null;
+    periodEnd?: string | null;
   }): Promise<TherapistPayout & { allocations: TherapistPayoutAllocationDetail[] }> {
     // Ensure the persistent (audited) earning ledger is up to date before paying
     // against it. Uses a distinct advisory lock from the payout lock below, so
@@ -4609,12 +4658,20 @@ export class DatabaseStorage implements IStorage {
       // remaining === earned, so this behaves exactly like before.
       const total = Math.round(selected.reduce((s, i) => s + i.amountRemaining, 0) * 100) / 100;
 
+      // Pay-period label: use the caller-provided period when given, otherwise
+      // derive it from the covered sessions (earliest..latest session date).
+      const derived = derivePeriodFromDates(selected.map((i) => i.sessionDate));
+      const periodStart = input.periodStart ?? derived.start;
+      const periodEnd = input.periodEnd ?? derived.end;
+
       const [payout] = await tx
         .insert(therapistPayouts)
         .values({
           therapistId: input.therapistId,
           totalAmount: total.toString(),
           paymentDate: input.paymentDate,
+          periodStart,
+          periodEnd,
           paymentMethod: input.paymentMethod ?? null,
           referenceNumber: input.referenceNumber ?? null,
           notes: input.notes ?? null,
@@ -4657,6 +4714,8 @@ export class DatabaseStorage implements IStorage {
         therapistId: therapistPayouts.therapistId,
         totalAmount: therapistPayouts.totalAmount,
         paymentDate: therapistPayouts.paymentDate,
+        periodStart: therapistPayouts.periodStart,
+        periodEnd: therapistPayouts.periodEnd,
         paymentMethod: therapistPayouts.paymentMethod,
         referenceNumber: therapistPayouts.referenceNumber,
         notes: therapistPayouts.notes,
@@ -4703,6 +4762,8 @@ export class DatabaseStorage implements IStorage {
         therapistId: therapistPayouts.therapistId,
         totalAmount: therapistPayouts.totalAmount,
         paymentDate: therapistPayouts.paymentDate,
+        periodStart: therapistPayouts.periodStart,
+        periodEnd: therapistPayouts.periodEnd,
         paymentMethod: therapistPayouts.paymentMethod,
         referenceNumber: therapistPayouts.referenceNumber,
         notes: therapistPayouts.notes,
@@ -4876,6 +4937,8 @@ export class DatabaseStorage implements IStorage {
     referenceNumber?: string | null;
     notes?: string | null;
     createdBy: number;
+    periodStart?: string | null;
+    periodEnd?: string | null;
   }): Promise<TherapistPayout & { appliedAmount: number; unappliedAmount: number; allocationCount: number; allocations: TherapistPayoutAllocationDetail[] }> {
     const amount = Math.round(Number(input.amount) * 100) / 100;
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero');
@@ -4933,12 +4996,20 @@ export class DatabaseStorage implements IStorage {
       const unappliedAmount = Math.max(0, Math.round((amount - netOwed) * 100) / 100);
       const appliedAmount = Math.round((amount - unappliedAmount) * 100) / 100;
 
+      // Pay-period label: caller-provided period wins; otherwise derive from
+      // the sessions the money was actually applied to (earliest..latest).
+      const derived = derivePeriodFromDates(allocations.map((a) => a.item.sessionDate));
+      const periodStart = input.periodStart ?? derived.start;
+      const periodEnd = input.periodEnd ?? derived.end;
+
       const [payout] = await tx
         .insert(therapistPayouts)
         .values({
           therapistId: input.therapistId,
           totalAmount: amount.toString(),
           paymentDate: input.paymentDate,
+          periodStart,
+          periodEnd,
           paymentMethod: input.paymentMethod ?? null,
           referenceNumber: input.referenceNumber ?? null,
           notes: input.notes ?? null,
@@ -5171,6 +5242,8 @@ export class DatabaseStorage implements IStorage {
         earned: 0,
         paid: Number(p.totalAmount || 0),
         payoutId: p.id,
+        periodStart: (p.periodStart as any) ?? null,
+        periodEnd: (p.periodEnd as any) ?? null,
         sortKey: d.getTime(),
       });
       if (p.status === 'voided') {
@@ -5242,6 +5315,96 @@ export class DatabaseStorage implements IStorage {
       currentOwed: Math.max(0, net),
       creditBalance: Math.max(0, -net),
       unresolvedCount,
+    };
+  }
+
+  // Period reconciliation: one row per distinct pay-period label found on the
+  // therapist's payouts, comparing what was EARNED for services inside that
+  // period (from the earnings ledger, attributed by session date) with what was
+  // PAID against that period (non-voided payouts carrying the label), no matter
+  // when the money actually moved. Voided payouts don't count as paid; manual
+  // bonuses/deductions are period-less and intentionally excluded.
+  async getTherapistPeriodReconciliation(therapistId: number): Promise<TherapistPeriodRecon> {
+    const [therapist] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, therapistId))
+      .limit(1);
+
+    // Keep the earnings ledger current so "earned in period" is up to date.
+    await this.syncTherapistEarnings(therapistId);
+
+    const [payouts, earningRows] = await Promise.all([
+      db.select().from(therapistPayouts).where(eq(therapistPayouts.therapistId, therapistId)),
+      db.select().from(therapistEarnings).where(eq(therapistEarnings.therapistId, therapistId)),
+    ]);
+
+    const ymd = (v: any): string | null => {
+      if (!v) return null;
+      if (typeof v === 'string') return v.slice(0, 10);
+      return utcToLocalDateString(new Date(v));
+    };
+
+    type Bucket = {
+      periodStart: string;
+      periodEnd: string;
+      paid: number;
+      payoutCount: number;
+      lastPaymentDate: string | null;
+    };
+    const buckets = new Map<string, Bucket>();
+    const unlabeled: TherapistPeriodRecon['unlabeledPayments'] = [];
+    for (const p of payouts) {
+      if (p.status === 'voided') continue; // voided money never settles a period
+      const ps = ymd(p.periodStart);
+      const pe = ymd(p.periodEnd);
+      const payDate = ymd(p.paymentDate);
+      if (!ps || !pe) {
+        unlabeled.push({ payoutId: p.id, paymentDate: payDate || '', totalAmount: Number(p.totalAmount || 0) });
+        continue;
+      }
+      const key = `${ps}..${pe}`;
+      const b = buckets.get(key) || { periodStart: ps, periodEnd: pe, paid: 0, payoutCount: 0, lastPaymentDate: null };
+      b.paid = Math.round((b.paid + Number(p.totalAmount || 0)) * 100) / 100;
+      b.payoutCount += 1;
+      if (payDate && (!b.lastPaymentDate || payDate > b.lastPaymentDate)) b.lastPaymentDate = payDate;
+      buckets.set(key, b);
+    }
+
+    // Net earned by date (append-only ledger: sum earning + adjustment rows).
+    const earnedByDate: { date: string; amount: number }[] = [];
+    for (const er of earningRows) {
+      const d = ymd(er.earnedDate);
+      if (!d) continue;
+      earnedByDate.push({ date: d, amount: Number(er.amountEarned || 0) });
+    }
+
+    const periods: TherapistPeriodReconRow[] = Array.from(buckets.values())
+      .map((b) => {
+        let earned = 0;
+        for (const e of earnedByDate) {
+          if (e.date >= b.periodStart && e.date <= b.periodEnd) earned += e.amount;
+        }
+        earned = Math.round(earned * 100) / 100;
+        const remaining = Math.round((earned - b.paid) * 100) / 100;
+        return {
+          periodStart: b.periodStart,
+          periodEnd: b.periodEnd,
+          earnedInPeriod: earned,
+          paidForPeriod: b.paid,
+          remaining,
+          closed: remaining <= 0.005,
+          payoutCount: b.payoutCount,
+          lastPaymentDate: b.lastPaymentDate,
+        };
+      })
+      .sort((a, b) => (a.periodStart < b.periodStart ? 1 : a.periodStart > b.periodStart ? -1 : 0));
+
+    return {
+      therapistId,
+      therapistName: therapist?.fullName || '',
+      periods,
+      unlabeledPayments: unlabeled,
     };
   }
 

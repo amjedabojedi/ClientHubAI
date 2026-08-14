@@ -719,6 +719,12 @@ export const therapistPayouts = pgTable("therapist_payouts", {
   therapistId: integer("therapist_id").notNull().references(() => users.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentDate: date("payment_date").notNull(),
+  // The service period this payment covers ("pay period"). The payment stays on
+  // its real paymentDate in the ledger (cash timeline); these labels exist so
+  // reports can reconcile "period X: earned vs paid" even when the money moved
+  // weeks later. Derived from the covered sessions when not provided explicitly.
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
   paymentMethod: varchar("payment_method", { length: 50 }),
   referenceNumber: varchar("reference_number", { length: 100 }),
   notes: text("notes"),
