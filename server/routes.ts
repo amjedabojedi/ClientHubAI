@@ -12595,15 +12595,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Validate an optional pay-period label (both-or-neither, real calendar
   // dates, start <= end). Returns nulls when omitted so storage derives the
   // period from the covered sessions.
+  // Strict YYYY-MM-DD real-calendar-date check (Date.UTC rolls over Feb 30 /
+  // month 13, so round-trip the parsed parts).
+  const isYmd = (v: any) => {
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const [y, m, d] = v.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d));
+    return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+  };
+
   function validatePayPeriod(periodStart: any, periodEnd: any):
     | { ok: true; start: string | null; end: string | null }
     | { ok: false; message: string } {
-    const isYmd = (v: any) => {
-      if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-      const [y, m, d] = v.split('-').map(Number);
-      const t = new Date(Date.UTC(y, m - 1, d));
-      return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
-    };
     const hasStart = periodStart != null && periodStart !== '';
     const hasEnd = periodEnd != null && periodEnd !== '';
     if (!hasStart && !hasEnd) return { ok: true, start: null, end: null };
@@ -12619,8 +12622,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const { therapistId, paymentDate, paymentMethod, referenceNumber, notes, sessionBillingIds, periodStart, periodEnd } = req.body || {};
       const tId = parseInt(String(therapistId));
       if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
-      if (!paymentDate || typeof paymentDate !== 'string') {
-        return res.status(400).json({ message: "paymentDate is required" });
+      if (!isYmd(paymentDate)) {
+        return res.status(400).json({ message: "paymentDate must be a valid YYYY-MM-DD date" });
       }
       const period = validatePayPeriod(periodStart, periodEnd);
       if (!period.ok) return res.status(400).json({ message: period.message });
@@ -12788,9 +12791,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const tId = parseInt(String(therapistId));
       if (isNaN(tId)) return res.status(400).json({ message: "Invalid therapist ID" });
       const amt = Math.round(Number(amount) * 100) / 100;
-      if (!(amt > 0)) return res.status(400).json({ message: "Payment amount must be greater than zero" });
-      if (!paymentDate || typeof paymentDate !== 'string') {
-        return res.status(400).json({ message: "paymentDate is required" });
+      if (!Number.isFinite(amt) || !(amt > 0) || amt > 99999999) {
+        return res.status(400).json({ message: "Payment amount must be a positive number" });
+      }
+      if (!isYmd(paymentDate)) {
+        return res.status(400).json({ message: "paymentDate must be a valid YYYY-MM-DD date" });
       }
       const period = validatePayPeriod(periodStart, periodEnd);
       if (!period.ok) return res.status(400).json({ message: period.message });

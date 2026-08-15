@@ -70,4 +70,5 @@
 - [Edit payment in place](edit-payment-in-place.md) — editPaymentTransaction REPLACES one row's amount + re-sums per source (mirrors void); blocks statement-sourced/negative rows; both histories need explicit queryFn or buttons vanish.
 - [Client statement voided ledger](client-statement-voided-ledger.md) — getClientStatement payment-history MUST filter isNull(voidedAt) or corrected payments show as duplicate green rows; totals (from stored billing cols) stay right regardless.
 - [Puppeteer toast overlay click](puppeteer-toast-overlay-click.md) — a success toast portal can overlay a drawer submit button; trusted (coordinate) click silently hits the toast → no submit; click the button NODE via page.evaluate after a toast-producing step.
+- [Payout pay-period labels](payout-pay-period-label.md) — payouts keep real payment date; period_start/end label the service window (derived server-side in practice tz); earned_date is practice-tz date now.
 - [Insurance audited mutation atomicity](insurance-audited-mutation-atomicity.md) — HIPAA-audited line mutations must write the change + auditLog in ONE tx; posted AND reversed lines are terminal/locked (storage + UI).

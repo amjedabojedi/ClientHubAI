@@ -363,6 +363,9 @@ export interface TherapistStatementEntry {
 // earned for services inside the period vs how much was paid AGAINST that
 // period (by period label), regardless of when the money actually moved.
 export interface TherapistPeriodReconRow {
+  /** True when this period's dates overlap another labeled period — the same
+   * earnings are then counted in more than one row. */
+  overlapsAnother?: boolean;
   periodStart: string; // YYYY-MM-DD
   periodEnd: string;   // YYYY-MM-DD
   earnedInPeriod: number;    // net earnings attributed to session dates in range
@@ -5102,8 +5105,11 @@ export class DatabaseStorage implements IStorage {
         if (earnedNow <= 0 && !had) continue; // nothing recorded and nothing to record
         const delta = Math.round((earnedNow - persisted) * 100) / 100;
         if (Math.abs(delta) < 0.005) continue; // already fully recorded
+        // Use the practice-timezone calendar date, not the UTC slice: an
+        // evening session (after ~8pm ET) is the next day in UTC and would
+        // otherwise land in the wrong month / pay period.
         const earnedDateStr = e.sessionDate
-          ? new Date(e.sessionDate).toISOString().slice(0, 10)
+          ? utcToLocalDateString(e.sessionDate)
           : null;
         toInsert.push({
           therapistId,
@@ -5399,6 +5405,17 @@ export class DatabaseStorage implements IStorage {
         };
       })
       .sort((a, b) => (a.periodStart < b.periodStart ? 1 : a.periodStart > b.periodStart ? -1 : 0));
+
+    // Overlapping labels mean the same earnings are counted in more than one
+    // row, so each row's "remaining" is only meaningful on its own — flag it.
+    for (let i = 0; i < periods.length; i++) {
+      for (let j = 0; j < periods.length; j++) {
+        if (i !== j && periods[i].periodStart <= periods[j].periodEnd && periods[j].periodStart <= periods[i].periodEnd) {
+          periods[i].overlapsAnother = true;
+          break;
+        }
+      }
+    }
 
     return {
       therapistId,

@@ -1054,17 +1054,15 @@ function RecordPayoutDialog({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
-  // Pay period covered by this payment: pre-filled from the selected sessions
-  // (earliest..latest service date) so a late payment still reconciles against
-  // the right service window. Editable in case the practice uses fixed periods.
+  // Pay period covered by this payment. Left blank, the SERVER derives it from
+  // the selected sessions' dates in the practice timezone (the browser can't do
+  // that safely — slicing the UTC timestamp shifts evening sessions a day).
+  // Fill in only when the practice uses fixed periods.
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   useEffect(() => {
-    if (!open) return;
-    const dates = items.map((i) => ymd(i.sessionDate)).filter(Boolean).sort();
-    setPeriodStart(dates[0] || "");
-    setPeriodEnd(dates[dates.length - 1] || "");
-  }, [open, items]);
+    if (open) { setPeriodStart(""); setPeriodEnd(""); }
+  }, [open]);
   const periodInvalid = (!!periodStart !== !!periodEnd) || (!!periodStart && !!periodEnd && periodStart > periodEnd);
 
   const create = useMutation({
@@ -1082,6 +1080,7 @@ function RecordPayoutDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/period-reconciliation", therapistId] });
       toast({ title: "Payout recorded", description: `${items.length} session(s) marked paid.` });
       onDone();
     },
@@ -1113,7 +1112,7 @@ function RecordPayoutDialog({
               <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} data-testid="input-period-end" />
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              Pre-filled from the selected sessions. Used to reconcile this payment against the service period, even if paid later.
+              Leave blank to fill it automatically from the selected sessions' dates. Used to reconcile this payment against the service period, even if paid later.
             </p>
             {periodInvalid && <p className="mt-1 text-xs text-red-600">Enter both dates, with the start on or before the end.</p>}
           </div>
@@ -1146,6 +1145,7 @@ function RecordPayoutDialog({
 /* --------------------------- Pay Periods --------------------------- */
 
 interface PeriodReconRow {
+  overlapsAnother?: boolean;
   periodStart: string;
   periodEnd: string;
   earnedInPeriod: number;
@@ -1223,7 +1223,14 @@ function PeriodReconTab({ therapistId }: { therapistId: number }) {
               <TableBody>
                 {data.periods.map((p, idx) => (
                   <TableRow key={`${p.periodStart}-${p.periodEnd}`} data-testid={`period-row-${idx}`}>
-                    <TableCell className="font-medium">{fmtDate(p.periodStart)} – {fmtDate(p.periodEnd)}</TableCell>
+                    <TableCell className="font-medium">
+                      {fmtDate(p.periodStart)} – {fmtDate(p.periodEnd)}
+                      {p.overlapsAnother && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-600" title="This period's dates overlap another period, so the same earned sessions may be counted in both rows.">
+                          <AlertTriangle className="h-3 w-3" /> overlaps
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{money(p.earnedInPeriod)}</TableCell>
                     <TableCell className="text-right">{money(p.paidForPeriod)}</TableCell>
                     <TableCell className="text-right font-medium">
@@ -1403,6 +1410,7 @@ function VoidPayoutDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/payouts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/period-reconciliation", therapistId] });
       toast({ title: "Payout voided", description: "Its sessions are back in the owed list." });
       setReason("");
       onClose();
@@ -1926,6 +1934,7 @@ function LumpPaymentDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/owed", therapistId] });
       queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/period-reconciliation", therapistId] });
       const applied = Number(payout.appliedAmount || 0);
       const unapplied = Number(payout.unappliedAmount || 0);
       toast({
