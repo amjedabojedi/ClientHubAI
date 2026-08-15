@@ -354,6 +354,9 @@ export interface TherapistStatementEntry {
   sessionId?: number;
   // Set on manual bonus/deduction lines so the UI can offer a "void" action.
   adjustmentId?: number;
+  // True on the ORIGINAL payment line of a payout that was later voided, so
+  // the UI can visibly cross it out (the reversing adjustment nets it to 0).
+  voided?: boolean;
   // On payment lines: the service period this payment covers (pay period label).
   periodStart?: string | null;
   periodEnd?: string | null;
@@ -5248,6 +5251,7 @@ export class DatabaseStorage implements IStorage {
         earned: 0,
         paid: Number(p.totalAmount || 0),
         payoutId: p.id,
+        voided: p.status === 'voided' ? true : undefined,
         periodStart: (p.periodStart as any) ?? null,
         periodEnd: (p.periodEnd as any) ?? null,
         sortKey: d.getTime(),

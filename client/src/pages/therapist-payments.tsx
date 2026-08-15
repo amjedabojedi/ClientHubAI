@@ -80,6 +80,7 @@ interface StatementEntry {
   adjustmentId?: number;
   periodStart?: string | null;
   periodEnd?: string | null;
+  voided?: boolean;
 }
 interface AdjustmentRow {
   id: number;
@@ -1506,7 +1507,7 @@ function StatementTab({
     const rows = entries.map((e) => [
       e.date,
       e.type === "earning" ? "Earning" : e.type === "adjustment" ? "Adjustment" : "Payment",
-      e.description,
+      e.voided ? `${e.description} (VOIDED)` : e.description,
       e.reference || "",
       e.earned ? e.earned.toFixed(2) : "",
       e.paid ? e.paid.toFixed(2) : "",
@@ -1536,7 +1537,7 @@ function StatementTab({
       <tr>
         <td>${fmtDate(e.date)}</td>
         <td>${e.type === "earning" ? "Earning" : e.type === "adjustment" ? "Adjustment" : "Payment"}</td>
-        <td>${escapeHtml(e.description)}</td>
+        <td>${escapeHtml(e.voided ? `${e.description} (voided)` : e.description)}</td>
         <td class="num">${e.earned ? money(e.earned) : ""}</td>
         <td class="num">${e.paid ? money(e.paid) : ""}</td>
         <td class="num">${money(e.runningBalance)}</td>
@@ -1657,10 +1658,13 @@ function StatementTab({
                         ? <Badge variant="destructive">Adjustment</Badge>
                         : <Badge variant="secondary">Payment</Badge>}
                     </TableCell>
-                    <TableCell>
-                      {e.description}
+                    <TableCell className={e.voided ? "opacity-60" : undefined}>
+                      <span className={e.voided ? "line-through" : undefined}>{e.description}</span>
+                      {e.voided && (
+                        <Badge variant="outline" className="ml-2 text-xs text-red-600 border-red-300">Voided</Badge>
+                      )}
                       {e.type === "payment" && e.periodStart && e.periodEnd && (
-                        <span className="block text-xs text-blue-600 dark:text-blue-400">
+                        <span className={`block text-xs ${e.voided ? "text-gray-400 line-through" : "text-blue-600 dark:text-blue-400"}`}>
                           Covers {fmtDate(e.periodStart)} – {fmtDate(e.periodEnd)}
                         </span>
                       )}
