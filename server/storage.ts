@@ -6659,23 +6659,33 @@ export class DatabaseStorage implements IStorage {
         Number(billing.totalAmount || 0) - Number(billing.discountAmount || 0),
       );
 
+      // Net-bill cap: the insurer's line can exceed what the session actually
+      // bills for (expected minus what the client already paid). An overpaid
+      // line is CAPPED at that net bill — recorded, not rejected — so collected
+      // (and therefore therapist pay) never inflates beyond what the session
+      // was ever expected to collect.
+      const netBill = Math.max(0, +(expected - currentClient).toFixed(2));
+      const countable = Math.min(lineAmount, netBill);
+
       // ── Duplicate-payment guard ──────────────────────────────────────────
-      // The earlier guard (below) only stops the SAME insurance payment from
+      // The shortfall guard (below) only stops the SAME insurance payment from
       // being counted twice. It does NOT see a payment that was already recorded
-      // on the CLIENT side. So when staff already keyed a client payment that
-      // fully covers the session, posting this insurance line on top would
-      // silently DOUBLE collections (client paid + insurance paid), which then
-      // inflates therapist pay. That is the same money paid once, recorded twice.
-      //
-      // Detect it: there is an existing client payment AND adding this insurer
-      // amount would push total collected ABOVE what the session is expected to
-      // collect. In that case skip the line (record nothing) and mark it
-      // 'skipped' so a human can review/reconcile it instead of it silently
-      // double-counting. Sessions with NO client payment are untouched, so a
-      // genuine insurer over-payment (no client side) still posts as before.
-      const wouldAdd = Math.max(0, +(lineAmount - currentInsurance).toFixed(2));
-      const wouldCollect = +(currentClient + currentInsurance + wouldAdd).toFixed(2);
-      if (wouldAdd > 0 && currentClient > 0 && wouldCollect > expected + 0.01) {
+      // on the CLIENT side. When staff already keyed a client payment that
+      // fully covers the session, posting this insurance line on top would be
+      // the same money paid once, recorded twice — and there is NO insurance
+      // room left to absorb even a capped amount. In that case skip the line
+      // (record nothing) and mark it 'skipped' so a human can review/reconcile
+      // it instead of it silently double-counting. When the client only PARTLY
+      // covers the session, the line still posts — capped at the remaining net
+      // bill by `countable` above — so a legitimate insurer payment is recorded
+      // (capped, not rejected). Sessions with NO client payment are untouched.
+      // Skip ONLY when the client left no insurance room at all (netBill = 0):
+      // that is the same money recorded twice with nothing cap-compatible to
+      // post. When insurance ALREADY covers the capped amount (netBill > 0 but
+      // shortfall 0), fall through so the line posts a $0 shortfall like every
+      // other duplicate — it must stay 'posted', not 'skipped', so the void /
+      // reverse re-balance can let it re-absorb the coverage later.
+      if (lineAmount > 0 && currentClient > 0 && netBill <= 0.005) {
         await lockTx
           .update(insuranceStatementLines)
           .set({ matchStatus: 'skipped', postedAmount: '0.00' })
@@ -6716,7 +6726,8 @@ export class DatabaseStorage implements IStorage {
       // on the billing (manual rows just adopted are already in `currentInsurance`,
       // as is anything an earlier statement posted). Never negative: dedup only
       // ever prevents inflation, it never reduces a previously recorded amount.
-      const additional = +Math.max(0, +(lineAmount - currentInsurance).toFixed(2)).toFixed(2);
+      // Capped at the net bill via `countable` (computed above).
+      const additional = +Math.max(0, +(countable - currentInsurance).toFixed(2)).toFixed(2);
 
       // Only add the shortfall to the billing's cumulative insurance. When the
       // billing already covers the line (manual entry or an earlier statement),
@@ -6903,12 +6914,35 @@ export class DatabaseStorage implements IStorage {
         )
         .orderBy(asc(insuranceStatementLines.id));
 
+      // Same net-bill cap as the original post: a surviving overpaid line must
+      // re-absorb at most what the session bills for net of client payments,
+      // never re-inflating collected past the cap the post enforced.
+      const [capBill] = await lockTx
+        .select({
+          totalAmount: sessionBilling.totalAmount,
+          discountAmount: sessionBilling.discountAmount,
+          clientPaid: sessionBilling.clientPaidAmount,
+        })
+        .from(sessionBilling)
+        .where(eq(sessionBilling.id, billingId))
+        .limit(1);
+      const netBill = capBill
+        ? Math.max(
+            0,
+            +(
+              Number(capBill.totalAmount || 0) -
+              Number(capBill.discountAmount || 0) -
+              Number(capBill.clientPaid || 0)
+            ).toFixed(2),
+          )
+        : Number.POSITIVE_INFINITY;
+
       let running = manualSum;
       let ownerLineId: number | null = null;
       let ownerStatementId: number | null = null;
       let ownerShare = 0;
       for (const r of remaining) {
-        const amt = Number(r.lineAmount) || 0;
+        const amt = Math.min(Number(r.lineAmount) || 0, netBill);
         const newPosted = +Math.max(0, +(amt - running).toFixed(2)).toFixed(2);
         running = +(running + newPosted).toFixed(2);
         await lockTx
@@ -7099,12 +7133,34 @@ export class DatabaseStorage implements IStorage {
           )
           .orderBy(asc(insuranceStatementLines.id));
 
+        // Same net-bill cap as the original post (see voidInsuranceStatement's
+        // re-balance): survivors never re-absorb past the session's net bill.
+        const [capBill] = await lockTx
+          .select({
+            totalAmount: sessionBilling.totalAmount,
+            discountAmount: sessionBilling.discountAmount,
+            clientPaid: sessionBilling.clientPaidAmount,
+          })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.id, billingId))
+          .limit(1);
+        const netBill = capBill
+          ? Math.max(
+              0,
+              +(
+                Number(capBill.totalAmount || 0) -
+                Number(capBill.discountAmount || 0) -
+                Number(capBill.clientPaid || 0)
+              ).toFixed(2),
+            )
+          : Number.POSITIVE_INFINITY;
+
         let running = manualSum;
         let ownerLineId: number | null = null;
         let ownerStatementId: number | null = null;
         let ownerShare = 0;
         for (const r of remaining) {
-          const amt = Number(r.lineAmount) || 0;
+          const amt = Math.min(Number(r.lineAmount) || 0, netBill);
           const newPosted = +Math.max(0, +(amt - running).toFixed(2)).toFixed(2);
           running = +(running + newPosted).toFixed(2);
           await lockTx

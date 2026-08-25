@@ -32,6 +32,20 @@ design that already assumes same-billing insurance = same payment.
 Covered by `test/insurance-statement-double-payment.test.ts` (Scenario C: two posted
 statements, full-cover duplicate + incremental).
 
+## Net-bill cap (insurer overpays the session)
+
+The shortfall must ALSO be capped at the session's net bill:
+`additional = max(0, min(lineAmount, netBill) - insurancePaid)` where
+`netBill = total - discount - clientPaid`. An overpaid line posts (capped), it is
+never rejected. The client-side skip guard must fire ONLY when netBill == 0 (client
+fully covered — nothing cap-compatible left); a duplicate whose capped shortfall is 0
+but netBill > 0 must still POST a $0 shortfall (stay 'posted', not 'skipped') or the
+void/reverse re-balance can't let it re-absorb coverage later. **Why:** a $160 line on a $104.73 session inflated collected — and
+therapist pay — $55.27 per session. **How to apply:** the SAME cap must be enforced
+in every re-balance that re-derives postedAmount from raw line amounts (whole-statement
+void AND single-line reverse), or voiding a $0-shortfall duplicate lets the survivor
+re-absorb the uncapped line amount and re-inflate. Covered by Scenario F.
+
 ## Insurance-vs-CLIENT double count (separate path)
 
 The dedup above only guards insurance-vs-insurance. A different doubling happens when

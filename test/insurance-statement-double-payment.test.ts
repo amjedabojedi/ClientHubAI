@@ -142,7 +142,7 @@ async function getLine(statementId: number) {
 
 // Seed a billing record (user → client → service → session → billing) and
 // return the ids needed to drive the scenario.
-async function seedBilling(label: string) {
+async function seedBilling(label: string, baseRate: string = "200.00") {
   const therapist = await storage.createUser({
     username: `${label}-${SUFFIX}`,
     password: "x",
@@ -162,7 +162,7 @@ async function seedBilling(label: string) {
     serviceCode: `SVC-${label}-${SUFFIX}`,
     serviceName: `Test Service ${label} ${SUFFIX}`,
     duration: 60,
-    baseRate: "200.00",
+    baseRate,
   } as any);
   createdServiceIds.push(service.id);
 
@@ -751,6 +751,223 @@ async function scenarioVoidOneOfTwo(userId: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Scenario F: the statement line amount EXCEEDS the session's net bill.
+// (Regression for statement #989: $160.00 lines posted on sessions billed at
+// $104.73, inflating collected — and therapist pay — by $55.27 per session.)
+// The insurer over-payment must be CAPPED at the net bill (total - discount -
+// clientPaid), not rejected, and never inflate collected beyond expected.
+// ---------------------------------------------------------------------------
+async function scenarioLineExceedsNetBill(userId: number) {
+  console.log(
+    "\n🧪 Scenario F: line amount exceeds the net bill (capped, not rejected)\n",
+  );
+
+  // --- F1: no manual entry; $160 line on a $104.73 bill posts only $104.73 --
+  {
+    const { billing } = await seedBilling("I", "104.73");
+
+    const { statementId, lineId } = await createConfirmedStatement(billing.id, "160.00", "I1");
+    const res = await storage.postInsuranceStatement(statementId, userId);
+
+    let b = await getBilling(billing.id);
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      104.73,
+      "F1: collected insurance is capped at the 104.73 net bill (not 160)",
+    );
+    assertEqual(await ledgerInsurance(billing.id), 104.73, "F1: live ledger insurance equals the capped 104.73");
+
+    const [line] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    assertEqual(line.matchStatus, "posted", "F1: the overpaid line still posts (capped, not rejected)");
+    assertEqual(Number(line.postedAmount), 104.73, "F1: postedAmount is exactly the capped 104.73");
+    assertEqual(res.postedCount, 1, "F1: postedCount reflects the one handled line");
+
+    // A duplicate overpaid statement must still add nothing.
+    const second = await createConfirmedStatement(billing.id, "160.00", "I2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 104.73, "F1: a duplicate overpaid statement adds nothing");
+    const [line2] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, second.lineId))
+      .limit(1);
+    assertEqual(Number(line2.postedAmount), 0, "F1: the duplicate posts a 0 shortfall");
+
+    // Void of the duplicate leaves the cap in place; void of the poster
+    // reverses exactly the capped amount back to 0.
+    await storage.voidInsuranceStatement(second.statementId, userId, "void duplicate overpaid stmt");
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 104.73, "F1: voiding the duplicate leaves the capped 104.73");
+    await storage.voidInsuranceStatement(statementId, userId, "void the capped poster");
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 0, "F1: voiding the poster reverses exactly the capped amount");
+    assertEqual(await ledgerInsurance(billing.id), 0, "F1: live ledger insurance is 0 after the void");
+  }
+
+  // --- F2: a manual partial entry exists; the overpaid line tops up only to
+  //         the net bill (adopts the manual row, posts netBill - manual). -----
+  {
+    const { billing } = await seedBilling("J", "104.73");
+
+    await storage.recordPayment(billing.id, {
+      status: "billed",
+      amount: 60,
+      date: new Date().toISOString().slice(0, 10),
+      method: "insurance",
+      source: "insurance",
+      recordedBy: userId,
+      notes: "Manual insurance entry (partial)",
+    });
+
+    const { statementId, lineId } = await createConfirmedStatement(billing.id, "160.00", "J1");
+    await storage.postInsuranceStatement(statementId, userId);
+
+    const b = await getBilling(billing.id);
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      104.73,
+      "F2: manual 60 + capped shortfall tops collected to the 104.73 net bill",
+    );
+    assertEqual(await ledgerInsurance(billing.id), 104.73, "F2: live ledger insurance equals 104.73");
+
+    const [line] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    assertEqual(Number(line.postedAmount), 44.73, "F2: only the 44.73 capped shortfall is posted");
+    const manual = await manualInsuranceRows(billing.id);
+    assertEqual(manual[0].adoptedByLineId, lineId, "F2: the manual row is still adopted by the line");
+    assertEqual(Number(manual[0].amount), 60, "F2: manual row amount unchanged at 60");
+  }
+
+  // --- F3: existing insurance already MATCHES the line — contributes $0 -----
+  {
+    const { billing } = await seedBilling("K", "104.73");
+
+    const first = await createConfirmedStatement(billing.id, "104.73", "K1");
+    await storage.postInsuranceStatement(first.statementId, userId);
+    let b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 104.73, "F3: first statement posts the full net bill");
+
+    // Overpaid duplicate on an already fully-covered billing adds nothing.
+    const second = await createConfirmedStatement(billing.id, "160.00", "K2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 104.73, "F3: an overpaid line on a covered billing adds 0");
+    const [line2] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, second.lineId))
+      .limit(1);
+    assertEqual(Number(line2.postedAmount), 0, "F3: its postedAmount is 0");
+  }
+
+  // --- F4: a PARTIAL CLIENT payment exists; the overpaid line must post the
+  //         capped remainder (netBill - 0 insurance = expected - clientPaid),
+  //         not be skipped by the client-duplicate guard. Then duplicate, void
+  //         and single-line reverse must all respect the same cap. -----------
+  {
+    const { billing } = await seedBilling("L", "104.73");
+
+    // Client paid $60 of the $104.73 bill.
+    await storage.recordPayment(billing.id, {
+      status: "billed",
+      amount: 60,
+      date: new Date().toISOString().slice(0, 10),
+      method: "cash",
+      source: "client",
+      recordedBy: userId,
+      notes: "Client partial payment",
+    });
+
+    // Overpaid $160 line → must post exactly the 44.73 remaining net bill.
+    const first = await createConfirmedStatement(billing.id, "160.00", "L1");
+    const res1 = await storage.postInsuranceStatement(first.statementId, userId);
+
+    let b = await getBilling(billing.id);
+    assertEqual(Number(b.clientPaidAmount), 60, "F4: client paid stays 60");
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      44.73,
+      "F4: overpaid line posts the capped 44.73 remainder (NOT skipped, NOT 160)",
+    );
+    assertEqual(res1.skippedDuplicates, 0, "F4: the capped line is not counted as a skipped duplicate");
+    const [l1] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, first.lineId))
+      .limit(1);
+    assertEqual(l1.matchStatus, "posted", "F4: the line is posted (capped, not rejected)");
+    assertEqual(Number(l1.postedAmount), 44.73, "F4: postedAmount is the capped 44.73");
+
+    // A duplicate overpaid statement adds nothing.
+    const second = await createConfirmedStatement(billing.id, "160.00", "L2");
+    await storage.postInsuranceStatement(second.statementId, userId);
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 44.73, "F4: duplicate overpaid statement adds nothing");
+
+    // Void the ORIGINAL poster: the surviving duplicate re-absorbs only the
+    // capped 44.73 — never the raw 160.
+    await storage.voidInsuranceStatement(first.statementId, userId, "void the capped poster");
+    b = await getBilling(billing.id);
+    assertEqual(
+      Number(b.insurancePaidAmount),
+      44.73,
+      "F4: after voiding the poster, the survivor re-absorbs only the capped 44.73",
+    );
+    const [l2] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, second.lineId))
+      .limit(1);
+    assertEqual(Number(l2.postedAmount), 44.73, "F4: the survivor's postedAmount is the capped 44.73");
+
+    // Single-line reverse of the survivor drops insurance back to 0 (client 60 intact).
+    await storage.reverseStatementLine(second.lineId, userId, "reverse the capped line");
+    b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 0, "F4: reversing the last line drops insurance to 0");
+    assertEqual(Number(b.clientPaidAmount), 60, "F4: the client payment is untouched throughout");
+  }
+
+  // --- F5: the client FULLY paid the bill — the insurance line is the same
+  //         money recorded twice, with NO insurance room left. It must still
+  //         be SKIPPED for human review (guard preserved). -------------------
+  {
+    const { billing } = await seedBilling("M", "104.73");
+
+    await storage.recordPayment(billing.id, {
+      status: "paid",
+      amount: 104.73,
+      date: new Date().toISOString().slice(0, 10),
+      method: "cash",
+      source: "client",
+      recordedBy: userId,
+      notes: "Client full payment",
+    });
+
+    const { statementId, lineId } = await createConfirmedStatement(billing.id, "160.00", "M1");
+    const res = await storage.postInsuranceStatement(statementId, userId);
+
+    const b = await getBilling(billing.id);
+    assertEqual(Number(b.insurancePaidAmount), 0, "F5: nothing is posted when the client fully covered the bill");
+    assertEqual(res.skippedDuplicates, 1, "F5: the line is counted as a skipped duplicate");
+    const [line] = await db
+      .select()
+      .from(insuranceStatementLines)
+      .where(eq(insuranceStatementLines.id, lineId))
+      .limit(1);
+    assertEqual(line.matchStatus, "skipped", "F5: the line is marked 'skipped' for human review");
+    assertEqual(Number(line.postedAmount), 0, "F5: its postedAmount is 0");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 async function run() {
@@ -772,6 +989,7 @@ async function run() {
     await scenarioTwoStatements(sysUser.id);
     await scenarioVoidIsTerminal(sysUser.id);
     await scenarioVoidOneOfTwo(sysUser.id);
+    await scenarioLineExceedsNetBill(sysUser.id);
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;
