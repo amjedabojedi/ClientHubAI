@@ -3,10 +3,15 @@
  *
  * Run with: npx tsx test/recording-retention-cleanup.test.ts
  */
+import express from "express";
+import cookieParser from "cookie-parser";
+import type { Server } from "http";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db, closeDb } from "../server/db";
 import { storage } from "../server/storage";
 import { ensureAuditEnumsAtStartup } from "../server/audit-enum-check";
+import { registerRoutes } from "../server/routes";
+import { createSessionToken, csrfProtection, optionalAuth } from "../server/auth-middleware";
 import {
   auditLogs,
   clients,
@@ -23,6 +28,9 @@ const createdClientIds: number[] = [];
 const createdServiceIds: number[] = [];
 const createdSessionIds: number[] = [];
 const createdAttemptIds: number[] = [];
+let server: Server | null = null;
+let baseUrl = "";
+const csrfToken = "recording-cleanup-test-csrf";
 
 function audit(
   userId: number,
@@ -45,6 +53,29 @@ function audit(
     details: JSON.stringify({ attemptId }),
     accessReason: "Recording cleanup regression test",
   };
+}
+
+async function requestJson(
+  path: string,
+  token: string,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `sessionToken=${token}; csrfToken=${csrfToken}`,
+      "x-csrf-token": csrfToken,
+    },
+    body: JSON.stringify(body),
+  });
+  let responseBody: any = null;
+  try {
+    responseBody = await response.json();
+  } catch {
+    // The status is the assertion of interest for rejected requests.
+  }
+  return { status: response.status, body: responseBody };
 }
 
 async function run() {
@@ -92,6 +123,28 @@ async function run() {
   } as any);
   createdSessionIds.push(session.id);
 
+  const app = express();
+  app.use(express.json({ limit: "50mb" }));
+  app.use(cookieParser());
+  app.use(optionalAuth);
+  app.use("/api", csrfProtection);
+  server = await registerRoutes(app);
+  await new Promise<void>((resolve) => server!.listen(0, resolve));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  baseUrl = `http://127.0.0.1:${port}`;
+
+  const adminToken = createSessionToken({
+    id: admin.id,
+    username: admin.username,
+    role: admin.role,
+  });
+  const therapistToken = createSessionToken({
+    id: therapist.id,
+    username: therapist.username,
+    role: therapist.role,
+  });
+
   const makeAttempt = async (label: string) => {
     const attempt = await storage.createSessionTranscript({
       sessionId: session.id,
@@ -136,6 +189,42 @@ async function run() {
     throw new Error("A cleanup-authorized decision removed content without confirmation");
   }
 
+  // Cleanup is administrator-only and requires the exact fresh confirmation.
+  // Check the route boundary, not only the storage helper, so a future change
+  // cannot accidentally expose the destructive operation to other roles or
+  // make the confirmation permissive.
+  const protectedAttempt = await makeAttempt("protected");
+  await makeCleanupDecision(protectedAttempt.id);
+  const missingConfirmation = await requestJson(
+    `/api/admin/session-transcripts/recovery/${protectedAttempt.id}/cleanup`,
+    adminToken,
+    {},
+  );
+  if (missingConfirmation.status !== 400) {
+    throw new Error(`Missing cleanup confirmation returned ${missingConfirmation.status}, not 400`);
+  }
+  const wrongConfirmation = await requestJson(
+    `/api/admin/session-transcripts/recovery/${protectedAttempt.id}/cleanup`,
+    adminToken,
+    { confirmation: "fresh" },
+  );
+  if (wrongConfirmation.status !== 400) {
+    throw new Error(`Non-exact cleanup confirmation returned ${wrongConfirmation.status}, not 400`);
+  }
+  const nonAdminCleanup = await requestJson(
+    `/api/admin/session-transcripts/recovery/${protectedAttempt.id}/cleanup`,
+    therapistToken,
+    { confirmation: "DELETE RECORDING ATTEMPT" },
+  );
+  if (nonAdminCleanup.status !== 403) {
+    throw new Error(`Non-administrator cleanup returned ${nonAdminCleanup.status}, not 403`);
+  }
+  if (
+    !(await storage.getSessionTranscriptById(protectedAttempt.id, session.id))
+  ) {
+    throw new Error("A rejected cleanup request removed the recording attempt");
+  }
+
   // A newer retain decision overrides an older cleanup authorization.
   const retainedAttempt = await makeAttempt("newer-retain");
   await makeCleanupDecision(retainedAttempt.id);
@@ -162,13 +251,24 @@ async function run() {
   // Approved cleanup removes only the selected attempt, preserves its
   // append-only decisions, and writes the dedicated audit action.
   const cleanupAttempt = await makeAttempt("approved");
-  await makeCleanupDecision(cleanupAttempt.id);
-  const cleanupResult = await storage.cleanupRecordingAttemptWithAudit(
-    cleanupAttempt.id,
-    audit(admin.id, client.id, "recording_retention_cleanup_performed", cleanupAttempt.id),
+  const decisionResponse = await requestJson(
+    `/api/admin/session-transcripts/recovery/${cleanupAttempt.id}/decisions`,
+    adminToken,
+    {
+      decision: "cleanup_authorized",
+      rationale: "Approved cleanup for route regression test",
+    },
   );
-  if (cleanupResult.status !== "deleted") {
-    throw new Error(`Expected approved cleanup to delete the attempt, got ${cleanupResult.status}`);
+  if (decisionResponse.status !== 201) {
+    throw new Error(`Recording cleanup decision returned ${decisionResponse.status}, not 201`);
+  }
+  const cleanupResponse = await requestJson(
+    `/api/admin/session-transcripts/recovery/${cleanupAttempt.id}/cleanup`,
+    adminToken,
+    { confirmation: "DELETE RECORDING ATTEMPT" },
+  );
+  if (cleanupResponse.status !== 200) {
+    throw new Error(`Approved cleanup returned ${cleanupResponse.status}, not 200`);
   }
   const deletedAttempt = await storage.getSessionTranscriptById(cleanupAttempt.id, session.id);
   if (deletedAttempt) throw new Error("Approved cleanup left the recording attempt behind");
@@ -262,6 +362,9 @@ run()
       console.error("Cleanup failed:", cleanupError);
       process.exitCode = 1;
     } finally {
+      if (server) {
+        await new Promise<void>((resolve) => server!.close(() => resolve()));
+      }
       await closeDb();
     }
   });

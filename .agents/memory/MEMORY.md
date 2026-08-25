@@ -30,6 +30,7 @@
 - [Client sessions payload + reschedule](client-sessions-payload-shape.md) — /api/clients/:id/sessions returns nested therapist obj (no flat therapistName); reschedule has no get-by-id, needs editSessionId+editDate to load the session's month.
 - [audit userId FK](audit-userid-fk.md) — audit_logs.user_id is FK to users; system/webhook audits must use SYSTEM_USER_ID (6) not a client id, else write silently hits fallback file. Client goes in clientId.
 - [Audit display-name resolution](audit-display-name-resolution.md) — audit page must JOIN to resolve user (username often empty→users) AND client (notes_viewed/client_viewed store client in resource_id, not client_id); CASE-guard the cast.
+- [Recording cleanup audit context](recording-cleanup-audit-context.md) — destructive recording cleanup audits must retain both the attempt resource and affected client context.
 - [phoneE164 derived SMS copy](phone-e164-derived-copy.md) — separate auto-derived E.164 copy for texting; recompute only when patch.phone !== undefined (Drizzle ignores undefined → would drift columns).
 - [Form schema vs real data](form-schema-vs-real-data.md) — edit-form zod stricter than the DB (required nullable col / enum over a free varchar) makes saves fail SILENTLY; mirror real data + always pass handleSubmit's onInvalid.
 - [Backend reload trap](backend-reload-trap.md) — a committed server fix that emits ZERO logs/audit rows is likely a stale tsx process; restart "Start application" before chasing a logic bug.

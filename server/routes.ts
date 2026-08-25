@@ -6547,8 +6547,6 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
 
-
-
   app.get("/api/users/me/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get authenticated user from request
@@ -8046,6 +8044,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         result: "success",
         resourceType: "session_transcript",
         resourceId: String(attemptId),
+        clientId: attempt.clientId,
         ipAddress,
         userAgent,
         hipaaRelevant: true,
