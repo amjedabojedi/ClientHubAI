@@ -2473,6 +2473,26 @@ export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscrip
 export type InsertSessionTranscript = z.infer<typeof insertSessionTranscriptSchema>;
 export type SessionTranscript = typeof sessionTranscripts.$inferSelect;
 
+// Safe, metadata-only projection for the administrator's unresolved recording
+// report. Deliberately does not include transcript content, rawContent, chunks,
+// or uploadId.
+export type UnresolvedRecordingAttempt = {
+  id: number;
+  sessionId: number;
+  clientId: number;
+  clientName: string;
+  therapistId: number;
+  therapistName: string;
+  sessionDate: Date;
+  status: string;
+  chunkCount: number;
+  persistedChunkCount: number;
+  hasPersistedChunks: boolean;
+  classification: "recoverable" | "abandoned";
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export const insertCommTranscribeUploadSchema = createInsertSchema(commTranscribeUploads, {
   // jsonb column with `.$type<...>()`; override to match the runtime shape.
   chunks: z.record(z.string(), z.string()).nullable().optional(),

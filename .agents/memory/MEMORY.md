@@ -41,6 +41,7 @@
 - [Date-only timezone shift](date-only-timezone-shift.md) — date-only cols (sessionDate) shift month/day via new Date() in non-UTC zones; bucket+display from literal "YYYY-MM-DD".
 - [queryClient key→URL trap](queryclient-key-url-trap.md) — default queryFn drops a non-object 2nd queryKey segment (e.g. a number id) and hits the base URL; use explicit queryFn for `/api/x/:id`.
 - [Drizzle correlated subquery](drizzle-correlated-subquery.md) — a sql`` correlated count subquery in .select() silently returns 0 on neon; use a grouped count query + JS Map join, verify against real data.
+- [JSONB function compatibility](jsonb-function-compatibility.md) — this database may lack jsonb_object_length(jsonb); count JSONB object keys after retrieval when a metadata projection needs the count.
 - [Therapist allocation ordering](therapist-allocation-ordering.md) — lump allocations pin at creation order not payment date; Statement vs payout detail disagree; rematch script re-spreads oldest-first.
 - [Insurance posted total](insurance-posted-total.md) — line.postedAmount is net-new delta (for void), NOT settled total; sum insurancePaidAmount for "Posted total" or adopted-manual lines read $0.
 - [Insurance spreadsheet amount fallback](insurance-spreadsheet-amount-fallback.md) — invoice/summary uploads w/ no "paid" column fall back to Total Due/Amount (gated, only unclaimed non-date cols); EOB parsing untouched.

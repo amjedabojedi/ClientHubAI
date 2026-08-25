@@ -168,6 +168,7 @@ import type {
   InsertPatientConsent,
   SessionTranscript,
   InsertSessionTranscript,
+  UnresolvedRecordingAttempt,
   CommTranscribeUpload,
   InsertCommTranscribeUpload,
   InsertNotification,
@@ -761,6 +762,10 @@ export interface IStorage {
   getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined>;
   getActiveSessionTranscripts(sessionId: number): Promise<SessionTranscript[]>;
   getActiveSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
+  getUnresolvedRecordingAttempts(params?: {
+    createdFrom?: Date;
+    createdTo?: Date;
+  }): Promise<UnresolvedRecordingAttempt[]>;
   createSessionTranscriptIfNoActive(data: InsertSessionTranscript): Promise<{
     created?: SessionTranscript;
     active?: SessionTranscript;
@@ -2665,6 +2670,73 @@ export class DatabaseStorage implements IStorage {
         ),
       )
       .orderBy(desc(sessionTranscripts.createdAt), desc(sessionTranscripts.id));
+  }
+
+  async getUnresolvedRecordingAttempts(params: {
+    createdFrom?: Date;
+    createdTo?: Date;
+  } = {}): Promise<UnresolvedRecordingAttempt[]> {
+    const conditions = [
+      inArray(sessionTranscripts.status, ['recording', 'processing']),
+    ];
+    if (params.createdFrom) {
+      conditions.push(gte(sessionTranscripts.createdAt, params.createdFrom));
+    }
+    if (params.createdTo) {
+      conditions.push(lte(sessionTranscripts.createdAt, params.createdTo));
+    }
+
+    const rows = await db
+      .select({
+        id: sessionTranscripts.id,
+        sessionId: sessionTranscripts.sessionId,
+        clientId: sessionTranscripts.clientId,
+        clientName: clients.fullName,
+        therapistId: sessionTranscripts.therapistId,
+        therapistName: users.fullName,
+        sessionDate: sessions.sessionDate,
+        status: sessionTranscripts.status,
+        chunkCount: sessionTranscripts.chunkCount,
+        // These two fields are used only to classify the row below. They are
+        // intentionally never included in the returned metadata projection.
+        chunks: sessionTranscripts.chunks,
+        content: sessionTranscripts.content,
+        createdAt: sessionTranscripts.createdAt,
+        updatedAt: sessionTranscripts.updatedAt,
+      })
+      .from(sessionTranscripts)
+      .innerJoin(sessions, eq(sessionTranscripts.sessionId, sessions.id))
+      .innerJoin(clients, eq(sessionTranscripts.clientId, clients.id))
+      .innerJoin(users, eq(sessionTranscripts.therapistId, users.id))
+      .where(and(...conditions))
+      .orderBy(asc(sessionTranscripts.createdAt), asc(sessionTranscripts.id));
+
+    return rows.map((row) => {
+      const persistedChunkCount =
+        row.chunks && typeof row.chunks === "object"
+          ? Object.keys(row.chunks).length
+          : 0;
+      const hasBufferedContent =
+        typeof row.content === "string" && row.content.trim().length > 0;
+      return {
+        id: row.id,
+        sessionId: row.sessionId,
+        clientId: row.clientId,
+        clientName: row.clientName,
+        therapistId: row.therapistId,
+        therapistName: row.therapistName,
+        sessionDate: row.sessionDate,
+        status: row.status,
+        chunkCount: row.chunkCount,
+        persistedChunkCount,
+        hasPersistedChunks: persistedChunkCount > 0,
+        classification: persistedChunkCount > 0 || hasBufferedContent
+          ? "recoverable"
+          : "abandoned",
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
+    });
   }
 
   async createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript> {

@@ -258,6 +258,19 @@ async function recoveryRequest(token: string | null, sessionId: number) {
   return { status: res.status, body };
 }
 
+async function unresolvedReportRequest(token: string | null, query = "") {
+  const res = await fetch(`${baseUrl}/api/admin/session-transcripts/recovery${query}`, {
+    headers: authHeaders(token),
+  });
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { status: res.status, body };
+}
+
 async function transcriptRequest(token: string | null, sessionId: number) {
   const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/transcript`, {
     headers: authHeaders(token),
@@ -489,6 +502,53 @@ async function run() {
         "abandoned",
         "An unfinished attempt with no persisted chunks is classified as abandoned",
       );
+
+      // The administrator report is a cross-session, metadata-only view. It
+      // must not broaden access for therapists or expose transcript content.
+      const report = await unresolvedReportRequest(adminToken);
+      assertEqual(report.status, 200, "Admin can view unresolved recording report");
+      const reportAttempt = report.body?.find(
+        (attempt: any) => attempt.sessionId === consentSession.id && attempt.status === "recording",
+      );
+      assert(!!reportAttempt, "Report includes the unfinished session attempt");
+      assertEqual(
+        reportAttempt?.classification,
+        "abandoned",
+        "Report preserves server-side abandoned classification",
+      );
+      assert(
+        reportAttempt &&
+          reportAttempt.persistedChunkCount === 0 &&
+          reportAttempt.hasPersistedChunks === false &&
+          typeof reportAttempt.createdAt === "string" &&
+          typeof reportAttempt.updatedAt === "string",
+        "Report includes dates and chunk presence metadata",
+      );
+      assert(
+        reportAttempt &&
+          !("content" in reportAttempt) &&
+          !("rawContent" in reportAttempt) &&
+          !("chunks" in reportAttempt) &&
+          !("uploadId" in reportAttempt),
+        "Report omits transcript text, chunks, and upload identifiers",
+      );
+      const reportAudit = await auditHasAction(
+        admin.id,
+        consentClient.id,
+        "session_transcript_viewed",
+        testStart,
+      );
+      assert(
+        !!reportAudit && reportAudit.accessReason === "Viewed unresolved recording attempt report",
+        "Admin report access is recorded against the affected client",
+      );
+      const therapistReport = await unresolvedReportRequest(assignedToken);
+      assertEqual(therapistReport.status, 403, "Non-admin therapist cannot view unresolved report");
+      const filteredReport = await unresolvedReportRequest(
+        adminToken,
+        `?createdFrom=${new Date().toISOString().slice(0, 10)}&createdTo=${new Date().toISOString().slice(0, 10)}`,
+      );
+      assertEqual(filteredReport.status, 200, "Admin report accepts a created date range");
 
       const contentRecordingUploadId = `srv-legacy-content-${SUFFIX}`;
       await storage.createSessionTranscript({

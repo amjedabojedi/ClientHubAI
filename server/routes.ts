@@ -11,7 +11,7 @@ import puppeteer from "puppeteer";
 import { execSync } from "child_process";
 import { format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
-import { utcDateMatchesLocalDate, localTimeToUtc, utcToLocalDateString } from "./practiceTime";
+import { utcDateMatchesLocalDate, localTimeToUtc, utcToLocalDateString, localDateToUtcBounds } from "./practiceTime";
 import Stripe from "stripe";
 
 // Validation
@@ -7821,6 +7821,94 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // the full review set for legacy sessions with multiple attempts.
         return res.json({ ...recordings[0], recordings, hasSavedTranscript });
       } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // Administrator-only, metadata-only report of unfinished recording attempts.
+  // Never return transcript text, buffered content, chunks, audio identifiers, or
+  // expose any cleanup action from this read-only planning view.
+  app.get(
+    "/api/admin/session-transcripts/recovery",
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.user) return res.status(401).json({ message: "Authentication required" });
+        const role = req.user.role?.toLowerCase().trim();
+        if (role !== 'admin' && role !== 'administrator') {
+          return res.status(403).json({ message: "Access denied. Admin privileges required." });
+        }
+
+        const parseReportDate = (value: unknown, name: string): Date | undefined => {
+          if (value === undefined || value === null || value === '') return undefined;
+          const dateString = String(value);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            throw new Error(`${name} must be a valid date in YYYY-MM-DD format`);
+          }
+          const [year, month, day] = dateString.split('-').map(Number);
+          const roundTrip = new Date(Date.UTC(year, month - 1, day));
+          if (
+            roundTrip.getUTCFullYear() !== year ||
+            roundTrip.getUTCMonth() !== month - 1 ||
+            roundTrip.getUTCDate() !== day
+          ) {
+            throw new Error(`${name} must be a valid calendar date`);
+          }
+          return roundTrip;
+        };
+
+        const createdFromString = req.query.createdFrom;
+        const createdToString = req.query.createdTo;
+        let createdFrom: Date | undefined;
+        let createdTo: Date | undefined;
+        try {
+          const createdFromDate = parseReportDate(createdFromString, "createdFrom");
+          const createdToDate = parseReportDate(createdToString, "createdTo");
+          if (createdFromDate) {
+            const bounds = localDateToUtcBounds(String(createdFromString));
+            createdFrom = bounds.start;
+          }
+          if (createdToDate) {
+            const bounds = localDateToUtcBounds(String(createdToString));
+            createdTo = bounds.end;
+          }
+        } catch (error: any) {
+          return res.status(400).json({ message: error.message || "Invalid date filter" });
+        }
+        if (createdFrom && createdTo && createdFrom > createdTo) {
+          return res.status(400).json({ message: "createdFrom cannot be after createdTo" });
+        }
+
+        const attempts = await storage.getUnresolvedRecordingAttempts({ createdFrom, createdTo });
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await Promise.all(
+          attempts.map((attempt) =>
+            AuditLogger.logAction({
+              userId: req.user!.id,
+              username: req.user!.username,
+              action: 'session_transcript_viewed',
+              result: 'success',
+              resourceType: 'session_transcript',
+              resourceId: String(attempt.id),
+              clientId: attempt.clientId,
+              ipAddress,
+              userAgent,
+              hipaaRelevant: true,
+              riskLevel: 'medium',
+              accessReason: 'Viewed unresolved recording attempt report',
+              details: JSON.stringify({
+                sessionId: attempt.sessionId,
+                report: 'unresolved_recording_attempts',
+                createdFrom: createdFromString || null,
+                createdTo: createdToString || null,
+              }),
+            }),
+          ),
+        );
+        return res.json(attempts);
+      } catch (error: any) {
+        console.error('[SessionTranscript] unresolved recording report error:', error);
         return res.status(500).json({ message: error.message || "Internal error" });
       }
     },

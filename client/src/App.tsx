@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign, Receipt, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen, DollarSign, Receipt, ShieldAlert, Mic } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -45,6 +45,7 @@ import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import AdminConsentPage from "@/pages/admin-consent";
+import UnresolvedRecordingsPage from "@/pages/unresolved-recordings";
 import BillingDashboard from "@/pages/billing-dashboard";
 import TherapistPaymentsPage from "@/pages/therapist-payments";
 import ClientStatementsPage from "@/pages/client-statements";
@@ -194,6 +195,7 @@ function Navigation() {
           { path: "/notifications", label: "Notifications", icon: Bell },
           { path: "/hipaa-audit", label: "HIPAA Audit", icon: Shield },
           { path: "/admin-consent", label: "Privacy & Consent", icon: Shield },
+          { path: "/unresolved-recordings", label: "Unresolved Recordings", icon: Mic },
           { path: "/settings", label: "Settings", icon: Settings },
         ]
       });
@@ -532,6 +534,13 @@ function Router() {
               return <AccessRestricted message="Privacy & consent management is restricted to administrators only." />;
             }
             return <AdminConsentPage />;
+          }} />
+          <Route path="/unresolved-recordings" component={() => {
+            const { user } = useAuth();
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Unresolved recording reports are restricted to administrators only." />;
+            }
+            return <UnresolvedRecordingsPage />;
           }} />
           {import.meta.env.DEV && (
             <Route path="/__drawer-test-harness" component={DrawerTestHarnessPage} />
