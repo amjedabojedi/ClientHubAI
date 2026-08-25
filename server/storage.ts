@@ -757,6 +757,11 @@ export interface IStorage {
   // ===== SESSION TRANSCRIPTS (Voice Recording) =====
   getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
   getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined>;
+  getActiveSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
+  createSessionTranscriptIfNoActive(data: InsertSessionTranscript): Promise<{
+    created?: SessionTranscript;
+    active?: SessionTranscript;
+  }>;
   // Bulk: returns the set of sessionIds that have a transcript with status='ready'.
   getReadyTranscriptSessionIds(sessionIds: number[]): Promise<number[]>;
   createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript>;
@@ -2568,10 +2573,21 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(sessionTranscripts.sessionId, sessionId),
-          inArray(sessionTranscripts.status, ['processing', 'ready', 'failed']),
+          inArray(sessionTranscripts.status, ['recording', 'processing', 'ready', 'failed']),
         ),
       )
-      .orderBy(desc(sessionTranscripts.createdAt))
+      // Prefer a completed transcript over an abandoned recording attempt.
+      // If there is no completed transcript, returning the recording row lets
+      // the UI offer recovery/discard instead of silently hiding it.
+      .orderBy(
+        sql`CASE
+          WHEN ${sessionTranscripts.status} = 'ready' THEN 0
+          WHEN ${sessionTranscripts.status} = 'processing' THEN 1
+          WHEN ${sessionTranscripts.status} = 'failed' THEN 2
+          ELSE 3
+        END`,
+        desc(sessionTranscripts.createdAt),
+      )
       .limit(1);
     return transcript || undefined;
   }
@@ -2604,6 +2620,34 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async createSessionTranscriptIfNoActive(data: InsertSessionTranscript): Promise<{
+    created?: SessionTranscript;
+    active?: SessionTranscript;
+  }> {
+    return await db.transaction(async (tx) => {
+      // Serialize starts for one session. A normal read-then-insert check
+      // still permits two browser tabs to create two active rows.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('session_transcript_recording'), ${data.sessionId})`,
+      );
+      const [active] = await tx
+        .select()
+        .from(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.sessionId, data.sessionId),
+            inArray(sessionTranscripts.status, ['recording', 'processing']),
+          ),
+        )
+        .orderBy(desc(sessionTranscripts.createdAt))
+        .limit(1);
+      if (active) return { active };
+
+      const [created] = await tx.insert(sessionTranscripts).values(data).returning();
+      return { created };
+    });
+  }
+
   async updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript> {
     const [updated] = await db
       .update(sessionTranscripts)
@@ -2615,6 +2659,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSessionTranscript(sessionId: number): Promise<void> {
     await db.delete(sessionTranscripts).where(eq(sessionTranscripts.sessionId, sessionId));
+  }
+
+  async getActiveSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined> {
+    const [active] = await db
+      .select()
+      .from(sessionTranscripts)
+      .where(
+        and(
+          eq(sessionTranscripts.sessionId, sessionId),
+          eq(sessionTranscripts.status, 'recording'),
+        ),
+      )
+      .orderBy(desc(sessionTranscripts.createdAt))
+      .limit(1);
+    return active || undefined;
+  }
+
+  async deleteSessionTranscriptByUploadId(
+    uploadId: string,
+    sessionId: number,
+  ): Promise<SessionTranscript | undefined> {
+    return await db.transaction(async (tx) => {
+      // Finalization takes the same session lock below. This prevents a
+      // discard from deleting a row after it has become a saved transcript.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('session_transcript_recording'), ${sessionId})`,
+      );
+      const [deleted] = await tx
+        .delete(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.uploadId, uploadId),
+            eq(sessionTranscripts.sessionId, sessionId),
+            eq(sessionTranscripts.status, 'recording'),
+          ),
+        )
+        .returning();
+      return deleted || undefined;
+    });
   }
 
   // Atomic JSONB merge: chunks = COALESCE(chunks, '{}') || jsonb_build_object(idx, {...})
@@ -2643,6 +2726,10 @@ export class DatabaseStorage implements IStorage {
     data: Partial<InsertSessionTranscript>,
   ): Promise<SessionTranscript> {
     return await db.transaction(async (tx) => {
+      // Keep finalize and discard mutually exclusive for this session.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('session_transcript_recording'), ${sessionId})`,
+      );
       // First update the new row to its final state.
       const [updated] = await tx
         .update(sessionTranscripts)

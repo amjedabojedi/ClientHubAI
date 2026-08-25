@@ -7655,7 +7655,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const language = (req.body && typeof req.body.language === 'string') ? req.body.language : 'auto';
         const translateToEnglish = !!(req.body && req.body.translateToEnglish === true);
 
-        const upload = await storage.createSessionTranscript({
+        const result = await storage.createSessionTranscriptIfNoActive({
           sessionId,
           clientId: session.clientId,
           therapistId: req.user!.id,
@@ -7670,10 +7670,132 @@ You can download a copy if you have it saved locally and re-upload it.`;
           chunks: {},
           status: 'recording',
         });
-        return res.json({ uploadId: upload.uploadId });
+        if (result.active) {
+          return res.status(409).json({
+            message: "An unfinished recording already exists for this session. Recover or discard it before recording again.",
+            uploadId: result.active.uploadId,
+            chunkCount: result.active.chunkCount,
+          });
+        }
+        return res.json({ uploadId: result.created!.uploadId });
       } catch (error: any) {
         console.error('[SessionTranscript] transcribe-start error:', error);
         return res.status(500).json({ message: error.message || 'Internal error' });
+      }
+    },
+  );
+
+  // Discard one unfinished recording attempt. This removes only the selected
+  // upload (not an older completed transcript for the same session) and leaves
+  // an audit trail, so repeated attempts do not silently accumulate forever.
+  app.post(
+    "/api/sessions/:sessionId/transcribe-discard",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const uploadId = String(req.body?.uploadId || '');
+        if (isNaN(sessionId) || !uploadId) {
+          return res.status(400).json({ message: "sessionId and uploadId required" });
+        }
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+        const upload = await storage.getSessionTranscriptByUploadId(uploadId);
+        if (!upload || upload.sessionId !== sessionId) {
+          return res.status(404).json({ message: "Upload session not found" });
+        }
+        if (
+          upload.therapistId !== req.user!.id &&
+          req.user!.role !== 'admin' &&
+          req.user!.role !== 'administrator'
+        ) {
+          return res.status(403).json({ message: "Only the recording therapist or an admin can discard this upload" });
+        }
+        if (upload.status === 'ready') {
+          return res.status(409).json({ message: "A saved transcript cannot be discarded this way" });
+        }
+        const deleted = await storage.deleteSessionTranscriptByUploadId(uploadId, sessionId);
+        if (!deleted) {
+          const current = await storage.getSessionTranscriptByUploadId(uploadId);
+          if (current?.status === 'ready') {
+            return res.status(409).json({ message: "This recording was already saved and cannot be discarded" });
+          }
+          if (current?.status === 'processing') {
+            return res.status(409).json({ message: "This recording is being finalized; please wait before discarding it" });
+          }
+          return res.status(404).json({ message: "Upload session not found" });
+        }
+
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'session_transcript_deleted',
+          result: 'success',
+          resourceType: 'session_transcript',
+          resourceId: String(deleted.id),
+          clientId: deleted.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            sessionId,
+            uploadId,
+            previousStatus: deleted.status,
+            reason: 'unfinished recording discarded by user',
+          }),
+          accessReason: 'Therapist discarded an unfinished session recording',
+        });
+        return res.json({ ok: true });
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // GET /api/sessions/:sessionId/transcript/recovery
+  // Returns metadata for an unfinished upload without exposing transcript text.
+  app.get(
+    "/api/sessions/:sessionId/transcript/recovery",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        if (isNaN(sessionId)) return res.status(400).json({ message: "Invalid session id" });
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+        const active = await storage.getActiveSessionTranscript(sessionId);
+        if (!active) return res.status(404).json({ message: "No unfinished recording" });
+        if (
+          active.therapistId !== req.user!.id &&
+          req.user!.role !== 'admin' &&
+          req.user!.role !== 'administrator'
+        ) {
+          return res.status(404).json({ message: "No unfinished recording" });
+        }
+        return res.json({
+          id: active.id,
+          sessionId: active.sessionId,
+          uploadId: active.uploadId,
+          status: active.status,
+          chunkCount: active.chunkCount,
+          durationSeconds: active.durationSeconds,
+          createdAt: active.createdAt,
+          updatedAt: active.updatedAt,
+        });
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
       }
     },
   );

@@ -229,6 +229,47 @@ async function finalizeRequest(token: string | null, sessionId: number, uploadId
   return { status: res.status, body };
 }
 
+async function discardRequest(token: string | null, sessionId: number, uploadId: string) {
+  const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/transcribe-discard`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "content-type": "application/json" },
+    body: JSON.stringify({ uploadId }),
+  });
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { status: res.status, body };
+}
+
+async function recoveryRequest(token: string | null, sessionId: number) {
+  const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/transcript/recovery`, {
+    headers: authHeaders(token),
+  });
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { status: res.status, body };
+}
+
+async function transcriptRequest(token: string | null, sessionId: number) {
+  const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/transcript`, {
+    headers: authHeaders(token),
+  });
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { status: res.status, body };
+}
+
 // Returns the audit row for (userId, clientId, action) created at/after `since`.
 async function auditHasAction(
   userId: number,
@@ -355,6 +396,12 @@ async function run() {
           allowed.body.uploadId.startsWith("srv-"),
         "In-scope supervisor receives a server-minted uploadId",
       );
+      const discarded = await discardRequest(
+        supInScopeToken,
+        consentSession.id,
+        allowed.body.uploadId,
+      );
+      assertEqual(discarded.status, 200, "Unfinished supervisor upload can be discarded");
     }
 
     // =======================================================================
@@ -390,6 +437,9 @@ async function run() {
       // A different therapist cannot push chunks to this session at all.
       const hijack = await chunkRequest(otherToken, consentSession.id, uploadId);
       assertEqual(hijack.status, 403, "Non-owner therapist cannot upload chunks (403)");
+
+      const discarded = await discardRequest(assignedToken, consentSession.id, uploadId);
+      assertEqual(discarded.status, 200, "Owner can discard the unfinished upload");
     }
 
     // =======================================================================
@@ -421,6 +471,51 @@ async function run() {
       );
       assert(!!log, "Finalize success logged as 'session_transcript_created'");
       if (log) assertEqual(log.result, "success", "Success audit result is 'success'");
+
+      // A second start is allowed only after the first one is finalized or
+      // explicitly discarded; an active row cannot be duplicated.
+      const interrupted = await startRequest(assignedToken, consentSession.id);
+      assertEqual(interrupted.status, 200, "A new recording can start after finalize");
+      const recovery = await recoveryRequest(assignedToken, consentSession.id);
+      assertEqual(recovery.status, 200, "Unfinished recording is discoverable for recovery");
+      assertEqual(
+        recovery.body?.uploadId,
+        interrupted.body?.uploadId,
+        "Recovery identifies the active upload even when a saved transcript exists",
+      );
+      const visibleTranscript = await transcriptRequest(assignedToken, consentSession.id);
+      assertEqual(visibleTranscript.status, 200, "Saved transcript remains visible beside unfinished recovery");
+      assertEqual(
+        visibleTranscript.body?.status,
+        "ready",
+        "Unfinished recording does not hide the saved transcript",
+      );
+      const duplicate = await startRequest(assignedToken, consentSession.id);
+      assertEqual(duplicate.status, 409, "A second active recording for the session is blocked");
+      assertEqual(
+        duplicate.body?.uploadId,
+        interrupted.body?.uploadId,
+        "Duplicate-start response identifies the existing upload",
+      );
+      const discarded = await discardRequest(
+        assignedToken,
+        consentSession.id,
+        interrupted.body.uploadId,
+      );
+      assertEqual(discarded.status, 200, "Discarding the active upload succeeds");
+      const rerecorded = await startRequest(assignedToken, consentSession.id);
+      assertEqual(rerecorded.status, 200, "Recording can start again after discard");
+      assert(
+        rerecorded.body?.uploadId &&
+          rerecorded.body.uploadId !== interrupted.body?.uploadId,
+        "Re-recording receives a new upload id",
+      );
+      const rerecordedDiscard = await discardRequest(
+        assignedToken,
+        consentSession.id,
+        rerecorded.body.uploadId,
+      );
+      assertEqual(rerecordedDiscard.status, 200, "Second unfinished attempt can be discarded");
     }
 
     // =======================================================================
@@ -430,10 +525,12 @@ async function run() {
     {
       const r = await startRequest(adminToken, consentSession.id);
       assertEqual(r.status, 200, "Admin can start an upload (200)");
+      const discarded = await discardRequest(adminToken, consentSession.id, r.body.uploadId);
+      assertEqual(discarded.status, 200, "Admin can discard an unfinished upload");
     }
 
     // =======================================================================
-    // 9. Invalid session id is rejected with 400
+    // 10. Invalid session id is rejected with 400
     // =======================================================================
     console.log("\nTest 9: Invalid session id");
     {

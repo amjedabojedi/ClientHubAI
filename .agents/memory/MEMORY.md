@@ -46,6 +46,7 @@
 - [Insurance spreadsheet amount fallback](insurance-spreadsheet-amount-fallback.md) — invoice/summary uploads w/ no "paid" column fall back to Total Due/Amount (gated, only unclaimed non-date cols); EOB parsing untouched.
 - [AI doc-extraction chunking](ai-extraction-chunking.md) — big-doc OpenAI extraction must chunk+parallel; one call truncates output (422) & trips gateway timeout → client "Unexpected end of JSON input".
 - [AI transcribe authz](ai-transcribe-authz.md) — AI on UNSAVED notes (no sessionNoteId) must authorize by sessionId via assertSessionAccess + derive clientId from the session; never trust body clientId, consent != authz (IDOR).
+- [Session recorder recovery](session-recorder-recovery.md) — active transcript recovery must be separate from the saved transcript; start, finalize, and discard share a session advisory lock.
 - [Date.UTC calendar validation](date-utc-calendar-validation.md) — regex YYYY-MM-DD isn't enough: Date.UTC rolls over Feb 30 / month 13, so range reports bucket the wrong period & return 200 not 400; round-trip the parsed Y/M/D.
 - [Not-billed billing filter](not-billed-billing-filter.md) — getBillingReports status='not_billed' = sessions w/ NO session_billing row; excludes only FUTURE scheduled, keeps past-scheduled as real gaps.
 - [Therapist statement earning de-dup](therapist-statement-earning-dedup.md) — running statement must SUM therapist_earnings per billing into one net line; ledger is append-only adjustments.

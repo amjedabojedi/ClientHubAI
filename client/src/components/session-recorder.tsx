@@ -50,6 +50,7 @@ type SessionTranscript = {
   wordCount: number | null;
   status: string;
   errorMessage: string | null;
+  uploadId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -289,6 +290,17 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       return data && data.status === "processing" ? 3000 : false;
     },
   });
+  const { data: activeRecording, refetch: refetchActiveRecording } = useQuery<SessionTranscript | null>({
+    queryKey: ["/api/sessions", sessionId, "transcript", "recovery"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions/${sessionId}/transcript/recovery`, {
+        credentials: "include",
+      });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Failed to load recording recovery state");
+      return res.json();
+    },
+  });
 
   // Warn the user if they try to close/refresh the tab while a recording is
   // in progress (recording, paused, or finalizing). Without this, closing the
@@ -377,14 +389,23 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // already has. Only show if there's no current ready transcript.
   useEffect(() => {
     if (status !== "idle") return;
-    if (existingTranscript && existingTranscript.status === "ready") return;
     let cancelled = false;
     (async () => {
       try {
         const raw = localStorage.getItem(recoveryStorageKey(sessionId));
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        const uploadId = parsed?.uploadId ? String(parsed.uploadId) : "";
+        let parsed: any = null;
+        if (raw) {
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            parsed = null;
+          }
+        }
+        const uploadId = activeRecording?.uploadId
+          ? String(activeRecording.uploadId)
+          : parsed?.uploadId
+            ? String(parsed.uploadId)
+            : "";
         if (!uploadId) return;
         if (cancelled) return;
         setRecoverableUploadId(uploadId);
@@ -405,7 +426,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     return () => {
       cancelled = true;
     };
-  }, [sessionId, status, existingTranscript]);
+  }, [sessionId, status, activeRecording]);
 
   const handleRecover = useCallback(async () => {
     if (!recoverableUploadId) return;
@@ -423,6 +444,15 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         body: JSON.stringify({ uploadId: recoverableUploadId }),
       });
       if (!res.ok) {
+        if (res.status === 404) {
+          try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+          void clearFailedChunksForUpload(recoverableUploadId);
+          failedChunksRef.current = new Map();
+          setFailedChunks([]);
+          setRecoverableUploadId(null);
+          void refetchActiveRecording();
+          return;
+        }
         const t = await res.text();
         throw new Error(t.slice(0, 300));
       }
@@ -447,17 +477,53 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     } finally {
       setIsRecovering(false);
     }
-  }, [recoverableUploadId, sessionId, refetchTranscript, toast]);
+  }, [recoverableUploadId, sessionId, refetchActiveRecording, refetchTranscript, toast]);
 
-  const handleDiscardRecovery = useCallback(() => {
-    try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
-    if (recoverableUploadId) {
-      void clearFailedChunksForUpload(recoverableUploadId);
+  const handleDiscardRecovery = useCallback(async () => {
+    const uploadId = recoverableUploadId || activeRecording?.uploadId || null;
+    if (!uploadId) return;
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/sessions/${sessionId}/transcribe-discard`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ uploadId }),
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+          void clearFailedChunksForUpload(uploadId);
+          failedChunksRef.current = new Map();
+          setFailedChunks([]);
+          setRecoverableUploadId(null);
+          void refetchActiveRecording();
+          await refetchTranscript();
+          return;
+        }
+        throw new Error(await res.text());
+      }
+      try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      void clearFailedChunksForUpload(uploadId);
+      failedChunksRef.current = new Map();
+      setFailedChunks([]);
+      setRecoverableUploadId(null);
+      toast({ title: "Unfinished recording discarded", description: "This attempt was removed and the action was recorded." });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript", "recovery"] });
+      await refetchActiveRecording();
+      await refetchTranscript();
+    } catch (err: any) {
+      toast({
+        title: "Could not discard recording",
+        description: err.message || "Please try again.",
+        variant: "destructive",
+      });
     }
-    failedChunksRef.current = new Map();
-    setFailedChunks([]);
-    setRecoverableUploadId(null);
-  }, [sessionId, recoverableUploadId]);
+  }, [activeRecording, sessionId, recoverableUploadId, refetchActiveRecording, refetchTranscript, toast]);
 
   // Enumerate audio input devices on mount and whenever the OS reports a
   // device change (e.g. plugging in a headset). Labels are usually empty
@@ -1134,10 +1200,23 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       });
       if (!startRes.ok) {
         const t = await startRes.text();
+        let body: any = null;
+        try { body = JSON.parse(t); } catch {}
         // Stop the mic stream we just opened — start failed.
         stream.getTracks().forEach((tr) => tr.stop());
         streamRef.current = null;
-        throw new Error(t.slice(0, 300) || "Failed to start recording session");
+        if (startRes.status === 409 && body?.uploadId) {
+          // Surface the server's existing upload so the therapist can recover
+          // or discard it instead of creating another hidden row.
+          setRecoverableUploadId(String(body.uploadId));
+          try {
+            localStorage.setItem(
+              recoveryStorageKey(sessionId),
+              JSON.stringify({ uploadId: String(body.uploadId), startedAt: Date.now() }),
+            );
+          } catch {}
+        }
+        throw new Error(body?.message || t.slice(0, 300) || "Failed to start recording session");
       }
       const startBody = await startRes.json();
       uploadIdRef.current = String(startBody.uploadId || "");
@@ -1529,7 +1608,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         )}
 
         {/* Recording controls */}
-        {!existingTranscript && status === "idle" && (
+        {(!existingTranscript || existingTranscript.status === "recording") &&
+          status === "idle" &&
+          !recoverableUploadId && (
           <div className="flex flex-col items-center gap-3 py-2">
             {audioDevices.length > 1 && (
               <div className="w-full max-w-md space-y-1">
