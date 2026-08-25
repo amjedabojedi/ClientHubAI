@@ -212,10 +212,11 @@ async function doFlush(
       rawContent: rawText,
       wordCount,
       durationSeconds,
-      // Mark as 'processing' so the client knows finalize will be a quick
-      // metadata flip, not a long Whisper job. Stays 'recording' otherwise
-      // so the recovery banner still works if the user never clicks Stop.
-      status: "processing",
+      // Keep the row in 'recording' while the microphone is still active.
+      // The Whisper chunk endpoint accepts chunks only in this state. Moving
+      // to 'processing' during a periodic live-preview flush causes every
+      // 20-second saved chunk to be rejected with HTTP 409.
+      status: "recording",
     });
     console.log(`[deepgram-live] ${opts.final ? 'final' : 'periodic'} flush uploadId=${uploadId} segments=${cleanedSegments.length} words=${wordCount} chars=${labeledText.length}`);
   } catch (err) {
