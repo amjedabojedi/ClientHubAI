@@ -384,7 +384,14 @@ export interface TherapistPeriodRecon {
   therapistName: string;
   periods: TherapistPeriodReconRow[];
   // Payments with no period label (should be empty after backfill).
-  unlabeledPayments: { payoutId: number; paymentDate: string; totalAmount: number }[];
+  unlabeledPayments: {
+    payoutId: number;
+    paymentDate: string;
+    totalAmount: number;
+    status: string;         // 'paid' | 'voided'
+    paymentType: string;    // 'itemized' | 'lump'
+    unappliedAmount: number; // > 0 = credit-only or partially-applied lump
+  }[];
 }
 
 // A manual, non-session ledger item (bonus or deduction) shown in the
@@ -5365,14 +5372,23 @@ export class DatabaseStorage implements IStorage {
     const buckets = new Map<string, Bucket>();
     const unlabeled: TherapistPeriodRecon['unlabeledPayments'] = [];
     for (const p of payouts) {
-      if (p.status === 'voided') continue; // voided money never settles a period
       const ps = ymd(p.periodStart);
       const pe = ymd(p.periodEnd);
       const payDate = ymd(p.paymentDate);
       if (!ps || !pe) {
-        unlabeled.push({ payoutId: p.id, paymentDate: payDate || '', totalAmount: Number(p.totalAmount || 0) });
+        // Include unlabeled payouts regardless of void status so the UI can
+        // explain each one (voided ones are explained, not flagged as problems).
+        unlabeled.push({
+          payoutId: p.id,
+          paymentDate: payDate || '',
+          totalAmount: Number(p.totalAmount || 0),
+          status: p.status || 'paid',
+          paymentType: p.paymentType || 'itemized',
+          unappliedAmount: Number(p.unappliedAmount || 0),
+        });
         continue;
       }
+      if (p.status === 'voided') continue; // voided+labeled money never settles a period
       const key = `${ps}..${pe}`;
       const b = buckets.get(key) || { periodStart: ps, periodEnd: pe, paid: 0, payoutCount: 0, lastPaymentDate: null };
       b.paid = Math.round((b.paid + Number(p.totalAmount || 0)) * 100) / 100;

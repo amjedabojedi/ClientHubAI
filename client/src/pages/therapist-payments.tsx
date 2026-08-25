@@ -1156,17 +1156,102 @@ interface PeriodReconRow {
   payoutCount: number;
   lastPaymentDate: string | null;
 }
+
+interface UnlabeledPayment {
+  payoutId: number;
+  paymentDate: string;
+  totalAmount: number;
+  status: string;          // 'paid' | 'voided'
+  paymentType: string;     // 'itemized' | 'lump'
+  unappliedAmount: number; // > 0 means credit-only or partially-applied lump
+}
 interface PeriodReconResponse {
   therapistId: number;
   therapistName: string;
   periods: PeriodReconRow[];
-  unlabeledPayments: { payoutId: number; paymentDate: string; totalAmount: number }[];
+  unlabeledPayments: UnlabeledPayment[];
 }
 
-// Reconciles each pay period (service window) against the payments labeled to
-// it, regardless of when the money actually moved — so a period paid two weeks
-// late still shows as closed under ITS OWN dates.
+function SetPeriodDialog({
+  payoutId,
+  paymentDate,
+  totalAmount,
+  open,
+  onClose,
+  therapistId,
+  toast,
+}: {
+  payoutId: number;
+  paymentDate: string;
+  totalAmount: number;
+  open: boolean;
+  onClose: () => void;
+  therapistId: number;
+  toast: ReturnType<typeof useToast>["toast"];
+}) {
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+
+  useEffect(() => {
+    if (open) { setStart(""); setEnd(""); }
+  }, [open]);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/therapist-pay/payouts/${payoutId}/period`, "PATCH", {
+        periodStart: start || null,
+        periodEnd: end || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/period-reconciliation", therapistId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/therapist-pay/statement", therapistId] });
+      toast({ title: "Period label saved", description: "This payment will now appear in the reconciliation table." });
+      onClose();
+    },
+    onError: (err: any) =>
+      toast({ title: "Could not save period", description: err?.message || "Please try again.", variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Set service period</DialogTitle>
+          <DialogDescription>
+            Set the service window this payment of {money(totalAmount)} (paid {fmtDate(paymentDate)}) covers.
+            Both dates are required. The change is audit-logged.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="mb-1 block">Period start</Label>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} data-testid="input-set-period-start" />
+          </div>
+          <div>
+            <Label className="mb-1 block">Period end</Label>
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} data-testid="input-set-period-end" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mut.isPending}>Cancel</Button>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || !start || !end}
+            data-testid="button-confirm-set-period"
+          >
+            {mut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save period
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 function PeriodReconTab({ therapistId }: { therapistId: number }) {
+  const { toast } = useToast();
+  const [setPeriodTarget, setSetPeriodTarget] = useState<UnlabeledPayment | null>(null);
+
   const { data, isLoading } = useQuery<PeriodReconResponse>({
     queryKey: ["/api/therapist-pay/period-reconciliation", therapistId],
     queryFn: async () => {
@@ -1191,22 +1276,107 @@ function PeriodReconTab({ therapistId }: { therapistId: number }) {
     );
   }
 
+  // Split unlabeled into actionable (non-voided) vs explained (voided / credit-only).
+  const actionableUnlabeled = data.unlabeledPayments.filter(
+    (u) => u.status !== "voided" && !(u.paymentType === "lump" && u.unappliedAmount >= u.totalAmount - 0.005),
+  );
+  const explainedUnlabeled = data.unlabeledPayments.filter(
+    (u) => u.status === "voided" || (u.paymentType === "lump" && u.unappliedAmount >= u.totalAmount - 0.005),
+  );
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
         Each row is a service period a payment declared it covers. "Earned" counts sessions dated inside the period;
         "Paid" counts the payments labeled with it — even when the money moved weeks later.
       </p>
-      {data.unlabeledPayments.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>
-            {data.unlabeledPayments.length} payment{data.unlabeledPayments.length === 1 ? "" : "s"} (totaling{" "}
-            {money(data.unlabeledPayments.reduce((s, u) => s + u.totalAmount, 0))}) have no period label and are not
-            counted in any row below.
-          </span>
-        </div>
+
+      {/* Actionable unlabeled — non-voided payouts that need a period set */}
+      {actionableUnlabeled.length > 0 && (
+        <Card className="border-amber-300">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4" />
+              {actionableUnlabeled.length} payment{actionableUnlabeled.length === 1 ? "" : "s"} without a service period
+            </CardTitle>
+            <CardDescription>
+              These payments are excluded from the reconciliation table below until you set which period they cover.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Payment date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {actionableUnlabeled.map((u) => (
+                  <TableRow key={u.payoutId} data-testid={`unlabeled-row-${u.payoutId}`}>
+                    <TableCell>{fmtDate(u.paymentDate)}</TableCell>
+                    <TableCell className="text-right font-medium">{money(u.totalAmount)}</TableCell>
+                    <TableCell className="text-xs text-gray-500 capitalize">{u.paymentType}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSetPeriodTarget(u)}
+                        data-testid={`button-set-period-${u.payoutId}`}
+                      >
+                        Set period
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
+
+      {/* Explained unlabeled — voided or pure-credit payments: no action needed */}
+      {explainedUnlabeled.length > 0 && (
+        <Card className="border-gray-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-gray-600 dark:text-gray-300">
+              {explainedUnlabeled.length} payment{explainedUnlabeled.length === 1 ? "" : "s"} without a period label — no action needed
+            </CardTitle>
+            <CardDescription>
+              Voided payouts are automatically excluded from period totals. Credit-only payments (lump amounts with no
+              sessions to apply to) have no service dates to derive a period from — they will be absorbed when future
+              sessions are billed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Payment date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Reason no period needed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {explainedUnlabeled.map((u) => (
+                  <TableRow key={u.payoutId} data-testid={`explained-unlabeled-row-${u.payoutId}`}>
+                    <TableCell>{fmtDate(u.paymentDate)}</TableCell>
+                    <TableCell className="text-right">{money(u.totalAmount)}</TableCell>
+                    <TableCell className="text-xs text-gray-500">
+                      {u.status === "voided"
+                        ? "Voided — reversed from the ledger, not counted in any period"
+                        : "Credit-only lump payment — no sessions applied yet; will be absorbed automatically"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {data.periods.length > 0 && (
         <Card>
           <CardContent className="p-0">
@@ -1253,6 +1423,18 @@ function PeriodReconTab({ therapistId }: { therapistId: number }) {
           </CardContent>
         </Card>
       )}
+
+      {setPeriodTarget && (
+        <SetPeriodDialog
+          payoutId={setPeriodTarget.payoutId}
+          paymentDate={setPeriodTarget.paymentDate}
+          totalAmount={setPeriodTarget.totalAmount}
+          open
+          onClose={() => setSetPeriodTarget(null)}
+          therapistId={therapistId}
+          toast={toast}
+        />
+      )}
     </div>
   );
 }
@@ -1269,6 +1451,7 @@ function HistoryTab({ therapistId, toast }: { therapistId: number; toast: Return
   });
   const [expanded, setExpanded] = useState<number | null>(null);
   const [voidTarget, setVoidTarget] = useState<PayoutSummary | null>(null);
+  const [setPeriodTarget, setSetPeriodTarget] = useState<PayoutSummary | null>(null);
 
   if (isLoading) {
     return <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading payout history…</div>;
@@ -1318,11 +1501,23 @@ function HistoryTab({ therapistId, toast }: { therapistId: number; toast: Return
                   )}
                 </div>
               </button>
-              {p.status !== "voided" && (
-                <Button variant="outline" size="sm" onClick={() => setVoidTarget(p)} data-testid={`button-void-${p.id}`}>
-                  <Ban className="mr-2 h-4 w-4" /> Void
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {p.status !== "voided" && !p.periodStart && !p.periodEnd && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSetPeriodTarget(p)}
+                    data-testid={`button-set-period-history-${p.id}`}
+                  >
+                    <CalendarRange className="mr-2 h-4 w-4" /> Set period
+                  </Button>
+                )}
+                {p.status !== "voided" && (
+                  <Button variant="outline" size="sm" onClick={() => setVoidTarget(p)} data-testid={`button-void-${p.id}`}>
+                    <Ban className="mr-2 h-4 w-4" /> Void
+                  </Button>
+                )}
+              </div>
             </div>
 
             {p.notes && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{p.notes}</p>}
@@ -1336,6 +1531,17 @@ function HistoryTab({ therapistId, toast }: { therapistId: number; toast: Return
       ))}
 
       <VoidPayoutDialog payout={voidTarget} onClose={() => setVoidTarget(null)} therapistId={therapistId} toast={toast} />
+      {setPeriodTarget && (
+        <SetPeriodDialog
+          payoutId={setPeriodTarget.id}
+          paymentDate={setPeriodTarget.paymentDate}
+          totalAmount={Number(setPeriodTarget.totalAmount)}
+          open
+          onClose={() => setSetPeriodTarget(null)}
+          therapistId={therapistId}
+          toast={toast}
+        />
+      )}
     </div>
   );
 }

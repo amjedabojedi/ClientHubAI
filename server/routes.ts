@@ -52,7 +52,7 @@ import {
   redactSessionClient,
   redactBillingClient,
 } from "./routes-helpers";
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings, AUDIT_ACTIONS, type AuditAction } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings, therapistPayouts, AUDIT_ACTIONS, type AuditAction } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
@@ -12780,6 +12780,83 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const recon = await storage.getTherapistPeriodReconciliation(therapistId);
       res.json(recon);
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Attach (or clear) a service-period label on an existing payout.
+  // This is an administrative correction only: it changes WHICH period the
+  // payment is reconciled against but does NOT change the payment amount or
+  // the pay date. Voided payouts cannot be re-labeled (they are excluded from
+  // all period totals anyway). The change is audit-logged in the same DB call.
+  app.patch("/api/therapist-pay/payouts/:id/period", requireAuth, requireTherapistPayAccess, async (req: AuthenticatedRequest, res) => {
+    try {
+      const payoutId = parseInt(req.params.id);
+      if (isNaN(payoutId)) return res.status(400).json({ message: "Invalid payout ID" });
+
+      const { periodStart, periodEnd } = req.body || {};
+      const period = validatePayPeriod(periodStart, periodEnd);
+      if (!period.ok) return res.status(400).json({ message: period.message });
+
+      // Atomically update only if status = 'paid'. The conditional WHERE means
+      // a concurrent void committed between our check and this statement cannot
+      // slip through: the row simply won't match and the UPDATE touches nothing.
+      // We read the previous period values (and therapistId for the audit) inside
+      // the same transaction so they're consistent with the row we're changing.
+      let updatedRow: typeof therapistPayouts.$inferSelect | undefined;
+      let anyRowExists = false;
+
+      await db.transaction(async (tx) => {
+        // Read the current state first (SELECT inside the tx for snapshot isolation).
+        const [current] = await tx
+          .select()
+          .from(therapistPayouts)
+          .where(eq(therapistPayouts.id, payoutId))
+          .limit(1);
+
+        if (!current) return; // anyRowExists stays false → 404 below
+        anyRowExists = true;
+        if (current.status === 'voided') return; // updatedRow stays undefined → 409 below
+
+        // Conditional UPDATE: only touches the row when status is still 'paid'.
+        // If a concurrent void lands between the SELECT and here it will have
+        // set status = 'voided', so this WHERE won't match and RETURNING gives [].
+        const [row] = await tx
+          .update(therapistPayouts)
+          .set({ periodStart: period.start, periodEnd: period.end })
+          .where(and(eq(therapistPayouts.id, payoutId), eq(therapistPayouts.status, 'paid')))
+          .returning();
+
+        if (!row) return; // race-won by a concurrent void → no audit row written
+
+        updatedRow = row;
+
+        await tx.insert(auditLogs).values({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'therapist_payout_updated',
+          result: 'success',
+          resourceType: 'therapist_payout',
+          resourceId: String(payoutId),
+          details: JSON.stringify({
+            field: 'period',
+            previousStart: current.periodStart ?? null,
+            previousEnd: current.periodEnd ?? null,
+            newStart: period.start,
+            newEnd: period.end,
+            therapistId: current.therapistId,
+          }),
+          ipAddress: req.ip || null,
+          userAgent: req.get('user-agent') || null,
+        });
+      });
+
+      if (!anyRowExists) return res.status(404).json({ message: "Payout not found" });
+      if (!updatedRow) return res.status(409).json({ message: "Voided payouts cannot be re-labeled" });
+
+      res.json({ ok: true, periodStart: period.start, periodEnd: period.end });
+    } catch (error) {
+      console.error("Error updating payout period:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
