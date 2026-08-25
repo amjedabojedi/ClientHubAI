@@ -32,6 +32,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as qc, getCsrfToken } from "@/lib/queryClient";
+import { formatDateTimeDisplay } from "@/lib/datetime";
+import type { RecordingRetentionDecisionSummary } from "@shared/schema";
 import {
   putFailedChunk,
   deleteFailedChunk,
@@ -69,6 +71,7 @@ type RecordingRecovery = Pick<
   persistedChunkCount: number;
   classification: "recoverable" | "abandoned";
   hasSavedTranscript: boolean;
+  retentionDecisions: RecordingRetentionDecisionSummary[];
 };
 
 type RecoveryResponse = RecordingRecovery & {
@@ -354,6 +357,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           updatedAt: new Date().toISOString(),
           classification: "recoverable",
           hasSavedTranscript: existingTranscript?.status === "ready",
+          retentionDecisions: [],
         }]
       : []);
 
@@ -1659,6 +1663,32 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                     {" · "}
                     {recording.persistedChunkCount} saved chunk{recording.persistedChunkCount === 1 ? "" : "s"}
                   </div>
+                  {recording.retentionDecisions.length > 0 && (
+                    <div
+                      className="rounded-md border bg-muted/30 p-2 text-xs"
+                      data-testid={`retention-decisions-${recording.id}`}
+                    >
+                      <div className="font-medium text-foreground">Retention decision history</div>
+                      <div className="mt-1 space-y-1">
+                        {recording.retentionDecisions.map((retentionDecision) => (
+                          <div key={retentionDecision.id}>
+                            <span className="font-medium">
+                              {retentionDecision.decision === "retain"
+                                ? "Retain recording/transcript"
+                                : retentionDecision.decision === "cleanup_authorized"
+                                  ? "Cleanup authorized separately"
+                                  : "Decision deferred"}
+                            </span>
+                            {" · "}
+                            {retentionDecision.decidedByName}
+                            {" · "}
+                            {formatDateTimeDisplay(retentionDecision.decidedAt)}
+                            <div className="text-muted-foreground">{retentionDecision.rationale}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     {recording.classification === "recoverable" && (
                       <Button

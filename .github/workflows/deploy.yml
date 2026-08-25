@@ -111,6 +111,7 @@ jobs:
               echo "Reconciling deployment database adjuncts..."
               npx tsx scripts/ensure-audit-enums.ts
               npx tsx scripts/verify-audit-enums.ts
+              npx tsx scripts/ensure-recording-retention-decisions.ts
               npx tsx scripts/ensure-report-tables.ts
             else
               echo "Skipping database adjunct reconciliation: .env is missing or DATABASE_URL is not set."

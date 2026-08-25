@@ -184,6 +184,7 @@ const AUDIT_ACTION_LABELS = {
   calendar_feed_token_revoked: 'Calendar Link Revoked',
   // Data export
   data_exported: 'Data Exported',
+  recording_retention_decision_recorded: 'Recording Retention Decision Recorded',
 
   // Therapist payments
   therapist_pay_rule_updated: 'Therapist Pay Rule Updated',

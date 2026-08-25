@@ -53,6 +53,7 @@ import {
   notificationTemplates,
   patientConsents,
   sessionTranscripts,
+  recordingRetentionDecisions,
   commTranscribeUploads,
   paymentTransactions,
   therapistPayRules,
@@ -168,6 +169,9 @@ import type {
   InsertPatientConsent,
   SessionTranscript,
   InsertSessionTranscript,
+  RecordingRetentionDecisionSummary,
+  InsertRecordingRetentionDecision,
+  InsertAuditLog,
   UnresolvedRecordingAttempt,
   CommTranscribeUpload,
   InsertCommTranscribeUpload,
@@ -761,11 +765,18 @@ export interface IStorage {
   getSessionTranscripts(sessionId: number): Promise<SessionTranscript[]>;
   getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined>;
   getActiveSessionTranscripts(sessionId: number): Promise<SessionTranscript[]>;
+  getActiveSessionTranscriptById(id: number): Promise<SessionTranscript | undefined>;
   getActiveSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
   getUnresolvedRecordingAttempts(params?: {
     createdFrom?: Date;
     createdTo?: Date;
   }): Promise<UnresolvedRecordingAttempt[]>;
+  getRecordingRetentionDecisions(attemptId: number): Promise<RecordingRetentionDecisionSummary[]>;
+  getRecordingRetentionDecisionsForAttempts(attemptIds: number[]): Promise<Map<number, RecordingRetentionDecisionSummary[]>>;
+  createRecordingRetentionDecisionWithAudit(
+    data: InsertRecordingRetentionDecision,
+    audit: InsertAuditLog,
+  ): Promise<RecordingRetentionDecisionSummary>;
   createSessionTranscriptIfNoActive(data: InsertSessionTranscript): Promise<{
     created?: SessionTranscript;
     active?: SessionTranscript;
@@ -2672,6 +2683,91 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessionTranscripts.createdAt), desc(sessionTranscripts.id));
   }
 
+  async getActiveSessionTranscriptById(id: number): Promise<SessionTranscript | undefined> {
+    const [transcript] = await db
+      .select()
+      .from(sessionTranscripts)
+      .where(
+        and(
+          eq(sessionTranscripts.id, id),
+          inArray(sessionTranscripts.status, ['recording', 'processing']),
+        ),
+      )
+      .limit(1);
+    return transcript || undefined;
+  }
+
+  async getRecordingRetentionDecisionsForAttempts(
+    attemptIds: number[],
+  ): Promise<Map<number, RecordingRetentionDecisionSummary[]>> {
+    const result = new Map<number, RecordingRetentionDecisionSummary[]>();
+    if (!attemptIds.length) return result;
+
+    const rows = await db
+      .select({
+        id: recordingRetentionDecisions.id,
+        attemptId: recordingRetentionDecisions.attemptId,
+        sessionId: recordingRetentionDecisions.sessionId,
+        decision: recordingRetentionDecisions.decision,
+        rationale: recordingRetentionDecisions.rationale,
+        decidedById: recordingRetentionDecisions.decidedById,
+        decidedByName: recordingRetentionDecisions.decidedByName,
+        decidedAt: recordingRetentionDecisions.decidedAt,
+      })
+      .from(recordingRetentionDecisions)
+      .where(inArray(recordingRetentionDecisions.attemptId, attemptIds))
+      .orderBy(asc(recordingRetentionDecisions.decidedAt), asc(recordingRetentionDecisions.id));
+
+    for (const row of rows) {
+      const existing = result.get(row.attemptId) || [];
+      existing.push({
+        ...row,
+        decision: row.decision as RecordingRetentionDecisionSummary["decision"],
+      });
+      result.set(row.attemptId, existing);
+    }
+    return result;
+  }
+
+  async getRecordingRetentionDecisions(attemptId: number): Promise<RecordingRetentionDecisionSummary[]> {
+    const decisions = await this.getRecordingRetentionDecisionsForAttempts([attemptId]);
+    return decisions.get(attemptId) || [];
+  }
+
+  async createRecordingRetentionDecisionWithAudit(
+    data: InsertRecordingRetentionDecision,
+    audit: InsertAuditLog,
+  ): Promise<RecordingRetentionDecisionSummary> {
+    return db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(recordingRetentionDecisions)
+        .values(data)
+        .returning({
+          id: recordingRetentionDecisions.id,
+          attemptId: recordingRetentionDecisions.attemptId,
+          sessionId: recordingRetentionDecisions.sessionId,
+          decision: recordingRetentionDecisions.decision,
+          rationale: recordingRetentionDecisions.rationale,
+          decidedById: recordingRetentionDecisions.decidedById,
+          decidedByName: recordingRetentionDecisions.decidedByName,
+          decidedAt: recordingRetentionDecisions.decidedAt,
+        });
+
+      // Keep the decision and its required audit event in one transaction. If
+      // the audit insert fails (including an enum/schema failure), the
+      // decision insert rolls back and no unaudited ledger row remains.
+      await tx.insert(auditLogs).values({
+        ...audit,
+        timestamp: new Date(),
+      });
+
+      return {
+        ...created,
+        decision: created.decision as RecordingRetentionDecisionSummary["decision"],
+      };
+    });
+  }
+
   async getUnresolvedRecordingAttempts(params: {
     createdFrom?: Date;
     createdTo?: Date;
@@ -2711,6 +2807,9 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(asc(sessionTranscripts.createdAt), asc(sessionTranscripts.id));
 
+    const decisionsByAttempt = await this.getRecordingRetentionDecisionsForAttempts(
+      rows.map((row) => row.id),
+    );
     return rows.map((row) => {
       const persistedChunkCount =
         row.chunks && typeof row.chunks === "object"
@@ -2735,6 +2834,7 @@ export class DatabaseStorage implements IStorage {
           : "abandoned",
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+        retentionDecisions: decisionsByAttempt.get(row.id) || [],
       };
     });
   }

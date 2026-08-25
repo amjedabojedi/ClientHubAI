@@ -1,20 +1,35 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Calendar, CheckCircle2, Clock, Filter, Mic, RefreshCw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, Calendar, CheckCircle2, Clock, Filter, Mic, RefreshCw, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
-import type { UnresolvedRecordingAttempt } from "@shared/schema";
+import { getCsrfToken } from "@/lib/queryClient";
+import type { RecordingRetentionDecision, UnresolvedRecordingAttempt } from "@shared/schema";
+
+const decisionLabels: Record<RecordingRetentionDecision, string> = {
+  retain: "Retain recording/transcript",
+  cleanup_authorized: "Cleanup authorized separately",
+  defer: "Defer decision",
+};
 
 export default function UnresolvedRecordingsPage() {
   const [createdFrom, setCreatedFrom] = useState("");
   const [createdTo, setCreatedTo] = useState("");
+  const [decisionAttempt, setDecisionAttempt] = useState<UnresolvedRecordingAttempt | null>(null);
+  const [historyAttempt, setHistoryAttempt] = useState<UnresolvedRecordingAttempt | null>(null);
+  const [decision, setDecision] = useState<RecordingRetentionDecision>("retain");
+  const [rationale, setRationale] = useState("");
+  const queryClient = useQueryClient();
 
   const { data: attempts = [], isLoading, isFetching, error, refetch } = useQuery<UnresolvedRecordingAttempt[]>({
     queryKey: ["/api/admin/session-transcripts/recovery", createdFrom, createdTo],
@@ -34,6 +49,34 @@ export default function UnresolvedRecordingsPage() {
     },
   });
 
+  const recordDecision = useMutation({
+    mutationFn: async () => {
+      if (!decisionAttempt) throw new Error("No recording attempt selected");
+      const csrfToken = getCsrfToken();
+      const response = await fetch(
+        `/api/admin/session-transcripts/recovery/${decisionAttempt.id}/decisions`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify({ decision, rationale: rationale.trim() }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "Failed to record retention decision");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/session-transcripts/recovery"] });
+      setDecisionAttempt(null);
+      setRationale("");
+      setDecision("retain");
+    },
+  });
+
   const recoverableCount = attempts.filter((attempt) => attempt.classification === "recoverable").length;
   const abandonedCount = attempts.length - recoverableCount;
 
@@ -46,7 +89,7 @@ export default function UnresolvedRecordingsPage() {
             Unresolved Recording Attempts
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Review unfinished session recordings across the practice. This report is read-only and does not delete or recover anything.
+            Review unfinished session recordings across the practice. Recording a decision adds an audited history entry; it does not delete or recover anything.
           </p>
         </div>
         <Button
@@ -63,7 +106,7 @@ export default function UnresolvedRecordingsPage() {
 
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg">
             <Filter className="h-5 w-5" />
             Created date range
           </CardTitle>
@@ -159,7 +202,7 @@ export default function UnresolvedRecordingsPage() {
             <CardHeader>
               <CardTitle>Recording attempts</CardTitle>
               <CardDescription>
-                Only unfinished attempts are listed. Open a session to use its existing authorized review controls.
+                Only unfinished attempts are listed. Decisions are append-only and cleanup remains a separate authorized action.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -177,6 +220,7 @@ export default function UnresolvedRecordingsPage() {
                         <TableHead>Therapist</TableHead>
                         <TableHead>Attempt status</TableHead>
                         <TableHead>Chunks</TableHead>
+                        <TableHead>Retention decision</TableHead>
                         <TableHead>Created</TableHead>
                         <TableHead>Last updated</TableHead>
                         <TableHead className="text-right">Review</TableHead>
@@ -209,14 +253,53 @@ export default function UnresolvedRecordingsPage() {
                               {" "}saved{attempt.chunkCount > 0 ? ` of ${attempt.chunkCount}` : ""}
                             </span>
                           </TableCell>
+                          <TableCell>
+                            {attempt.retentionDecisions.length > 0 ? (
+                              <div className="space-y-1">
+                                <Badge variant="secondary">
+                                  {decisionLabels[attempt.retentionDecisions[attempt.retentionDecisions.length - 1].decision]}
+                                </Badge>
+                                <div className="text-xs text-muted-foreground">
+                                  {attempt.retentionDecisions.length} decision{attempt.retentionDecisions.length === 1 ? "" : "s"} ·{" "}
+                                  {attempt.retentionDecisions[attempt.retentionDecisions.length - 1].decidedByName}
+                                </div>
+                                <div className="max-w-[18rem] truncate text-xs text-muted-foreground" title={attempt.retentionDecisions[attempt.retentionDecisions.length - 1].rationale}>
+                                  {attempt.retentionDecisions[attempt.retentionDecisions.length - 1].rationale}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Not recorded</span>
+                            )}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-sm">{formatDateTimeDisplay(attempt.createdAt)}</TableCell>
                           <TableCell className="whitespace-nowrap text-sm">{formatDateTimeDisplay(attempt.updatedAt)}</TableCell>
                           <TableCell className="text-right">
-                            <Link href={`/clients/${attempt.clientId}?tab=sessions&sessionId=${attempt.sessionId}`}>
-                              <Button variant="outline" size="sm" data-testid={`button-review-unresolved-${attempt.id}`}>
-                                Review session
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => setDecisionAttempt(attempt)}
+                                data-testid={`button-record-retention-decision-${attempt.id}`}
+                              >
+                                <ShieldCheck className="mr-1 h-4 w-4" />
+                                Record decision
                               </Button>
-                            </Link>
+                              {attempt.retentionDecisions.length > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setHistoryAttempt(attempt)}
+                                  data-testid={`button-view-retention-history-${attempt.id}`}
+                                >
+                                  View history
+                                </Button>
+                              )}
+                              <Link href={`/clients/${attempt.clientId}?tab=sessions&sessionId=${attempt.sessionId}`}>
+                                <Button variant="outline" size="sm" data-testid={`button-review-unresolved-${attempt.id}`}>
+                                  Review session
+                                </Button>
+                              </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -228,6 +311,110 @@ export default function UnresolvedRecordingsPage() {
           </Card>
         </>
       )}
+
+      <Dialog open={historyAttempt !== null} onOpenChange={(open) => !open && setHistoryAttempt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Retention decision history</DialogTitle>
+            <DialogDescription>
+              Append-only decisions for {historyAttempt?.clientName}, session #{historyAttempt?.sessionId}.
+              This history records decisions only; it does not expose or remove audio or transcript content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[min(28rem,60vh)] space-y-3 overflow-y-auto pr-1">
+            {historyAttempt?.retentionDecisions.map((retentionDecision, index) => (
+              <div key={retentionDecision.id} className="rounded-md border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Badge variant="secondary">{decisionLabels[retentionDecision.decision]}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Decision {index + 1} · {formatDateTimeDisplay(retentionDecision.decidedAt)}
+                  </span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap">{retentionDecision.rationale}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Recorded by {retentionDecision.decidedByName}
+                </p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={decisionAttempt !== null}
+        onOpenChange={(open) => {
+          if (!open && !recordDecision.isPending) {
+            setDecisionAttempt(null);
+            setRationale("");
+            setDecision("retain");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record retention decision</DialogTitle>
+            <DialogDescription>
+              Record the approved decision for {decisionAttempt?.clientName}, session #{decisionAttempt?.sessionId}.
+              This only records the decision; it does not delete audio or transcript content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="retention-decision">Decision</Label>
+              <Select value={decision} onValueChange={(value) => setDecision(value as RecordingRetentionDecision)}>
+                <SelectTrigger id="retention-decision" data-testid="select-retention-decision">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(decisionLabels) as RecordingRetentionDecision[]).map((value) => (
+                    <SelectItem key={value} value={value}>{decisionLabels[value]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="retention-rationale">Rationale</Label>
+              <Textarea
+                id="retention-rationale"
+                value={rationale}
+                onChange={(event) => setRationale(event.target.value)}
+                placeholder="Explain the approved retention decision."
+                maxLength={4000}
+                rows={5}
+                data-testid="textarea-retention-rationale"
+              />
+              <p className="text-xs text-muted-foreground">{rationale.length}/4000 characters</p>
+            </div>
+            {decisionAttempt && decisionAttempt.retentionDecisions.length > 0 && (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">Existing decisions are kept</p>
+                <p className="mt-1 text-muted-foreground">
+                  This will append a new decision to the history; it will not replace earlier decisions.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDecisionAttempt(null)} disabled={recordDecision.isPending}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => recordDecision.mutate()}
+              disabled={!rationale.trim() || recordDecision.isPending}
+              data-testid="button-save-retention-decision"
+            >
+              {recordDecision.isPending ? "Saving..." : "Save decision"}
+            </Button>
+          </DialogFooter>
+          {recordDecision.isError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{recordDecision.error.message}</AlertDescription>
+            </Alert>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -105,7 +105,8 @@ import {
   updateFormFieldSchema,
   insertFormAssignmentSchema,
   insertFormResponseSchema,
-  insertFormSignatureSchema
+  insertFormSignatureSchema,
+  recordingRetentionDecisionInputSchema
 } from "@shared/schema";
 
 
@@ -7794,6 +7795,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         }
         const savedTranscript = await storage.getSessionTranscript(sessionId);
         const hasSavedTranscript = savedTranscript?.status === 'ready';
+        const decisionsByAttempt = await storage.getRecordingRetentionDecisionsForAttempts(
+          visible.map((recording) => recording.id),
+        );
         const recordings = visible.map((recording) => {
           const persistedChunkCount =
             recording.chunks && typeof recording.chunks === 'object'
@@ -7815,6 +7819,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
               ? 'recoverable'
               : 'abandoned',
             hasSavedTranscript,
+            retentionDecisions: decisionsByAttempt.get(recording.id) || [],
           };
         });
         // Keep the original top-level shape for existing clients while adding
@@ -7909,6 +7914,99 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.json(attempts);
       } catch (error: any) {
         console.error('[SessionTranscript] unresolved recording report error:', error);
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // Administrators may record a retention decision, but recording one never
+  // changes the transcript row and never performs cleanup. Each submission is
+  // a new append-only row so a later decision does not erase the history.
+  const recordRetentionDecision = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const role = req.user.role?.toLowerCase().trim();
+      if (role !== 'admin' && role !== 'administrator') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const attemptId = Number(req.params.attemptId);
+      if (!Number.isInteger(attemptId) || attemptId <= 0) {
+        return res.status(400).json({ message: "Invalid recording attempt id" });
+      }
+
+      const body = recordingRetentionDecisionInputSchema.parse(req.body);
+      const attempt = await storage.getActiveSessionTranscriptById(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Unresolved recording attempt not found" });
+      }
+
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      const decision = await storage.createRecordingRetentionDecisionWithAudit({
+        attemptId: attempt.id,
+        sessionId: attempt.sessionId,
+        clientId: attempt.clientId,
+        decision: body.decision,
+        rationale: body.rationale,
+        decidedById: req.user.id,
+        decidedByName: req.user.username,
+      }, {
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'recording_retention_decision_recorded',
+        result: 'success',
+        resourceType: 'session_transcript',
+        resourceId: String(attempt.id),
+        clientId: attempt.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({
+          attemptId: attempt.id,
+          sessionId: attempt.sessionId,
+          decision: body.decision,
+          rationale: body.rationale,
+        }),
+        accessReason: 'Recorded approved recording-retention decision',
+      });
+
+      return res.status(201).json(decision);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid retention decision",
+          issues: error.flatten().fieldErrors,
+        });
+      }
+      console.error('[SessionTranscript] retention decision error:', error);
+      return res.status(500).json({ message: error.message || "Internal error" });
+    }
+  };
+
+  app.post(
+    "/api/admin/session-transcripts/recovery/:attemptId/decisions",
+    requireAuth,
+    recordRetentionDecision,
+  );
+
+  app.get(
+    "/api/admin/session-transcripts/recovery/:attemptId/decisions",
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user) return res.status(401).json({ message: "Authentication required" });
+        const role = req.user.role?.toLowerCase().trim();
+        if (role !== 'admin' && role !== 'administrator') {
+          return res.status(403).json({ message: "Access denied. Admin privileges required." });
+        }
+        const attemptId = Number(req.params.attemptId);
+        if (!Number.isInteger(attemptId) || attemptId <= 0) {
+          return res.status(400).json({ message: "Invalid recording attempt id" });
+        }
+        return res.json(await storage.getRecordingRetentionDecisions(attemptId));
+      } catch (error: any) {
+        console.error('[SessionTranscript] retention decision history error:', error);
         return res.status(500).json({ message: error.message || "Internal error" });
       }
     },

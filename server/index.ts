@@ -14,6 +14,7 @@ import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
 import { db, closeDb } from "./db";
 import { assertAuditEnumsAtStartup } from "./audit-enum-check";
+import { ensureRecordingRetentionDecisionsTable } from "./ensure-recording-retention-decisions";
 import { documents, clients } from "@shared/schema";
 import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
 
@@ -180,6 +181,13 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
     // have drifted, audit writes using the missing values will fail — surface it
     // loudly at startup instead of discovering it when an audit row vanishes.
     await assertAuditEnumsAtStartup();
+
+    // The retention ledger is additive and idempotent. Ensure it exists before
+    // registering routes that read it, including on a fresh development DB.
+    // Fail startup rather than serving routes that cannot safely record a
+    // required audit-backed decision.
+    await ensureRecordingRetentionDecisionsTable();
+    log("Recording-retention decision ledger verified");
 
     // Synchronize notification triggers from code to database (non-critical)
     try {

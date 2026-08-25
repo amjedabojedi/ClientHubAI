@@ -453,6 +453,26 @@ export const sessionTranscripts = pgTable("session_transcripts", {
   uploadIdIdx: index("session_transcripts_upload_id_idx").on(table.uploadId),
 }));
 
+// Administrator decisions about an unresolved recording attempt. This is a
+// deliberately separate, append-only ledger: recording/transcript cleanup
+// remains a separate, explicitly authorized operation and must not remove the
+// decision history.
+export const recordingRetentionDecisions = pgTable("recording_retention_decisions", {
+  id: serial("id").primaryKey(),
+  attemptId: integer("attempt_id").notNull(),
+  sessionId: integer("session_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  decision: varchar("decision", { length: 32 }).notNull(),
+  rationale: text("rationale").notNull(),
+  decidedById: integer("decided_by_id").notNull(),
+  decidedByName: varchar("decided_by_name", { length: 255 }).notNull(),
+  decidedAt: timestamp("decided_at").notNull().defaultNow(),
+}, (table) => ({
+  attemptIdx: index("recording_retention_decisions_attempt_idx").on(table.attemptId),
+  sessionIdx: index("recording_retention_decisions_session_idx").on(table.sessionId),
+  decidedAtIdx: index("recording_retention_decisions_decided_at_idx").on(table.decidedAt),
+}));
+
 // Communication Voice Dictation Uploads - in-progress chunked transcription state
 // Persisted (mirroring sessionTranscripts chunk storage) so a dictation that is
 // interrupted mid-recording survives a SERVER RESTART and can still be recovered
@@ -1682,6 +1702,7 @@ export const AUDIT_ACTIONS = [
   'session_transcript_viewed',
   'session_transcript_smart_fill',
   'session_transcript_deleted',
+  'recording_retention_decision_recorded',
   'voice_transcription_new_note',
   'voice_transcription_processed',
   'voice_transcription_failed',
@@ -2473,6 +2494,39 @@ export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscrip
 export type InsertSessionTranscript = z.infer<typeof insertSessionTranscriptSchema>;
 export type SessionTranscript = typeof sessionTranscripts.$inferSelect;
 
+export const RECORDING_RETENTION_DECISIONS = [
+  "retain",
+  "cleanup_authorized",
+  "defer",
+] as const;
+export type RecordingRetentionDecision = (typeof RECORDING_RETENTION_DECISIONS)[number];
+
+export const recordingRetentionDecisionInputSchema = z.object({
+  decision: z.enum(RECORDING_RETENTION_DECISIONS),
+  rationale: z.string().trim().min(1).max(4000),
+});
+
+export const insertRecordingRetentionDecisionSchema = createInsertSchema(recordingRetentionDecisions, {
+  decision: z.enum(RECORDING_RETENTION_DECISIONS),
+  rationale: z.string().trim().min(1).max(4000),
+}).omit({
+  id: true,
+  decidedAt: true,
+});
+export type RecordingRetentionDecisionRecord = typeof recordingRetentionDecisions.$inferSelect;
+export type InsertRecordingRetentionDecision = z.infer<typeof insertRecordingRetentionDecisionSchema>;
+
+export type RecordingRetentionDecisionSummary = {
+  id: number;
+  attemptId: number;
+  sessionId: number;
+  decision: RecordingRetentionDecision;
+  rationale: string;
+  decidedById: number;
+  decidedByName: string;
+  decidedAt: Date;
+};
+
 // Safe, metadata-only projection for the administrator's unresolved recording
 // report. Deliberately does not include transcript content, rawContent, chunks,
 // or uploadId.
@@ -2491,6 +2545,7 @@ export type UnresolvedRecordingAttempt = {
   classification: "recoverable" | "abandoned";
   createdAt: Date;
   updatedAt: Date;
+  retentionDecisions: RecordingRetentionDecisionSummary[];
 };
 
 export const insertCommTranscribeUploadSchema = createInsertSchema(commTranscribeUploads, {
