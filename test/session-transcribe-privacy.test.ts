@@ -40,6 +40,7 @@ import {
   sessions,
   supervisorAssignments,
   auditLogs,
+  sessionTranscripts,
 } from "../shared/schema";
 import { registerRoutes } from "../server/routes";
 import { createSessionToken } from "../server/auth-middleware";
@@ -483,6 +484,123 @@ async function run() {
         interrupted.body?.uploadId,
         "Recovery identifies the active upload even when a saved transcript exists",
       );
+      assertEqual(
+        recovery.body?.recordings?.[0]?.classification,
+        "abandoned",
+        "An unfinished attempt with no persisted chunks is classified as abandoned",
+      );
+
+      const contentRecordingUploadId = `srv-legacy-content-${SUFFIX}`;
+      await storage.createSessionTranscript({
+        sessionId: consentSession.id,
+        clientId: consentClient.id,
+        therapistId: assignedTherapist.id,
+        content: "Legacy buffered content from a recording attempt",
+        rawContent: "Legacy buffered content from a recording attempt",
+        durationSeconds: 15,
+        chunkCount: 0,
+        wordCount: 8,
+        uploadId: contentRecordingUploadId,
+        status: "recording",
+      } as any);
+      const contentRecovery = await recoveryRequest(assignedToken, consentSession.id);
+      assert(
+        contentRecovery.body?.recordings?.some(
+          (recording: any) =>
+            recording.uploadId === contentRecordingUploadId &&
+            recording.status === "recording" &&
+            recording.classification === "recoverable",
+        ),
+        "Legacy recording with buffered content is classified as recoverable",
+      );
+      const recoveredContentRecording = await finalizeRequest(
+        assignedToken,
+        consentSession.id,
+        contentRecordingUploadId,
+      );
+      assertEqual(
+        recoveredContentRecording.status,
+        200,
+        "Legacy recording with buffered content can be recovered",
+      );
+      assertEqual(
+        recoveredContentRecording.body?.status,
+        "ready",
+        "Recovered buffered recording becomes a saved transcript",
+      );
+      assert(
+        recoveredContentRecording.body?.content?.includes("Legacy buffered content from a recording attempt"),
+        "Recovered buffered recording preserves its content",
+      );
+
+      // Legacy rows can be left in processing after a refresh/crash. They
+      // remain reviewable and are included alongside recording rows.
+      const processingUploadId = `srv-legacy-processing-${SUFFIX}`;
+      await storage.createSessionTranscript({
+        sessionId: consentSession.id,
+        clientId: consentClient.id,
+        therapistId: assignedTherapist.id,
+        content: "Partially persisted transcript content",
+        rawContent: "Partially persisted transcript content",
+        durationSeconds: 20,
+        chunkCount: 1,
+        wordCount: 4,
+        uploadId: processingUploadId,
+        status: "processing",
+      } as any);
+      const multiRecovery = await recoveryRequest(assignedToken, consentSession.id);
+      assertEqual(multiRecovery.status, 200, "Recovery lists multiple unfinished attempts");
+      assert(
+        multiRecovery.body?.recordings?.some(
+          (recording: any) =>
+            recording.uploadId === processingUploadId &&
+            recording.status === "processing" &&
+            recording.classification === "recoverable",
+        ),
+        "Stale processing attempt is classified and exposed for recovery",
+      );
+      const blockedByProcessing = await startRequest(assignedToken, consentSession.id);
+      assertEqual(
+        blockedByProcessing.status,
+        409,
+        "A processing attempt blocks a new recording",
+      );
+      assertEqual(
+        blockedByProcessing.body?.uploadId,
+        processingUploadId,
+        "Start identifies the processing attempt that blocks the session",
+      );
+      const blockedProcessingDiscard = await discardRequest(
+        assignedToken,
+        consentSession.id,
+        processingUploadId,
+      );
+      assertEqual(
+        blockedProcessingDiscard.status,
+        409,
+        "A processing attempt cannot be discarded while finalization may still be active",
+      );
+      const storageProcessingDiscard = await storage.deleteSessionTranscriptByUploadId(
+        processingUploadId,
+        consentSession.id,
+      );
+      assertEqual(
+        storageProcessingDiscard,
+        undefined,
+        "Storage discard also refuses processing rows if status changes during the request",
+      );
+      const recoveredProcessing = await finalizeRequest(
+        assignedToken,
+        consentSession.id,
+        processingUploadId,
+      );
+      assertEqual(recoveredProcessing.status, 200, "A stale processing attempt can be explicitly recovered");
+      assertEqual(
+        recoveredProcessing.body?.status,
+        "ready",
+        "Recovered processing attempt becomes a saved transcript",
+      );
+
       const visibleTranscript = await transcriptRequest(assignedToken, consentSession.id);
       assertEqual(visibleTranscript.status, 200, "Saved transcript remains visible beside unfinished recovery");
       assertEqual(
@@ -490,19 +608,85 @@ async function run() {
         "ready",
         "Unfinished recording does not hide the saved transcript",
       );
+
+      // Recovery is an explicit decision and must not remove the completed
+      // transcript that was already saved for this session.
+      const savedTranscriptId = visibleTranscript.body?.id;
+      await chunkRequest(assignedToken, consentSession.id, interrupted.body.uploadId);
+      const recovered = await finalizeRequest(
+        assignedToken,
+        consentSession.id,
+        interrupted.body.uploadId,
+      );
+      assertEqual(recovered.status, 200, "Recoverable attempt can be explicitly recovered");
+      const retainedSavedRows = await db
+        .select({ id: sessionTranscripts.id, status: sessionTranscripts.status })
+        .from(sessionTranscripts)
+        .where(eq(sessionTranscripts.sessionId, consentSession.id));
+      assert(
+        retainedSavedRows.some((row) => row.id === savedTranscriptId && row.status === "ready"),
+        "Recovering an unfinished attempt retains the previously saved transcript",
+      );
+      const transcriptHistory = await fetch(
+        `${baseUrl}/api/sessions/${consentSession.id}/transcripts`,
+        { headers: authHeaders(assignedToken) },
+      );
+      const transcriptHistoryBody = await transcriptHistory.json();
+      assertEqual(transcriptHistory.status, 200, "Transcript history endpoint is accessible");
+      assert(
+        transcriptHistoryBody.some(
+          (row: any) =>
+            row.id === savedTranscriptId &&
+            typeof row.content === "string" &&
+            row.content.length > 0,
+        ),
+        "Previously saved transcript remains accessible in transcript history",
+      );
+      assert(
+        transcriptHistoryBody.some(
+          (row: any) =>
+            row.id === recoveredProcessing.body?.id &&
+            typeof row.content === "string" &&
+            row.content.includes("Partially persisted transcript content"),
+        ),
+        "Recovered transcript is accessible in transcript history",
+      );
+      const selectedHistoryTranscript = await fetch(
+        `${baseUrl}/api/sessions/${consentSession.id}/transcript?transcriptId=${savedTranscriptId}`,
+        { headers: authHeaders(assignedToken) },
+      );
+      assertEqual(
+        selectedHistoryTranscript.status,
+        200,
+        "A retained transcript can be fetched by its explicit id",
+      );
+
+      const nextInterrupted = await startRequest(assignedToken, consentSession.id);
+      assertEqual(nextInterrupted.status, 200, "A new recording can start after recovery");
       const duplicate = await startRequest(assignedToken, consentSession.id);
       assertEqual(duplicate.status, 409, "A second active recording for the session is blocked");
       assertEqual(
         duplicate.body?.uploadId,
-        interrupted.body?.uploadId,
+        nextInterrupted.body?.uploadId,
         "Duplicate-start response identifies the existing upload",
       );
       const discarded = await discardRequest(
         assignedToken,
         consentSession.id,
-        interrupted.body.uploadId,
+        nextInterrupted.body.uploadId,
       );
       assertEqual(discarded.status, 200, "Discarding the active upload succeeds");
+      const retainedAfterDiscard = await transcriptRequest(assignedToken, consentSession.id);
+      assertEqual(
+        retainedAfterDiscard.status,
+        200,
+        "Discarding an unfinished attempt leaves the saved transcript available",
+      );
+      assertEqual(
+        retainedAfterDiscard.body?.status,
+        "ready",
+        "Saved transcript remains ready after unfinished-attempt cleanup",
+      );
       const rerecorded = await startRequest(assignedToken, consentSession.id);
       assertEqual(rerecorded.status, 200, "Recording can start again after discard");
       assert(

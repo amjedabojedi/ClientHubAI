@@ -55,6 +55,27 @@ type SessionTranscript = {
   updatedAt: string;
 };
 
+type RecordingRecovery = Pick<
+  SessionTranscript,
+  | "id"
+  | "sessionId"
+  | "uploadId"
+  | "status"
+  | "chunkCount"
+  | "durationSeconds"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  persistedChunkCount: number;
+  classification: "recoverable" | "abandoned";
+  hasSavedTranscript: boolean;
+};
+
+type RecoveryResponse = RecordingRecovery & {
+  recordings: RecordingRecovery[];
+  hasSavedTranscript: boolean;
+};
+
 interface SessionRecorderProps {
   sessionId: number;
   language?: string;
@@ -290,7 +311,23 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       return data && data.status === "processing" ? 3000 : false;
     },
   });
-  const { data: activeRecording, refetch: refetchActiveRecording } = useQuery<SessionTranscript | null>({
+  const { data: transcriptHistory = [] } = useQuery<SessionTranscript[]>({
+    queryKey: ["/api/sessions", sessionId, "transcripts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions/${sessionId}/transcripts`, {
+        credentials: "include",
+      });
+      if (res.status === 404) return [];
+      if (!res.ok) throw new Error("Failed to load transcript history");
+      return res.json();
+    },
+  });
+  const [selectedTranscriptId, setSelectedTranscriptId] = useState<number | null>(null);
+  const selectedTranscript =
+    transcriptHistory.find((transcript) => transcript.id === selectedTranscriptId) ||
+    transcriptHistory[0] ||
+    (existingTranscript?.status === "ready" ? existingTranscript : null);
+  const { data: recoveryState, refetch: refetchActiveRecording } = useQuery<RecoveryResponse | null>({
     queryKey: ["/api/sessions", sessionId, "transcript", "recovery"],
     queryFn: async () => {
       const res = await fetch(`/api/sessions/${sessionId}/transcript/recovery`, {
@@ -301,6 +338,24 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       return res.json();
     },
   });
+  const activeRecording = recoveryState;
+  const recoveryItems: RecordingRecovery[] =
+    recoveryState?.recordings ||
+    (recoverableUploadId
+      ? [{
+          id: -1,
+          sessionId,
+          uploadId: recoverableUploadId,
+          status: "recording",
+          chunkCount: 0,
+          persistedChunkCount: 0,
+          durationSeconds: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          classification: "recoverable",
+          hasSavedTranscript: existingTranscript?.status === "ready",
+        }]
+      : []);
 
   // Warn the user if they try to close/refresh the tab while a recording is
   // in progress (recording, paused, or finalizing). Without this, closing the
@@ -428,8 +483,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     };
   }, [sessionId, status, activeRecording]);
 
-  const handleRecover = useCallback(async () => {
-    if (!recoverableUploadId) return;
+  const handleRecover = useCallback(async (uploadId: string) => {
+    if (!uploadId) return;
     setIsRecovering(true);
     try {
       const csrfToken = getCsrfToken();
@@ -441,12 +496,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         credentials: "include",
-        body: JSON.stringify({ uploadId: recoverableUploadId }),
+        body: JSON.stringify({ uploadId }),
       });
       if (!res.ok) {
         if (res.status === 404) {
           try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
-          void clearFailedChunksForUpload(recoverableUploadId);
+          void clearFailedChunksForUpload(uploadId);
           failedChunksRef.current = new Map();
           setFailedChunks([]);
           setRecoverableUploadId(null);
@@ -457,8 +512,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         throw new Error(t.slice(0, 300));
       }
       try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
-      void clearFailedChunksForUpload(recoverableUploadId);
-      setRecoverableUploadId(null);
+      void clearFailedChunksForUpload(uploadId);
+      setRecoverableUploadId((current) => current === uploadId ? null : current);
       failedChunksRef.current = new Map();
       setFailedChunks([]);
       toast({
@@ -466,6 +521,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         description: "Saved everything the server received before the interruption.",
       });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcripts"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript", "recovery"] });
       qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
@@ -477,11 +534,16 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     } finally {
       setIsRecovering(false);
     }
-  }, [recoverableUploadId, sessionId, refetchActiveRecording, refetchTranscript, toast]);
+  }, [sessionId, refetchActiveRecording, refetchTranscript, toast]);
 
-  const handleDiscardRecovery = useCallback(async () => {
-    const uploadId = recoverableUploadId || activeRecording?.uploadId || null;
+  const handleDiscardRecovery = useCallback(async (requestedUploadId?: string | null) => {
+    const uploadId = requestedUploadId || recoverableUploadId || activeRecording?.uploadId || null;
     if (!uploadId) return;
+    if (!window.confirm(
+      "Discard this unfinished recording attempt? This removes only the selected unsaved attempt and cannot be undone.",
+    )) {
+      return;
+    }
     try {
       const csrfToken = getCsrfToken();
       const res = await fetch(`/api/sessions/${sessionId}/transcribe-discard`, {
@@ -513,6 +575,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setRecoverableUploadId(null);
       toast({ title: "Unfinished recording discarded", description: "This attempt was removed and the action was recorded." });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcripts"] });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript", "recovery"] });
       await refetchActiveRecording();
       await refetchTranscript();
@@ -1475,6 +1538,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setChunksUploaded(0);
       setPreviewText("");
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcripts"] });
       qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
@@ -1489,15 +1553,18 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     }
   }, [sessionId, status, refetchTranscript, toast]);
 
-  const handleDeleteTranscript = useCallback(async () => {
+  const handleDeleteTranscript = useCallback(async (transcriptId: number) => {
     if (!confirm("Delete this session transcript? This cannot be undone.")) return;
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/sessions/${sessionId}/transcript`, {
+      const res = await fetch(
+        `/api/sessions/${sessionId}/transcript?transcriptId=${encodeURIComponent(transcriptId)}`,
+        {
         method: "DELETE",
         credentials: "include",
         headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+        },
+      );
       if (!res.ok) throw new Error(await res.text());
       try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
       if (uploadIdRef.current) {
@@ -1506,6 +1573,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setRecoverableUploadId(null);
       toast({ title: "Transcript deleted" });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcripts"] });
       qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
@@ -1534,7 +1602,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
             <Mic className="h-5 w-5" />
             Session Transcript
           </span>
-          {existingTranscript && existingTranscript.status === "ready" && (
+          {(transcriptHistory.length > 0 || existingTranscript?.status === "ready") && (
             <Badge variant="outline" className="gap-1">
               <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
               Saved
@@ -1569,40 +1637,64 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
             </AlertDescription>
           </Alert>
         )}
-        {recoverableUploadId && status === "idle" && (
+        {recoveryItems.length > 0 && status === "idle" && (
           <Alert data-testid="alert-recovery">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex flex-col gap-2">
               <span>
-                A previous recording for this session was not saved. We can
-                recover everything the server received before the interruption.
+                {recoveryState?.hasSavedTranscript || existingTranscript?.status === "ready"
+                  ? "A saved transcript already exists for this session. Each unfinished recording below is a separate attempt and will not replace it."
+                  : "These recordings were started but never saved. Review each attempt before deciding what to do with it."}
               </span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  data-testid="button-recover-recording"
-                  onClick={handleRecover}
-                  disabled={isRecovering}
-                >
-                  {isRecovering ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <RotateCw className="h-3 w-3 mr-1" />
-                  )}
-                  Recover & save
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  data-testid="button-discard-recovery"
-                  onClick={handleDiscardRecovery}
-                  disabled={isRecovering}
-                >
-                  Discard
-                </Button>
-              </div>
+              {recoveryItems.map((recording, index) => (
+                <div key={recording.uploadId || recording.id} className="rounded-md border bg-background/60 p-2 space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">
+                      {recording.classification === "recoverable"
+                        ? "Potentially recoverable"
+                        : "No audio received — likely abandoned"}
+                    </strong>
+                    {" · "}
+                    Started {new Date(recording.createdAt).toLocaleString()}
+                    {" · "}
+                    {recording.persistedChunkCount} saved chunk{recording.persistedChunkCount === 1 ? "" : "s"}
+                  </div>
+                  <div className="flex gap-2">
+                    {recording.classification === "recoverable" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        data-testid={index === 0 ? "button-recover-recording" : `button-recover-recording-${recording.id}`}
+                        onClick={() => handleRecover(String(recording.uploadId || ""))}
+                        disabled={isRecovering}
+                      >
+                        {isRecovering ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <RotateCw className="h-3 w-3 mr-1" />
+                        )}
+                        Recover & save separately
+                      </Button>
+                    )}
+                    {recording.status === "recording" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        data-testid={index === 0 ? "button-discard-recovery" : `button-discard-recovery-${recording.id}`}
+                        onClick={() => handleDiscardRecovery(recording.uploadId)}
+                        disabled={isRecovering}
+                      >
+                        Discard this attempt
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground self-center">
+                        Finalization is protected; recover it or wait for completion.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </AlertDescription>
           </Alert>
         )}
@@ -1610,7 +1702,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         {/* Recording controls */}
         {(!existingTranscript || existingTranscript.status === "recording") &&
           status === "idle" &&
-          !recoverableUploadId && (
+          recoveryItems.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-2">
             {audioDevices.length > 1 && (
               <div className="w-full max-w-md space-y-1">
@@ -2014,21 +2106,42 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         )}
 
         {/* Existing transcript display */}
-        {existingTranscript && existingTranscript.status === "ready" && status === "idle" && (
+        {selectedTranscript && selectedTranscript.status === "ready" && status === "idle" && (
           <div className="space-y-2">
+            {transcriptHistory.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Saved transcript</span>
+                <Select
+                  value={String(selectedTranscript.id)}
+                  onValueChange={(value) => setSelectedTranscriptId(Number(value))}
+                >
+                  <SelectTrigger className="w-[260px]" data-testid="select-transcript-history">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transcriptHistory.map((transcript, index) => (
+                      <SelectItem key={transcript.id} value={String(transcript.id)}>
+                        {index === 0 ? "Most recent" : `Saved attempt ${index + 1}`} ·{" "}
+                        {new Date(transcript.createdAt).toLocaleString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
                 <span>
                   Duration:{" "}
-                  {existingTranscript.durationSeconds
-                    ? formatDuration(existingTranscript.durationSeconds)
+                  {selectedTranscript.durationSeconds
+                    ? formatDuration(selectedTranscript.durationSeconds)
                     : "—"}
                 </span>
-                <span>Chunks: {existingTranscript.chunkCount ?? "—"}</span>
-                <span>Words: {existingTranscript.wordCount ?? "—"}</span>
+                <span>Chunks: {selectedTranscript.chunkCount ?? "—"}</span>
+                <span>Words: {selectedTranscript.wordCount ?? "—"}</span>
               </div>
               <div className="flex gap-1">
-                {existingTranscript.rawContent && (
+                {selectedTranscript.rawContent && (
                   <Button
                     type="button"
                     data-testid="button-toggle-raw-inline"
@@ -2068,7 +2181,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                   data-testid="button-delete-transcript"
                   variant="ghost"
                   size="sm"
-                  onClick={handleDeleteTranscript}
+                  onClick={() => handleDeleteTranscript(selectedTranscript.id)}
                   className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
@@ -2080,9 +2193,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               data-testid="text-transcript"
               className="rounded-md border bg-muted/30 p-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm font-mono leading-relaxed"
             >
-              {showRawInline && existingTranscript.rawContent
-                ? existingTranscript.rawContent
-                : existingTranscript.content}
+              {showRawInline && selectedTranscript.rawContent
+                ? selectedTranscript.rawContent
+                : selectedTranscript.content}
             </div>
             <p className="text-xs text-muted-foreground">
               Transcript saved as a separate document. It is not auto-pasted into your session

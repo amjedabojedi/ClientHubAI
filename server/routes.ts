@@ -7719,6 +7719,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         if (upload.status === 'ready') {
           return res.status(409).json({ message: "A saved transcript cannot be discarded this way" });
         }
+        if (upload.status === 'processing') {
+          return res.status(409).json({
+            message: "This recording is being finalized; recover it or wait for finalization to finish",
+          });
+        }
         const deleted = await storage.deleteSessionTranscriptByUploadId(uploadId, sessionId);
         if (!deleted) {
           const current = await storage.getSessionTranscriptByUploadId(uploadId);
@@ -7726,7 +7731,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
             return res.status(409).json({ message: "This recording was already saved and cannot be discarded" });
           }
           if (current?.status === 'processing') {
-            return res.status(409).json({ message: "This recording is being finalized; please wait before discarding it" });
+            return res.status(409).json({
+              message: "This recording is being finalized; recover it or wait for finalization to finish",
+            });
           }
           return res.status(404).json({ message: "Upload session not found" });
         }
@@ -7760,7 +7767,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
   );
 
   // GET /api/sessions/:sessionId/transcript/recovery
-  // Returns metadata for an unfinished upload without exposing transcript text.
+  // Returns metadata for every unfinished upload without exposing transcript
+  // text. Legacy rows are classified from persisted server state only:
+  // chunks/content means potentially recoverable; neither means abandoned.
   app.get(
     "/api/sessions/:sessionId/transcript/recovery",
     requireAuth,
@@ -7775,25 +7784,42 @@ You can download a copy if you have it saved locally and re-upload it.`;
         if (!accessCheck.ok) {
           return res.status(accessCheck.status).json({ message: accessCheck.message });
         }
-        const active = await storage.getActiveSessionTranscript(sessionId);
-        if (!active) return res.status(404).json({ message: "No unfinished recording" });
-        if (
-          active.therapistId !== req.user!.id &&
-          req.user!.role !== 'admin' &&
-          req.user!.role !== 'administrator'
-        ) {
+        const allActive = await storage.getActiveSessionTranscripts(sessionId);
+        const isAdmin = req.user!.role === 'admin' || req.user!.role === 'administrator';
+        const visible = allActive.filter(
+          (recording) => isAdmin || recording.therapistId === req.user!.id,
+        );
+        if (visible.length === 0) {
           return res.status(404).json({ message: "No unfinished recording" });
         }
-        return res.json({
-          id: active.id,
-          sessionId: active.sessionId,
-          uploadId: active.uploadId,
-          status: active.status,
-          chunkCount: active.chunkCount,
-          durationSeconds: active.durationSeconds,
-          createdAt: active.createdAt,
-          updatedAt: active.updatedAt,
+        const savedTranscript = await storage.getSessionTranscript(sessionId);
+        const hasSavedTranscript = savedTranscript?.status === 'ready';
+        const recordings = visible.map((recording) => {
+          const persistedChunkCount =
+            recording.chunks && typeof recording.chunks === 'object'
+              ? Object.keys(recording.chunks).length
+              : 0;
+          const hasContent =
+            typeof recording.content === 'string' && recording.content.trim().length > 0;
+          return {
+            id: recording.id,
+            sessionId: recording.sessionId,
+            uploadId: recording.uploadId,
+            status: recording.status,
+            chunkCount: recording.chunkCount,
+            persistedChunkCount,
+            durationSeconds: recording.durationSeconds,
+            createdAt: recording.createdAt,
+            updatedAt: recording.updatedAt,
+            classification: persistedChunkCount > 0 || hasContent
+              ? 'recoverable'
+              : 'abandoned',
+            hasSavedTranscript,
+          };
         });
+        // Keep the original top-level shape for existing clients while adding
+        // the full review set for legacy sessions with multiple attempts.
+        return res.json({ ...recordings[0], recordings, hasSavedTranscript });
       } catch (error: any) {
         return res.status(500).json({ message: error.message || "Internal error" });
       }
@@ -8012,7 +8038,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           && typeof upload.chunks === 'object'
           && Object.keys(upload.chunks as object).length > 0;
         const hasLiveText = !hasUploadedChunks
-          && upload.status === 'processing'
+          && (upload.status === 'recording' || upload.status === 'processing')
           && typeof upload.content === 'string'
           && upload.content.trim().length > 0;
         if (hasLiveText) {
@@ -8037,10 +8063,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
               sessionId,
               durationSeconds: upload.durationSeconds,
               wordCount: upload.wordCount,
-              source: 'deepgram-live',
+              source: 'persisted-buffered-content',
             }),
             accessReason: 'Therapist recorded session voice transcription (Deepgram live)',
-          }).catch(() => {});
+          });
           return res.json(finalTranscript);
         }
 
@@ -8229,6 +8255,51 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   // GET /api/sessions/:sessionId/transcript
   app.get(
+    "/api/sessions/:sessionId/transcripts",
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        if (isNaN(sessionId)) return res.status(400).json({ message: "Invalid session id" });
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+
+        // Only completed rows are transcript history. Unfinished attempts are
+        // exposed separately by the recovery endpoint as safe metadata.
+        const transcripts = (await storage.getSessionTranscripts(sessionId))
+          .filter((transcript) => transcript.status === 'ready');
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await Promise.all(
+          transcripts.map((transcript) =>
+            AuditLogger.logAction({
+              userId: req.user!.id,
+              username: req.user!.username,
+              action: 'session_transcript_viewed',
+              result: 'success',
+              resourceType: 'session_transcript',
+              resourceId: String(transcript.id),
+              clientId: transcript.clientId,
+              ipAddress,
+              userAgent,
+              hipaaRelevant: true,
+              riskLevel: 'medium',
+              accessReason: 'Viewed session transcript history',
+            }).catch(() => {}),
+          ),
+        );
+        return res.json(transcripts);
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // GET /api/sessions/:sessionId/transcript
+  app.get(
     "/api/sessions/:sessionId/transcript",
     requireAuth,
     async (req: AuthenticatedRequest, res) => {
@@ -8240,7 +8311,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
         if (!accessCheck.ok) {
           return res.status(accessCheck.status).json({ message: accessCheck.message });
         }
-        const transcript = await storage.getSessionTranscript(sessionId);
+        const requestedId = req.query.transcriptId
+          ? parseInt(String(req.query.transcriptId), 10)
+          : undefined;
+        if (req.query.transcriptId && !Number.isFinite(requestedId)) {
+          return res.status(400).json({ message: "Invalid transcript id" });
+        }
+        const transcript = requestedId
+          ? await storage.getSessionTranscriptById(requestedId, sessionId)
+          : await storage.getSessionTranscript(sessionId);
         if (!transcript) return res.status(404).json({ message: "No transcript" });
 
         // Audit PHI read
@@ -8375,9 +8454,25 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(accessCheck.status).json({ message: accessCheck.message });
         }
 
-        const existing = await storage.getSessionTranscript(sessionId);
+        const requestedId = req.query.transcriptId
+          ? parseInt(String(req.query.transcriptId), 10)
+          : undefined;
+        if (!req.query.transcriptId) {
+          return res.status(400).json({ message: "transcriptId is required to delete a transcript" });
+        }
+        if (req.query.transcriptId && !Number.isFinite(requestedId)) {
+          return res.status(400).json({ message: "Invalid transcript id" });
+        }
+        const existing = requestedId
+          ? await storage.getSessionTranscriptById(requestedId, sessionId)
+          : undefined;
         if (!existing) return res.status(404).json({ message: "No transcript" });
-        await storage.deleteSessionTranscript(sessionId);
+        if (existing.status !== 'ready') {
+          return res.status(409).json({
+            message: "An unfinished recording must be reviewed through the recovery controls",
+          });
+        }
+        await storage.deleteSessionTranscript(existing.id);
 
         const { ipAddress, userAgent } = getRequestInfo(req);
         await AuditLogger.logAction({
