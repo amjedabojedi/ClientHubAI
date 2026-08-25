@@ -13,7 +13,7 @@ import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
 import { db, closeDb } from "./db";
-import { assertAuditEnumsAtStartup } from "./audit-enum-check";
+import { assertAuditEnumsAtStartup, ensureAuditEnumsAtStartup } from "./audit-enum-check";
 import { ensureRecordingRetentionDecisionsTable } from "./ensure-recording-retention-decisions";
 import { documents, clients } from "@shared/schema";
 import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
@@ -177,9 +177,19 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
       // Don't throw - allow deployment to initialize even if DB is temporarily unavailable
     }
 
-    // Verify the Postgres audit ENUMs cover every value the app writes. If they
-    // have drifted, audit writes using the missing values will fail — surface it
-    // loudly at startup instead of discovering it when an audit row vanishes.
+    // Reconcile the Postgres audit ENUMs before routes expose any audited
+    // mutation. db:push does not manage these types, so a missing label would
+    // otherwise make an approved cleanup roll back when it writes its audit.
+    try {
+      await ensureAuditEnumsAtStartup();
+      log("Audit enums reconciled");
+    } catch (enumError) {
+      log(`Critical: failed to reconcile audit enums: ${enumError}`);
+      throw enumError;
+    }
+
+    // Verify the Postgres audit ENUMs cover every value the app writes after
+    // reconciliation. Keep the existing loud guard as defense in depth.
     await assertAuditEnumsAtStartup();
 
     // The retention ledger is additive and idempotent. Ensure it exists before

@@ -1686,6 +1686,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                             <div className="text-muted-foreground">{retentionDecision.rationale}</div>
                           </div>
                         ))}
+                        {recording.retentionDecisions[recording.retentionDecisions.length - 1]?.decision === "cleanup_authorized" && (
+                          <div className="mt-2 border-t pt-2 font-medium text-amber-700">
+                            Cleanup was authorized in the retention ledger. An administrator must
+                            complete a separate cleanup review; this recorder will not remove it
+                            from a decision alone.
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

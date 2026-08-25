@@ -88,10 +88,36 @@ export async function verifyAuditEnums(): Promise<AuditEnumVerifyResult> {
 }
 
 /**
- * Non-fatal startup guard. Logs a loud, structured alert if the DB audit enums
- * have drifted behind the code so the gap is visible instead of silently
- * dropping audit rows. Does not throw — the app still starts, but the operator
- * is warned to run scripts/ensure-audit-enums.ts.
+ * Reconcile missing enum labels before the application exposes routes that
+ * can write audited data. PostgreSQL requires each ALTER TYPE statement to be
+ * issued separately rather than inside a transaction or DO block.
+ */
+export async function ensureAuditEnumsAtStartup(): Promise<void> {
+  const { drift } = await verifyAuditEnums();
+  for (const d of drift) {
+    for (const value of d.missing) {
+      // Enum names and values come from the compile-time allowlists above,
+      // never from request input.
+      await db.execute(
+        sql.raw(`ALTER TYPE ${d.type} ADD VALUE IF NOT EXISTS '${value}'`),
+      );
+    }
+  }
+
+  const after = await verifyAuditEnums();
+  if (!after.ok) {
+    throw new Error(
+      after.drift
+        .map((d) => `audit enum '${d.type}' is missing: ${d.missing.join(", ")}`)
+        .join("; "),
+    );
+  }
+}
+
+/**
+ * Non-fatal startup guard for environments where reconciliation is handled
+ * outside the application process. Logs a loud, structured alert if the DB
+ * audit enums have drifted behind the code.
  */
 export async function assertAuditEnumsAtStartup(): Promise<void> {
   try {

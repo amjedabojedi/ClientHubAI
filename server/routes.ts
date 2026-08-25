@@ -106,7 +106,8 @@ import {
   insertFormAssignmentSchema,
   insertFormResponseSchema,
   insertFormSignatureSchema,
-  recordingRetentionDecisionInputSchema
+  recordingRetentionDecisionInputSchema,
+  recordingRetentionCleanupInputSchema
 } from "@shared/schema";
 
 
@@ -8010,6 +8011,87 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(500).json({ message: error.message || "Internal error" });
       }
     },
+  );
+
+  // Cleanup is deliberately separate from recording a retention decision.
+  // Only an administrator may request it, the request must carry a fresh
+  // confirmation, and storage re-checks the latest decision atomically before
+  // removing the selected unfinished recording attempt.
+  const cleanupRecordingAttempt = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const role = req.user.role?.toLowerCase().trim();
+      if (role !== "admin" && role !== "administrator") {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const attemptId = Number(req.params.attemptId);
+      if (!Number.isInteger(attemptId) || attemptId <= 0) {
+        return res.status(400).json({ message: "Invalid recording attempt id" });
+      }
+      recordingRetentionCleanupInputSchema.parse(req.body);
+
+      // Fetch metadata for the audit details and a useful not-found response.
+      // The storage operation repeats this lookup under its transaction locks.
+      const attempt = await storage.getActiveSessionTranscriptById(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Unresolved recording attempt not found" });
+      }
+
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      const result = await storage.cleanupRecordingAttemptWithAudit(attemptId, {
+        userId: req.user.id,
+        username: req.user.username,
+        action: "recording_retention_cleanup_performed",
+        result: "success",
+        resourceType: "session_transcript",
+        resourceId: String(attemptId),
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: "high",
+        details: JSON.stringify({
+          attemptId,
+          sessionId: attempt.sessionId,
+          confirmation: "fresh",
+          removedContent: "recording_attempt_transcript_data",
+        }),
+        accessReason: "Separately confirmed administrator recording cleanup",
+      });
+
+      if (result.status === "not_found") {
+        return res.status(404).json({ message: "Unresolved recording attempt not found" });
+      }
+      if (result.status === "not_authorized") {
+        return res.status(409).json({
+          message: result.latestDecision
+            ? "The latest retention decision does not authorize cleanup. Record a new cleanup-authorized decision before trying again."
+            : "Cleanup requires a cleanup-authorized retention decision first.",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        attemptId,
+        sessionId: result.deleted.sessionId,
+        cleanupDecisionId: result.latestDecision.id,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Fresh cleanup confirmation required",
+          issues: error.flatten().fieldErrors,
+        });
+      }
+      console.error("[SessionTranscript] retention cleanup error:", error);
+      return res.status(500).json({ message: error.message || "Internal error" });
+    }
+  };
+
+  app.post(
+    "/api/admin/session-transcripts/recovery/:attemptId/cleanup",
+    requireAuth,
+    cleanupRecordingAttempt,
   );
 
   // Phase 3 (anti-abuse): per-user-per-session in-memory rate limit on chunk

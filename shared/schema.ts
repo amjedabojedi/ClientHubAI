@@ -1703,6 +1703,7 @@ export const AUDIT_ACTIONS = [
   'session_transcript_smart_fill',
   'session_transcript_deleted',
   'recording_retention_decision_recorded',
+  'recording_retention_cleanup_performed',
   'voice_transcription_new_note',
   'voice_transcription_processed',
   'voice_transcription_failed',
@@ -2504,6 +2505,14 @@ export type RecordingRetentionDecision = (typeof RECORDING_RETENTION_DECISIONS)[
 export const recordingRetentionDecisionInputSchema = z.object({
   decision: z.enum(RECORDING_RETENTION_DECISIONS),
   rationale: z.string().trim().min(1).max(4000),
+});
+
+// Cleanup is intentionally a separate, fresh confirmation from recording the
+// retention decision. The exact phrase prevents an accidental destructive
+// request from being replayed without an explicit administrator action.
+export const RECORDING_RETENTION_CLEANUP_CONFIRMATION = "DELETE RECORDING ATTEMPT";
+export const recordingRetentionCleanupInputSchema = z.object({
+  confirmation: z.literal(RECORDING_RETENTION_CLEANUP_CONFIRMATION),
 });
 
 export const insertRecordingRetentionDecisionSchema = createInsertSchema(recordingRetentionDecisions, {

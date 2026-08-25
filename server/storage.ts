@@ -777,6 +777,14 @@ export interface IStorage {
     data: InsertRecordingRetentionDecision,
     audit: InsertAuditLog,
   ): Promise<RecordingRetentionDecisionSummary>;
+  cleanupRecordingAttemptWithAudit(
+    attemptId: number,
+    audit: InsertAuditLog,
+  ): Promise<
+    | { status: "not_found" }
+    | { status: "not_authorized"; latestDecision?: RecordingRetentionDecisionSummary }
+    | { status: "deleted"; deleted: SessionTranscript; latestDecision: RecordingRetentionDecisionSummary }
+  >;
   createSessionTranscriptIfNoActive(data: InsertSessionTranscript): Promise<{
     created?: SessionTranscript;
     active?: SessionTranscript;
@@ -2739,6 +2747,12 @@ export class DatabaseStorage implements IStorage {
     audit: InsertAuditLog,
   ): Promise<RecordingRetentionDecisionSummary> {
     return db.transaction(async (tx) => {
+      // Serialize decisions with cleanup. Otherwise a newer retain/defer
+      // decision could race a cleanup that had already checked an older
+      // cleanup-authorized decision.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('recording_retention_cleanup'), ${data.attemptId})`,
+      );
       const [created] = await tx
         .insert(recordingRetentionDecisions)
         .values(data)
@@ -2765,6 +2779,96 @@ export class DatabaseStorage implements IStorage {
         ...created,
         decision: created.decision as RecordingRetentionDecisionSummary["decision"],
       };
+    });
+  }
+
+  async cleanupRecordingAttemptWithAudit(
+    attemptId: number,
+    audit: InsertAuditLog,
+  ): Promise<
+    | { status: "not_found" }
+    | { status: "not_authorized"; latestDecision?: RecordingRetentionDecisionSummary }
+    | { status: "deleted"; deleted: SessionTranscript; latestDecision: RecordingRetentionDecisionSummary }
+  > {
+    return db.transaction(async (tx) => {
+      const [initialAttempt] = await tx
+        .select()
+        .from(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.id, attemptId),
+            inArray(sessionTranscripts.status, ["recording", "processing"]),
+          ),
+        )
+        .limit(1);
+      if (!initialAttempt) return { status: "not_found" };
+
+      // Keep cleanup mutually exclusive with finalization/discard for the
+      // session, and with retention-decision writes for this attempt.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('recording_retention_cleanup'), ${attemptId})`,
+      );
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('session_transcript_recording'), ${initialAttempt.sessionId})`,
+      );
+
+      const [attempt] = await tx
+        .select()
+        .from(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.id, attemptId),
+            inArray(sessionTranscripts.status, ["recording", "processing"]),
+          ),
+        )
+        .limit(1);
+      if (!attempt) return { status: "not_found" };
+
+      const [latestRow] = await tx
+        .select({
+          id: recordingRetentionDecisions.id,
+          attemptId: recordingRetentionDecisions.attemptId,
+          sessionId: recordingRetentionDecisions.sessionId,
+          decision: recordingRetentionDecisions.decision,
+          rationale: recordingRetentionDecisions.rationale,
+          decidedById: recordingRetentionDecisions.decidedById,
+          decidedByName: recordingRetentionDecisions.decidedByName,
+          decidedAt: recordingRetentionDecisions.decidedAt,
+        })
+        .from(recordingRetentionDecisions)
+        .where(eq(recordingRetentionDecisions.attemptId, attemptId))
+        .orderBy(desc(recordingRetentionDecisions.decidedAt), desc(recordingRetentionDecisions.id))
+        .limit(1);
+
+      const latestDecision = latestRow
+        ? {
+            ...latestRow,
+            decision: latestRow.decision as RecordingRetentionDecisionSummary["decision"],
+          }
+        : undefined;
+      if (!latestDecision || latestDecision.decision !== "cleanup_authorized") {
+        return { status: "not_authorized", latestDecision };
+      }
+
+      const [deleted] = await tx
+        .delete(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.id, attemptId),
+            inArray(sessionTranscripts.status, ["recording", "processing"]),
+          ),
+        )
+        .returning();
+      if (!deleted) return { status: "not_found" };
+
+      // The cleanup audit is part of this transaction. If it cannot be
+      // recorded, the content deletion rolls back and remains recoverable.
+      await tx.insert(auditLogs).values({
+        ...audit,
+        timestamp: new Date(),
+      });
+
+      return { status: "deleted", deleted, latestDecision };
     });
   }
 

@@ -114,6 +114,7 @@ const AUDIT_ACTION_LABELS = {
   session_transcript_viewed: 'Transcript Viewed',
   session_transcript_smart_fill: 'Transcript Smart-Fill',
   session_transcript_deleted: 'Transcript Deleted',
+  recording_retention_cleanup_performed: 'Recording Retention Cleanup Performed',
   voice_transcription_new_note: 'Voice Note Created',
   voice_transcription_processed: 'Voice Transcription Processed',
   voice_transcription_failed: 'Voice Transcription Failed',
@@ -275,6 +276,7 @@ function describeAuditEntry(log: AuditLog): string {
     case 'session_transcript_created': return 'Created a session transcript';
     case 'session_transcript_smart_fill': return 'Auto-filled a note from a transcript';
     case 'session_transcript_deleted': return 'Deleted a session transcript';
+    case 'recording_retention_cleanup_performed': return 'Permanently removed an approved recording attempt';
     case 'voice_transcription_processed': return 'Processed a voice recording';
     case 'voice_transcription_new_note': return 'Created a note from a voice recording';
     case 'voice_transcription_failed': return `Voice transcription failed${d.reason ? `: ${d.reason}` : ''}`;

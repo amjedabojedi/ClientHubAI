@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Calendar, CheckCircle2, Clock, Filter, Mic, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, Calendar, CheckCircle2, Clock, Filter, Mic, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 import { getCsrfToken } from "@/lib/queryClient";
-import type { RecordingRetentionDecision, UnresolvedRecordingAttempt } from "@shared/schema";
+import {
+  RECORDING_RETENTION_CLEANUP_CONFIRMATION,
+  type RecordingRetentionDecision,
+  type UnresolvedRecordingAttempt,
+} from "@shared/schema";
 
 const decisionLabels: Record<RecordingRetentionDecision, string> = {
   retain: "Retain recording/transcript",
@@ -27,8 +31,10 @@ export default function UnresolvedRecordingsPage() {
   const [createdTo, setCreatedTo] = useState("");
   const [decisionAttempt, setDecisionAttempt] = useState<UnresolvedRecordingAttempt | null>(null);
   const [historyAttempt, setHistoryAttempt] = useState<UnresolvedRecordingAttempt | null>(null);
+  const [cleanupAttempt, setCleanupAttempt] = useState<UnresolvedRecordingAttempt | null>(null);
   const [decision, setDecision] = useState<RecordingRetentionDecision>("retain");
   const [rationale, setRationale] = useState("");
+  const [cleanupConfirmation, setCleanupConfirmation] = useState("");
   const queryClient = useQueryClient();
 
   const { data: attempts = [], isLoading, isFetching, error, refetch } = useQuery<UnresolvedRecordingAttempt[]>({
@@ -74,6 +80,33 @@ export default function UnresolvedRecordingsPage() {
       setDecisionAttempt(null);
       setRationale("");
       setDecision("retain");
+    },
+  });
+
+  const cleanupRecording = useMutation({
+    mutationFn: async () => {
+      if (!cleanupAttempt) throw new Error("No recording attempt selected");
+      const csrfToken = getCsrfToken();
+      const response = await fetch(
+        `/api/admin/session-transcripts/recovery/${cleanupAttempt.id}/cleanup`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          },
+          body: JSON.stringify({ confirmation: cleanupConfirmation }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "Failed to clean up recording attempt");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/session-transcripts/recovery"] });
+      setCleanupAttempt(null);
+      setCleanupConfirmation("");
     },
   });
 
@@ -227,7 +260,10 @@ export default function UnresolvedRecordingsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {attempts.map((attempt) => (
+                      {attempts.map((attempt) => {
+                        const latestDecision = attempt.retentionDecisions[attempt.retentionDecisions.length - 1];
+                        const cleanupAuthorized = latestDecision?.decision === "cleanup_authorized";
+                        return (
                         <TableRow key={attempt.id} data-testid={`row-unresolved-recording-${attempt.id}`}>
                           <TableCell>
                             <div className="font-medium">{attempt.clientName}</div>
@@ -257,14 +293,14 @@ export default function UnresolvedRecordingsPage() {
                             {attempt.retentionDecisions.length > 0 ? (
                               <div className="space-y-1">
                                 <Badge variant="secondary">
-                                  {decisionLabels[attempt.retentionDecisions[attempt.retentionDecisions.length - 1].decision]}
+                                  {decisionLabels[latestDecision!.decision]}
                                 </Badge>
                                 <div className="text-xs text-muted-foreground">
                                   {attempt.retentionDecisions.length} decision{attempt.retentionDecisions.length === 1 ? "" : "s"} ·{" "}
-                                  {attempt.retentionDecisions[attempt.retentionDecisions.length - 1].decidedByName}
+                                  {latestDecision!.decidedByName}
                                 </div>
-                                <div className="max-w-[18rem] truncate text-xs text-muted-foreground" title={attempt.retentionDecisions[attempt.retentionDecisions.length - 1].rationale}>
-                                  {attempt.retentionDecisions[attempt.retentionDecisions.length - 1].rationale}
+                                <div className="max-w-[18rem] truncate text-xs text-muted-foreground" title={latestDecision!.rationale}>
+                                  {latestDecision!.rationale}
                                 </div>
                               </div>
                             ) : (
@@ -294,6 +330,21 @@ export default function UnresolvedRecordingsPage() {
                                   View history
                                 </Button>
                               )}
+                              {cleanupAuthorized && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCleanupAttempt(attempt);
+                                    setCleanupConfirmation("");
+                                    cleanupRecording.reset();
+                                  }}
+                                  data-testid={`button-review-retention-cleanup-${attempt.id}`}
+                                >
+                                  <Trash2 className="mr-1 h-4 w-4" />
+                                  Review cleanup
+                                </Button>
+                              )}
                               <Link href={`/clients/${attempt.clientId}?tab=sessions&sessionId=${attempt.sessionId}`}>
                                 <Button variant="outline" size="sm" data-testid={`button-review-unresolved-${attempt.id}`}>
                                   Review session
@@ -302,7 +353,8 @@ export default function UnresolvedRecordingsPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -411,6 +463,80 @@ export default function UnresolvedRecordingsPage() {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{recordDecision.error.message}</AlertDescription>
+            </Alert>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cleanupAttempt !== null}
+        onOpenChange={(open) => {
+          if (!open && !cleanupRecording.isPending) {
+            setCleanupAttempt(null);
+            setCleanupConfirmation("");
+            cleanupRecording.reset();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Review recording cleanup</DialogTitle>
+            <DialogDescription>
+              This is a separate destructive action. You are reviewing cleanup for{" "}
+              <strong>{cleanupAttempt?.clientName}</strong>, session #{cleanupAttempt?.sessionId},
+              recording attempt #{cleanupAttempt?.id}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <Trash2 className="h-4 w-4" />
+              <AlertTitle>Permanent removal</AlertTitle>
+              <AlertDescription>
+                This removes the selected unfinished recording attempt, including its saved transcript
+                chunks and transcript content. It does not remove the append-only retention decision
+                history. Recording a cleanup-authorized decision alone never performs this action.
+              </AlertDescription>
+            </Alert>
+            <div className="space-y-2">
+              <Label htmlFor="retention-cleanup-confirmation">
+                Type <span className="font-mono">{RECORDING_RETENTION_CLEANUP_CONFIRMATION}</span> to confirm
+              </Label>
+              <Input
+                id="retention-cleanup-confirmation"
+                value={cleanupConfirmation}
+                onChange={(event) => setCleanupConfirmation(event.target.value)}
+                placeholder={RECORDING_RETENTION_CLEANUP_CONFIRMATION}
+                autoComplete="off"
+                data-testid="input-retention-cleanup-confirmation"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCleanupAttempt(null)}
+              disabled={cleanupRecording.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => cleanupRecording.mutate()}
+              disabled={
+                cleanupConfirmation !== RECORDING_RETENTION_CLEANUP_CONFIRMATION ||
+                cleanupRecording.isPending
+              }
+              data-testid="button-confirm-retention-cleanup"
+            >
+              {cleanupRecording.isPending ? "Removing..." : "Permanently remove attempt"}
+            </Button>
+          </DialogFooter>
+          {cleanupRecording.isError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{cleanupRecording.error.message}</AlertDescription>
             </Alert>
           )}
         </DialogContent>
