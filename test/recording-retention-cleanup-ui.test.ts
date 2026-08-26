@@ -14,8 +14,8 @@
  *      and shows the server's error in the dialog.
  *   4. A successful removal closes the review dialog and removes only the
  *      selected attempt from the report.
- *   5. Therapist and billing users see the restricted state without loading the
- *      unresolved recording report.
+ *   5. Therapist, supervisor, and billing users see the restricted state without
+ *      loading the unresolved recording report.
  *
  * Run with: npx tsx test/recording-retention-cleanup-ui.test.ts
  *
@@ -104,6 +104,7 @@ async function main() {
   let browser: Browser | null = null;
   let adminId: number | undefined;
   let therapistId: number | undefined;
+  let supervisorId: number | undefined;
   let billingId: number | undefined;
   let clientId: number | undefined;
   let serviceId: number | undefined;
@@ -130,6 +131,15 @@ async function main() {
       role: "therapist",
     } as any);
     therapistId = therapist.id;
+
+    const supervisor = await storage.createUser({
+      username: `cleanup-ui-supervisor-${SUFFIX}`,
+      password: "x",
+      fullName: `Cleanup UI Supervisor ${SUFFIX}`,
+      email: `cleanup-ui-supervisor-${SUFFIX}@example.test`,
+      role: "supervisor",
+    } as any);
+    supervisorId = supervisor.id;
 
     const billing = await storage.createUser({
       username: `cleanup-ui-billing-${SUFFIX}`,
@@ -413,16 +423,17 @@ async function main() {
 
     for (const nonAdministrator of [
       { label: "Therapist", user: therapist },
+      { label: "Supervisor", user: supervisor },
       { label: "Billing", user: billing },
     ]) {
       recoveryReportRequests.length = 0;
       await page.goto(devServer.baseUrl, { waitUntil: "domcontentloaded" });
-      const nonAdminLoginStatus = await loginAs(page, {
+      const nonAdministratorLoginStatus = await loginAs(page, {
         username: nonAdministrator.user.username,
         password: "x",
       });
       assertEqual(
-        nonAdminLoginStatus,
+        nonAdministratorLoginStatus,
         200,
         `${nonAdministrator.label} user logs in via /api/auth/login`,
       );
@@ -504,7 +515,7 @@ async function main() {
       if (serviceId !== undefined) {
         await db.delete(services).where(eq(services.id, serviceId));
       }
-      const userIds = [adminId, therapistId, billingId].filter(
+      const userIds = [adminId, therapistId, supervisorId, billingId].filter(
         (id): id is number => id !== undefined,
       );
       if (userIds.length > 0) {
