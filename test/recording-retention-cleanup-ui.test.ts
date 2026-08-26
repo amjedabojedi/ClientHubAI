@@ -14,6 +14,8 @@
  *      and shows the server's error in the dialog.
  *   4. A successful removal closes the review dialog and removes only the
  *      selected attempt from the report.
+ *   5. Therapist and billing users see the restricted state without loading the
+ *      unresolved recording report.
  *
  * Run with: npx tsx test/recording-retention-cleanup-ui.test.ts
  *
@@ -101,6 +103,8 @@ async function main() {
   let devServer: DevServer | null = null;
   let browser: Browser | null = null;
   let adminId: number | undefined;
+  let therapistId: number | undefined;
+  let billingId: number | undefined;
   let clientId: number | undefined;
   let serviceId: number | undefined;
   let sessionId: number | undefined;
@@ -117,6 +121,24 @@ async function main() {
       role: "admin",
     } as any);
     adminId = admin.id;
+
+    const therapist = await storage.createUser({
+      username: `cleanup-ui-therapist-${SUFFIX}`,
+      password: "x",
+      fullName: `Cleanup UI Therapist ${SUFFIX}`,
+      email: `cleanup-ui-therapist-${SUFFIX}@example.test`,
+      role: "therapist",
+    } as any);
+    therapistId = therapist.id;
+
+    const billing = await storage.createUser({
+      username: `cleanup-ui-billing-${SUFFIX}`,
+      password: "x",
+      fullName: `Cleanup UI Billing ${SUFFIX}`,
+      email: `cleanup-ui-billing-${SUFFIX}@example.test`,
+      role: "billing",
+    } as any);
+    billingId = billing.id;
 
     const [client] = await db
       .insert(clients)
@@ -381,6 +403,66 @@ async function main() {
       )) !== null,
       "The other unfinished attempt remains in the list after cleanup",
     );
+
+    const recoveryReportRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/admin/session-transcripts/recovery")) {
+        recoveryReportRequests.push(request.url());
+      }
+    });
+
+    for (const nonAdministrator of [
+      { label: "Therapist", user: therapist },
+      { label: "Billing", user: billing },
+    ]) {
+      recoveryReportRequests.length = 0;
+      await page.goto(devServer.baseUrl, { waitUntil: "domcontentloaded" });
+      const nonAdminLoginStatus = await loginAs(page, {
+        username: nonAdministrator.user.username,
+        password: "x",
+      });
+      assertEqual(
+        nonAdminLoginStatus,
+        200,
+        `${nonAdministrator.label} user logs in via /api/auth/login`,
+      );
+
+      await page.goto(`${devServer.baseUrl}/unresolved-recordings`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForFunction(
+        () =>
+          document.body.innerText.includes("Access Restricted") &&
+          document.body.innerText.includes(
+            "Unresolved recording reports are restricted to administrators only.",
+          ),
+        { timeout: 30_000 },
+      );
+      const pageText = await page.$eval(
+        "body",
+        (element) => element.innerText,
+      );
+      assert(
+        pageText.includes("Access Restricted") &&
+          pageText.includes(
+            "Unresolved recording reports are restricted to administrators only.",
+          ),
+        `${nonAdministrator.label} sees the restricted-access state`,
+      );
+      assert(
+        !pageText.includes("Unresolved Recording Attempts") &&
+          (await page.$('[data-testid="button-refresh-unresolved-recordings"]')) ===
+            null &&
+          (await page.$('[data-testid^="button-review-retention-cleanup-"]')) ===
+            null,
+        `${nonAdministrator.label} cannot reach unresolved recording review controls`,
+      );
+      assertEqual(
+        recoveryReportRequests.length,
+        0,
+        `${nonAdministrator.label} does not request the unresolved recording report`,
+      );
+    }
   } catch (error) {
     console.error("\n❌ Test suite error:", error);
     testsFailed++;
@@ -422,8 +504,11 @@ async function main() {
       if (serviceId !== undefined) {
         await db.delete(services).where(eq(services.id, serviceId));
       }
-      if (adminId !== undefined) {
-        await db.delete(users).where(eq(users.id, adminId));
+      const userIds = [adminId, therapistId, billingId].filter(
+        (id): id is number => id !== undefined,
+      );
+      if (userIds.length > 0) {
+        await db.delete(users).where(inArray(users.id, userIds));
       }
     } catch (cleanupError) {
       console.error("⚠️ Cleanup error:", cleanupError);
