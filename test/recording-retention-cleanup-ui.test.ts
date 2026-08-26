@@ -119,7 +119,7 @@ async function main() {
       password: "x",
       fullName: `Cleanup UI Admin ${SUFFIX}`,
       email: `cleanup-ui-admin-${SUFFIX}@example.test`,
-      role: "admin",
+      role: "administrator",
     } as any);
     adminId = admin.id;
 
