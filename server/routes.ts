@@ -6,7 +6,6 @@ import * as path from "path";
 import * as crypto from "crypto";
 import multer from "multer";
 import bcrypt from "bcrypt";
-import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
 import { format } from "date-fns";
@@ -24,6 +23,7 @@ import { clientInitials } from "@shared/privacy";
 // Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio, toAiServiceError, AiServiceError } from "./ai/openai";
 import { parseInsuranceUpload } from "./insurance/parse";
+import { sendSparkPostTransmission } from "./email-provider";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { classifyInboundSms, validateTwilioSignature, normalizePhoneE164 } from "./sms-service";
@@ -13612,14 +13612,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const ok =
         name.endsWith('.pdf') ||
         name.endsWith('.xlsx') ||
-        name.endsWith('.xls') ||
         name.endsWith('.csv') ||
         name.endsWith('.txt') ||
         name.endsWith('.docx');
       if (ok) {
         cb(null, true);
       } else {
-        cb(new Error('Please upload a PDF, Excel (.xlsx/.xls), or CSV file.'));
+        cb(new Error('Please upload a PDF, Excel (.xlsx), or CSV file.'));
       }
     },
   });
@@ -15447,8 +15446,6 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // Email invoice using SparkPost if available
         if (process.env.SPARKPOST_API_KEY && client.email) {
           try {
-            const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-            
             // Use the configured send domain for emails
             const fromEmail = getEmailFromAddress();
             
@@ -15554,7 +15551,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
               }
             }
 
-            const result = await sp.transmissions.send({
+            const result = await sendSparkPostTransmission({
               options: {
                 sandbox: false  // Set to false for production sending
               },
@@ -18705,11 +18702,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
             const amount = (session.amount_total / 100).toFixed(2);
             
             if (process.env.SPARKPOST_API_KEY) {
-              const SparkPost = (await import('sparkpost')).default;
-              const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
               const fromEmail = getEmailFromAddress();
               
-              await sp.transmissions.send({
+              await sendSparkPostTransmission({
                 options: {
                   sandbox: false,
                 },
@@ -20902,11 +20897,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ error: 'toEmail is required' });
       }
 
-      const SparkPost = (await import('sparkpost')).default;
-      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = getEmailFromAddress();
       
-      await sp.transmissions.send({
+      await sendSparkPostTransmission({
         content: {
           from: fromEmail,
           subject: 'Test Email from SmartHub',

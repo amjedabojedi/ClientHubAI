@@ -1,4 +1,5 @@
-import * as XLSX from "xlsx";
+import readXlsxFile, { type SheetData } from "read-excel-file/node";
+import { parseCsvRows } from "@shared/csv";
 import { extractDocumentText } from "../report-templates/extract";
 import {
   extractInsuranceStatementFromText,
@@ -21,8 +22,7 @@ function numOrNull(v: any): number | null {
 }
 
 // Format a Date using its LOCAL calendar parts (never UTC), so a date-only value
-// can't shift a day in a non-UTC timezone. xlsx builds Date cells in local time,
-// so local getters recover the date the cell actually represents.
+// can't shift a day in a non-UTC timezone.
 function fmtLocalDate(dt: Date): string {
   const y = dt.getFullYear();
   const m = String(dt.getMonth() + 1).padStart(2, "0");
@@ -33,16 +33,15 @@ function fmtLocalDate(dt: Date): string {
 // Normalize an Excel serial date or string date into YYYY-MM-DD (or null).
 function toIsoDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
-  // Excel stores dates as serial numbers; xlsx can give us a parsed Date.
+  // Excel stores dates as serial numbers when the source cell was not formatted
+  // as a date. Convert from the spreadsheet's 1900 epoch without a timezone hop.
   if (v instanceof Date && !isNaN(v.getTime())) {
     return fmtLocalDate(v);
   }
   if (typeof v === "number" && Number.isFinite(v)) {
-    const parsed = XLSX.SSF?.parse_date_code?.(v);
-    if (parsed && parsed.y) {
-      const mm = String(parsed.m).padStart(2, "0");
-      const dd = String(parsed.d).padStart(2, "0");
-      return `${parsed.y}-${mm}-${dd}`;
+    const date = new Date(Math.round((v - 25569) * 86_400_000));
+    if (!isNaN(date.getTime())) {
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
     }
   }
   const s = String(v).trim();
@@ -206,7 +205,7 @@ function looksLikeHeaderRow(cells: any[]): boolean {
 // all sheets and pick the strongest: prefer a table that has BOTH a client and a
 // service-date column, then the one mapping the most known columns, then the
 // earliest sheet/row. This keeps a summary/aggregate tab from beating the detail.
-function locateTable(wb: XLSX.WorkBook): { headers: string[]; dataRows: Record<string, any>[] } {
+function locateTable(sheets: SheetData[]): { headers: string[]; dataRows: Record<string, any>[] } {
   type Candidate = {
     headers: string[];
     dataRows: Record<string, any>[];
@@ -217,10 +216,8 @@ function locateTable(wb: XLSX.WorkBook): { headers: string[]; dataRows: Record<s
   };
   const candidates: Candidate[] = [];
 
-  wb.SheetNames.forEach((sheetName, sheetIdx) => {
-    const sheet = wb.Sheets[sheetName];
-    if (!sheet) return;
-    const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+  sheets.forEach((sheet, sheetIdx) => {
+    const aoa = sheet as any[][];
     aoa.forEach((row, headerIdx) => {
       if (!Array.isArray(row) || !looksLikeHeaderRow(row)) return;
       const headers = row.map((h, i) => {
@@ -266,12 +263,17 @@ function locateTable(wb: XLSX.WorkBook): { headers: string[]; dataRows: Record<s
 
 // Parse an Excel/CSV buffer into our structured statement shape. No AI is used
 // for spreadsheets — the columns are read directly with heuristic header mapping.
-export function parseInsuranceSpreadsheet(buffer: Buffer): ExtractedInsuranceStatement {
-  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-  if (!wb.SheetNames.length) {
+export async function parseInsuranceSpreadsheet(
+  buffer: Buffer,
+  isCsv = false,
+): Promise<ExtractedInsuranceStatement> {
+  const sheets = isCsv
+    ? [{ sheet: "CSV", data: parseCsvRows(buffer.toString("utf8")) as SheetData }]
+    : await readXlsxFile(buffer);
+  if (!sheets.length) {
     throw new Error("The spreadsheet has no sheets.");
   }
-  const { headers, dataRows } = locateTable(wb);
+  const { headers, dataRows } = locateTable(sheets.map((sheet) => sheet.data));
   const colFor = buildColumnMap(headers);
 
   const lines: ExtractedInsuranceLine[] = dataRows
@@ -314,14 +316,22 @@ export async function parseInsuranceUpload(
   const name = (originalName || "").toLowerCase();
   const isSpreadsheet =
     name.endsWith(".xlsx") ||
-    name.endsWith(".xls") ||
     name.endsWith(".csv") ||
     mimeType === "text/csv" ||
     mimeType === "application/vnd.ms-excel" ||
     mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
   if (isSpreadsheet) {
-    return { sourceType: "excel", extracted: parseInsuranceSpreadsheet(buffer) };
+    if (name.endsWith(".xls") || mimeType === "application/vnd.ms-excel") {
+      throw new Error("Legacy .xls uploads are no longer supported. Please save the file as .xlsx and try again.");
+    }
+    return {
+      sourceType: "excel",
+      extracted: await parseInsuranceSpreadsheet(
+        buffer,
+        name.endsWith(".csv") || mimeType === "text/csv",
+      ),
+    };
   }
 
   // PDF / docx / txt → extract text then AI structure it.

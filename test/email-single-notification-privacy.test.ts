@@ -44,7 +44,7 @@ delete process.env.TWILIO_ACCOUNT_SID;
 delete process.env.TWILIO_AUTH_TOKEN;
 delete process.env.TWILIO_FROM_NUMBER;
 
-import SparkPost from "sparkpost";
+import { EmailTransportTestDouble as SparkPost } from "../server/email-provider";
 import { db } from "../server/db";
 import { clients, notifications, auditLogs } from "../shared/schema";
 import { notificationService } from "../server/notification-service";

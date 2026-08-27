@@ -76,3 +76,4 @@
 - [Payout pay-period labels](payout-pay-period-label.md) — payouts keep real payment date; period_start/end label the service window (derived server-side in practice tz); earned_date is practice-tz date now.
 - [Dev DB lock wedge](dev-db-lock-wedge.md) — a hanging users delete = stale idle-in-transaction backends queuing the startup ALTER TABLE; check pg_stat_activity, and dev-server stop must kill the whole process group.
 - [Insurance audited mutation atomicity](insurance-audited-mutation-atomicity.md) — HIPAA-audited line mutations must write the change + auditLog in ONE tx; posted AND reversed lines are terminal/locked (storage + UI).
+- [npm audit downgrade trap](npm-audit-downgrade-trap.md) — audit remediation can recommend unsafe downgrades; compare its proposed version before accepting it.

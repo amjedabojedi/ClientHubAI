@@ -38,7 +38,7 @@
 process.env.SPARKPOST_API_KEY = process.env.SPARKPOST_API_KEY || "test-sparkpost-key";
 process.env.EMAIL_FROM = process.env.EMAIL_FROM || "notify@example.test";
 
-import SparkPost from "sparkpost";
+import { EmailTransportTestDouble as SparkPost } from "../server/email-provider";
 import { db } from "../server/db";
 import {
   users,

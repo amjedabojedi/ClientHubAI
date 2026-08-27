@@ -15,8 +15,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Plus, Trash2, GripVertical, Eye, Edit2, MoveUp, MoveDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { sanitizeHtml } from "@/lib/sanitize";
 import { SignaturePad } from "@/components/forms/signature-pad";
 

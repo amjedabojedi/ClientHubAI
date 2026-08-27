@@ -50,7 +50,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import { createServer, type Server } from "http";
 import { AddressInfo } from "net";
-import SparkPost from "sparkpost";
+import { EmailTransportTestDouble as SparkPost } from "../server/email-provider";
 import { db } from "../server/db";
 import { users, dailyScheduleEmails, notificationPreferences } from "../shared/schema";
 import { storage } from "../server/storage";

@@ -12,12 +12,12 @@ import {
   supervisorAssignments,
   sessions,
 } from "@shared/schema";
-import SparkPost from "sparkpost";
 import { format, toZonedTime, fromZonedTime } from "date-fns-tz";
 import { clientInitials } from "@shared/privacy";
 import { checkSmsConsent } from "./routes-helpers";
 import { isSmsConfigured, normalizePhoneE164, sendSms } from "./sms-service";
 import { AuditLogger } from "./audit-logger";
+import { sendSparkPostTransmission } from "./email-provider";
 import type {
   InsertNotification,
   NotificationTrigger,
@@ -1353,7 +1353,6 @@ export class NotificationService {
     }
 
     try {
-      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = getEmailFromAddress();
 
       console.log(
@@ -1453,7 +1452,7 @@ export class NotificationService {
           );
 
           // Send email
-          const result = await sp.transmissions.send({
+          const result = await sendSparkPostTransmission({
             content: {
               from: fromEmail,
               subject: subject,
@@ -1464,7 +1463,7 @@ export class NotificationService {
           });
 
           console.log(
-            `[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results.id})`,
+            `[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results?.id ?? "unknown"})`,
           );
 
           // Audit a successful CLIENT email send (HIPAA trail). Staff emails are
@@ -2460,10 +2459,9 @@ If you have any questions about joining the virtual session, please contact your
         return;
       }
 
-      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = getEmailFromAddress();
       try {
-        const result = await sp.transmissions.send({
+        const result = await sendSparkPostTransmission({
           content: {
             from: fromEmail,
             subject,
@@ -2480,7 +2478,7 @@ If you have any questions about joining the virtual session, please contact your
           { messageId: result?.results?.id, series: true, count },
         );
         console.log(
-          `[SERIES] ✓ Sent series confirmation to ${clientRow.email} (ID: ${result.results.id})`,
+          `[SERIES] ✓ Sent series confirmation to ${clientRow.email} (ID: ${result.results?.id ?? "unknown"})`,
         );
       } catch (sendError) {
         await this.auditEmail(
@@ -2769,7 +2767,6 @@ If you have any questions about joining the virtual session, please contact your
     const dayStart = fromZonedTime(`${easternDateStr}T00:00:00`, PRACTICE_TZ);
     const dayEnd = fromZonedTime(`${easternDateStr}T23:59:59.999`, PRACTICE_TZ);
 
-    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     let fromEmail: string;
     try {
       fromEmail = getEmailFromAddress();
@@ -2877,7 +2874,7 @@ If you have any questions about joining the virtual session, please contact your
           dayLabel,
         );
 
-        const result = await sp.transmissions.send({
+        const result = await sendSparkPostTransmission({
           content: {
             from: fromEmail,
             subject,
@@ -2888,7 +2885,7 @@ If you have any questions about joining the virtual session, please contact your
         });
 
         console.log(
-          `[DAILY-SCHEDULE] ✓ Sent ${todays.length}-appointment digest to ${therapist.email} (ID: ${result.results.id})`,
+          `[DAILY-SCHEDULE] ✓ Sent ${todays.length}-appointment digest to ${therapist.email} (ID: ${result.results?.id ?? "unknown"})`,
         );
 
         await storage.upsertDailyScheduleEmail({
@@ -2988,8 +2985,6 @@ If you have any questions about joining the virtual session, please contact your
     const userIds = await storage.getPendingDeferredEmailUserIds();
     if (userIds.length === 0) return { sent, skipped, failed };
 
-    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-
     for (const userId of userIds) {
       // Only flush once the user is no longer muted. Still-muted users keep
       // their pending rows for a later tick (when the window ends / weekend
@@ -3028,7 +3023,7 @@ If you have any questions about joining the virtual session, please contact your
           recipient,
           claimed,
         );
-        const result = await sp.transmissions.send({
+        const result = await sendSparkPostTransmission({
           content: {
             from: fromEmail,
             subject,
@@ -3038,7 +3033,7 @@ If you have any questions about joining the virtual session, please contact your
           recipients: [{ address: recipient.email }],
         });
         console.log(
-          `[DEFERRED-SUMMARY] ✓ Sent ${claimed.length}-item catch-up to ${recipient.email} (ID: ${result.results.id})`,
+          `[DEFERRED-SUMMARY] ✓ Sent ${claimed.length}-item catch-up to ${recipient.email} (ID: ${result.results?.id ?? "unknown"})`,
         );
         await storage.markDeferredEmailsSent(ids);
         sent++;

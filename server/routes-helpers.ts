@@ -3,8 +3,8 @@
 // across the route handlers: email senders, privacy redaction, consent checks,
 // id generation, request helpers and the public calendar-feed rate limiter.
 import * as fs from "fs";
-import SparkPost from "sparkpost";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { sendSparkPostTransmission } from "./email-provider";
 
 import { storage } from "./storage";
 import { db } from "./db";
@@ -204,13 +204,12 @@ export async function sendActivationEmail(clientEmail: string, clientName: strin
   }
 
   try {
-    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     const fromEmail = getEmailFromAddress();
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const activationUrl = `${appUrl}/portal/activate/${activationToken}`;
 
-    await sp.transmissions.send({
+    await sendSparkPostTransmission({
       content: {
         from: fromEmail,
         subject: 'Activate Your SmartHub Portal Account',
@@ -249,13 +248,12 @@ export async function sendPasswordResetEmail(clientEmail: string, clientName: st
   }
 
   try {
-    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     const fromEmail = getEmailFromAddress();
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const resetUrl = `${appUrl}/portal/reset-password/${resetToken}`;
 
-    await sp.transmissions.send({
+    await sendSparkPostTransmission({
       content: {
         from: fromEmail,
         subject: 'Reset Your SmartHub Portal Password',
@@ -304,7 +302,6 @@ export async function sendAppointmentConfirmationEmail(
   }
 
   try {
-    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     const fromEmail = getEmailFromAddress();
     const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
     const dashboardUrl = `${baseUrl}/portal/dashboard`;
@@ -327,7 +324,7 @@ export async function sendAppointmentConfirmationEmail(
     const appointmentDateTimeInEastern = fromZonedTime(dateTimeString, 'America/New_York');
     const displayTime = formatInTimeZone(appointmentDateTimeInEastern, 'America/New_York', 'h:mm a');
 
-    await sp.transmissions.send({
+    await sendSparkPostTransmission({
       content: {
         from: fromEmail,
         subject: 'Appointment Confirmed - SmartHub',

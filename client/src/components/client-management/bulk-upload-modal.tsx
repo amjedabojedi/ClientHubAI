@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import readXlsxFile from "read-excel-file/browser";
+import { parseCsvRows } from "@shared/csv";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -67,38 +69,19 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Parse Excel file
-  const parseExcelFile = (file: File): Promise<ParsedData> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = (window as any).XLSX.read(data, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonData = (window as any).XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          
-          if (jsonData.length === 0) {
-            reject(new Error('Excel file is empty'));
-            return;
-          }
-
-          const headers = jsonData[0];
-          const rows = jsonData.slice(1);
-          
-          resolve({
-            headers,
-            rows,
-            mappedData: []
-          });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsBinaryString(file);
-    });
+  // Parse the first worksheet without loading a remote script at runtime.
+  const parseExcelFile = async (file: File): Promise<ParsedData> => {
+    const jsonData = file.name.toLowerCase().endsWith(".csv")
+      ? parseCsvRows(await file.text())
+      : (await readXlsxFile(file))[0]?.data ?? [];
+    if (jsonData.length === 0) {
+      throw new Error('Excel file is empty');
+    }
+    return {
+      headers: jsonData[0].map((value) => String(value ?? '')),
+      rows: jsonData.slice(1),
+      mappedData: []
+    };
   };
 
   // Handle file upload
@@ -107,10 +90,10 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
     if (!selectedFile) return;
 
     // Validate file type
-    if (!selectedFile.name.match(/\.(xlsx|xls)$/)) {
+    if (!selectedFile.name.match(/\.(xlsx|csv)$/i)) {
       toast({
         title: "Invalid file type",
-        description: "Please upload an Excel file (.xlsx or .xls)",
+        description: "Please upload an Excel .xlsx or CSV file",
         variant: "destructive"
       });
       return;
@@ -119,36 +102,9 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
     setFile(selectedFile);
     
     try {
-      // Load XLSX library if not already loaded
-      if (!(window as any).XLSX) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-        script.onload = async () => {
-          try {
-            const parsed = await parseExcelFile(selectedFile);
-            setParsedData(parsed);
-            setStep(2);
-          } catch (error) {
-            toast({
-              title: "Error parsing file",
-              description: error instanceof Error ? error.message : "Failed to parse Excel file",
-              variant: "destructive"
-            });
-          }
-        };
-        script.onerror = () => {
-          toast({
-            title: "Error loading Excel library",
-            description: "Failed to load required Excel parsing library",
-            variant: "destructive"
-          });
-        };
-        document.head.appendChild(script);
-      } else {
-        const parsed = await parseExcelFile(selectedFile);
-        setParsedData(parsed);
-        setStep(2);
-      }
+      const parsed = await parseExcelFile(selectedFile);
+      setParsedData(parsed);
+      setStep(2);
     } catch (error) {
       toast({
         title: "Error parsing file",
@@ -314,7 +270,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Upload an Excel file with client data. Only <strong>Full Name</strong> is required. Include an "Assigned Therapist" column with therapist usernames (like "dr.williams") to automatically assign clients to therapists.
+                Upload an Excel or CSV file with client data. Only <strong>Full Name</strong> is required. Include an "Assigned Therapist" column with therapist usernames (like "dr.williams") to automatically assign clients to therapists.
               </AlertDescription>
             </Alert>
 
@@ -330,13 +286,13 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
               <Label htmlFor="file-upload" className="cursor-pointer">
                 <span className="text-lg font-medium">Choose Excel file</span>
                 <span className="block text-sm text-gray-500 mt-1">
-                  Supports .xlsx and .xls files
+                  Supports .xlsx and .csv files
                 </span>
               </Label>
               <Input
                 id="file-upload"
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.csv"
                 onChange={handleFileUpload}
                 className="hidden"
               />

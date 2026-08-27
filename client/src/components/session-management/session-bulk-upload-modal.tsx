@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/browser";
+import writeXlsxFile from "write-excel-file/browser";
+import { parseCsvRows } from "@shared/csv";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -103,14 +105,14 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
     setFile(uploadedFile);
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    const loadSpreadsheet = async () => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+        if (uploadedFile.name.toLowerCase().endsWith(".xls")) {
+          throw new Error("Legacy .xls files are not supported. Please save the file as .xlsx and try again.");
+        }
+        const jsonData = uploadedFile.name.toLowerCase().endsWith(".csv")
+          ? parseCsvRows(await uploadedFile.text())
+          : (await readXlsxFile(uploadedFile))[0]?.data ?? [];
         
         if (jsonData.length < 2) {
           toast({
@@ -183,8 +185,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
         });
       }
     };
-    
-    reader.readAsArrayBuffer(uploadedFile);
+    void loadSpreadsheet();
   };
 
   const handleFieldMapping = () => {
@@ -228,10 +229,9 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
       ['CL-2025-0003', '2025-08-01', '14:00', 'Consultation', 'IFH', 'Psych-A', 'Virtual']
     ];
     
-    const worksheet = XLSX.utils.aoa_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sessions Template');
-    XLSX.writeFile(workbook, 'session_upload_template.xlsx');
+    void writeXlsxFile([
+      { data: templateData, sheet: 'Sessions Template' },
+    ]).toFile('session_upload_template.xlsx');
   };
 
   const resetModal = () => {
@@ -296,7 +296,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
                 <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <Input
                   type="file"
-                  accept=".xlsx,.xls,.csv"
+                  accept=".xlsx,.csv"
                   onChange={handleFileUpload}
                   className="max-w-xs mx-auto"
                 />

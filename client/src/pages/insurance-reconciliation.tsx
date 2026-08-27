@@ -425,7 +425,7 @@ function StatementList({ onOpen }: { onOpen: (id: number) => void }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.xlsx,.xls,.csv,.txt,.docx"
+            accept=".pdf,.xlsx,.csv,.txt,.docx"
             className="hidden"
             onChange={handleFile}
             data-testid="input-upload-statement"
