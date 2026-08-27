@@ -1479,17 +1479,39 @@ export default function ClientDetailPage({
 
   // Session Note PDF Handlers
   const handlePreviewNotePDF = async (noteId: number) => {
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      toast({
+        title: "Preview blocked",
+        description: "Please allow pop-ups for this site to preview the session note.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    previewWindow.document.title = "Generating session note PDF…";
+
     try {
-      const response = await fetch(`/api/session-notes/${noteId}/pdf`);
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const html = await response.text();
-      const previewWindow = window.open('', '_blank');
-      if (previewWindow) {
-        previewWindow.document.write(html);
-        previewWindow.document.close();
+      const response = await fetch(`/api/session-notes/${noteId}/pdf`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        let message = 'Failed to generate PDF';
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // Keep the default message when the server did not return JSON.
+        }
+        throw new Error(message);
       }
+
+      const pdfBlob = await response.blob();
+      const previewUrl = window.URL.createObjectURL(pdfBlob);
+      previewWindow.location.href = previewUrl;
+      window.setTimeout(() => window.URL.revokeObjectURL(previewUrl), 60_000);
     } catch (error) {
+      previewWindow.close();
       toast({ 
         title: "Error generating PDF preview", 
         description: error instanceof Error ? error.message : "Failed to generate PDF",
@@ -1519,18 +1541,10 @@ export default function ClientDetailPage({
 
   const handleDownloadNotePDF = async (noteId: number) => {
     try {
-      const response = await fetch(`/api/session-notes/${noteId}/pdf`);
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const html = await response.text();
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      }
+      await downloadPdf(
+        `/api/session-notes/${noteId}/pdf`,
+        `session-note-${noteId}.pdf`,
+      );
     } catch (error) {
       toast({ 
         title: "Error downloading PDF", 
