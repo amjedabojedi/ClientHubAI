@@ -22,6 +22,7 @@ SUITES=(
   "test/communications-transcribe-recovery.test.ts"
   "test/session-transcribe-privacy.test.ts"
   "test/session-note-pdf-regression.test.ts"
+  "test/session-note-pdf-browser.test.ts"
   "test/assessment-report-privacy.test.ts"
   "test/client-report-privacy.test.ts"
   "test/client-report-source-selection.test.ts"

@@ -1375,11 +1375,11 @@ export default function ClientDetailPage({
     }
   }, [window.location.search]); // React to URL search parameter changes
 
-  // ==================== React Query Setup ====================
+  // --- React Query Setup ---
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // ==================== API Mutations ====================
+  // --- API Mutations ---
   
   // Session Status Update Mutation
   const updateSessionMutation = useMutation({
@@ -1496,7 +1496,7 @@ export default function ClientDetailPage({
         credentials: "include",
       });
       if (!response.ok) {
-        let message = 'Failed to generate PDF';
+        let message = "Failed to generate PDF";
         try {
           const data = await response.json();
           if (data?.message) message = data.message;
@@ -1554,7 +1554,7 @@ export default function ClientDetailPage({
     }
   };
 
-  // ==================== Basic Event Handlers ====================
+  // --- Basic Event Handlers ---
   
   const handleEditClient = () => setIsEditModalOpen(true);
   const handleDeleteClient = () => setIsDeleteDialogOpen(true);
@@ -2216,7 +2216,7 @@ export default function ClientDetailPage({
     }
   };
 
-  // ==================== Assessment Management ====================
+  // --- Assessment Management ---
   
   // Assessment assign mutation
   const assignAssessmentMutation = useMutation({
@@ -2343,7 +2343,7 @@ export default function ClientDetailPage({
     }
   };
 
-  // ==================== Component Event Handlers ====================
+  // --- Component Event Handlers ---
 
   const { data: client, isLoading } = useQuery<Client>({
     queryKey: [`/api/clients/${clientId}`],
@@ -3911,13 +3911,19 @@ export default function ClientDetailPage({
                                             Note Actions
                                           </div>
                                           {sessionNote.isDraft && (
-                                            <DropdownMenuItem onClick={() => handlePreviewNotePDF(sessionNote.id)}>
+                                            <DropdownMenuItem
+                                              onClick={() => handlePreviewNotePDF(sessionNote.id)}
+                                              data-testid={`menu-preview-pdf-${session.id}`}
+                                            >
                                               <Eye className="w-4 h-4 mr-2" />
                                               Preview Draft PDF
                                             </DropdownMenuItem>
                                           )}
                                           {sessionNote.isFinalized && (
-                                            <DropdownMenuItem onClick={() => handleDownloadNotePDF(sessionNote.id)}>
+                                            <DropdownMenuItem
+                                              onClick={() => handleDownloadNotePDF(sessionNote.id)}
+                                              data-testid={`menu-download-pdf-${session.id}`}
+                                            >
                                               <Download className="w-4 h-4 mr-2" />
                                               Download PDF
                                             </DropdownMenuItem>
