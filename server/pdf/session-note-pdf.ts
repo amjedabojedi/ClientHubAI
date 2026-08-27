@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { sanitizeHtml } from '../lib/sanitize';
 
 interface SessionNote {
   id: number;
@@ -64,6 +65,29 @@ interface PracticeSettings {
   website: string;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function normalizeSessionNoteContent(rawContent: string): string {
+  const trimmedContent = rawContent.trim();
+  if (!trimmedContent) return '';
+
+  // AI generation normally produces plain text while the editor stores rich
+  // text HTML. Preserve line breaks for the former, then sanitize both forms.
+  const hasHtmlMarkup = /<\/?[a-z][^>]*>/i.test(trimmedContent);
+  const htmlContent = hasHtmlMarkup
+    ? trimmedContent
+    : escapeHtml(trimmedContent).replace(/\r?\n/g, '<br>');
+
+  return sanitizeHtml(htmlContent);
+}
+
 // Helper function to calculate overall risk score
 function calculateRiskAssessment(note: SessionNote) {
   const riskFactors = [
@@ -107,8 +131,12 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
   const sessionDate = formatInTimeZone(new Date(note.session.sessionDate), PRACTICE_TIMEZONE, 'MMMM dd, yyyy \'at\' h:mm a');
   const finalizedDate = note.finalizedAt ? formatInTimeZone(new Date(note.finalizedAt), PRACTICE_TIMEZONE, 'MMMM dd, yyyy') : null;
     
-    // Get content to display (prioritize final, then generated, then draft)
-    let content = note.finalContent || note.generatedContent || note.draftContent || '';
+    // Get content to display (prioritize final, then generated, then draft).
+    // Content can come from AI or a rich-text editor, so never insert it into
+    // the document without normalizing and sanitizing it first.
+    let content = normalizeSessionNoteContent(
+      note.finalContent || note.generatedContent || note.draftContent || '',
+    );
     
     // Add visual separators ONLY before main section labels (not client info)
     const sectionLabels = [

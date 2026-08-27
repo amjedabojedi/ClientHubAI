@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectedEntries } from "@/hooks/use-connected-entries";
+import { downloadPdf } from "@/lib/download-pdf";
 
 // Hooks and Data
 import { useState, useEffect, useRef } from "react";
@@ -981,22 +982,43 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
-  // Handle PDF preview (same format as download)
+  // Handle PDF preview. Open the tab synchronously so popup blockers do not
+  // mistake the request for an unsolicited popup, then load the PDF bytes.
   const handlePreviewPDF = async (note: SessionNote) => {
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      toast({
+        title: "Preview blocked",
+        description: "Please allow pop-ups for this site to preview the session note.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    previewWindow.document.title = "Generating session note PDF…";
+
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`);
+      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
+        credentials: "include",
+      });
       
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const html = await response.text();
-      
-      // Open in new window with print styles active
-      const previewWindow = window.open('', '_blank');
-      if (previewWindow) {
-        previewWindow.document.write(html);
-        previewWindow.document.close();
+      if (!response.ok) {
+        let message = 'Failed to generate PDF';
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // Keep the default message when the server did not return JSON.
+        }
+        throw new Error(message);
       }
+
+      const pdfBlob = await response.blob();
+      const previewUrl = window.URL.createObjectURL(pdfBlob);
+      previewWindow.location.href = previewUrl;
+      window.setTimeout(() => window.URL.revokeObjectURL(previewUrl), 60_000);
     } catch (error) {
+      previewWindow.close();
       toast({ 
         title: "Error generating PDF preview", 
         description: error instanceof Error ? error.message : "Failed to generate PDF",
@@ -1005,26 +1027,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
-  // Handle PDF download (opens print dialog to save as PDF)
+  // Handle PDF download as a real PDF file rather than opening the browser
+  // print dialog.
   const handleDownloadPDF = async (note: SessionNote) => {
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`);
-      
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const html = await response.text();
-      
-      // Create a new window with the HTML content and auto-trigger print
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        
-        // Wait for content to load, then trigger print
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
+      await downloadPdf(
+        `/api/session-notes/${note.id}/pdf`,
+        `session-note-${note.id}.pdf`,
+      );
     } catch (error) {
       toast({ 
         title: "Error downloading PDF", 

@@ -9049,7 +9049,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  // Generate PDF HTML for session note (for preview only)
+  // Generate a server-rendered PDF for a session note. Preview opens the PDF
+  // inline in the browser; downloads use the same response as a real PDF file.
   app.get("/api/session-notes/:id/pdf", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -9061,6 +9062,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       if (!note) {
         return res.status(404).json({ message: "Session note not found" });
+      }
+
+      // Match the session-note read/edit authorization: hidden-service sessions
+      // must never be rendered into a downloadable clinical document.
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices) {
+        const visibleSessions = await storage.getSessionsByClient(note.clientId, false);
+        const hasAccess = visibleSessions.some(session => session.id === note.sessionId);
+        if (!hasAccess) {
+          return res.status(404).json({ message: "Session note not found" });
+        }
       }
 
       // Get practice settings
@@ -9087,8 +9099,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // Use defaults if practice settings not found
       }
 
-      // Import HTML generation module
+      // Generate the existing print-ready HTML, then render it to PDF with
+      // the same Chromium/Puppeteer pipeline used by other report exports.
       const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
+      const { generatePDFFromHTML } = await import("./pdf/client-report-pdf");
       
       // Convert date to string for PDF generation
       const noteForPDF = {
@@ -9101,14 +9115,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
       };
       
       const html = generateSessionNoteHTML(noteForPDF as any, practiceSettings);
+      const pdfBuffer = await generatePDFFromHTML(html);
       
-      // Prevent caching to ensure fresh PDF generation
-      res.setHeader('Content-Type', 'text/html');
+      // Prevent caching to ensure fresh PDF generation and avoid exposing
+      // clinical note contents through a cache or an HTML response.
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="session-note-${id}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.removeHeader('ETag');
-      res.send(html);
+      res.send(pdfBuffer);
     } catch (error) {
       console.error('PDF generation error:', error);
       res.status(500).json({ message: "Failed to generate PDF" });
