@@ -165,7 +165,7 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
         <meta charset="UTF-8">
         <style>
           body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
             padding: 20px 30px;
             line-height: 1.5;
             color: #333;
