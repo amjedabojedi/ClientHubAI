@@ -103,7 +103,22 @@ export async function startDevServer(
       ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
+    // Own process group so stop() can kill the WHOLE tree: `npx` spawns
+    // `sh -c tsx server/index.ts` which spawns the real node server —
+    // signalling only the npx wrapper orphans the actual server process.
+    detached: true,
   });
+
+  const killTree = (signal: NodeJS.Signals) => {
+    try {
+      if (proc.pid) process.kill(-proc.pid, signal);
+      else proc.kill(signal);
+    } catch {
+      try {
+        proc.kill(signal);
+      } catch {}
+    }
+  };
 
   proc.stdout?.on("data", () => {});
   proc.stderr?.on("data", (d) => {
@@ -115,21 +130,16 @@ export async function startDevServer(
     if (proc.exitCode !== null) return;
     await new Promise<void>((resolve) => {
       const killTimer = setTimeout(() => {
-        try {
-          proc.kill("SIGKILL");
-        } catch {}
+        killTree("SIGKILL");
         resolve();
       }, 10_000);
       proc.on("exit", () => {
         clearTimeout(killTimer);
+        // The npx wrapper exited; make sure no descendant survives it.
+        killTree("SIGKILL");
         resolve();
       });
-      try {
-        proc.kill("SIGTERM");
-      } catch {
-        clearTimeout(killTimer);
-        resolve();
-      }
+      killTree("SIGTERM");
     });
   };
 

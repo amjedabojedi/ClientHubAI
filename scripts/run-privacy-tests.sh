@@ -93,6 +93,7 @@ SUITES=(
   "test/duplicate-insurance-payment-hook.test.ts"
   "test/insurance-duplicate-payment-override-submit-ui.test.ts"
   "test/billing-payment-authz.test.ts"
+  "test/administrator-alias-server-authz.test.ts"
   "test/billing-payment-stale-concurrency.test.ts"
   "test/billing-payment-stale-message-ui.test.ts"
   "test/client-detail-payment-stale-message-ui.test.ts"
