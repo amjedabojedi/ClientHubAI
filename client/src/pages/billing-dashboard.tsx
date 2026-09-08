@@ -45,11 +45,23 @@ import {
   TicketPercent,
   Percent
 } from "lucide-react";
-import { format } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { formatDateDisplay } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { PracticeHeader } from "@/components/shared/practice-header";
+
+/** Local calendar yyyy-MM-dd — avoids UTC off-by-one from toISOString(). */
+function toDateOnlyString(date: Date): string {
+  return format(date, "yyyy-MM-dd");
+}
+
+function currentMonthDateRange(): { startDate: string; endDate: string } {
+  const now = new Date();
+  return {
+    startDate: toDateOnlyString(startOfMonth(now)),
+    endDate: toDateOnlyString(endOfMonth(now)),
+  };
+}
 
 interface BillingRecord {
   id: number;
@@ -1213,11 +1225,7 @@ function ApplyDiscountDialog({
 }
 
 export default function BillingDashboard() {
-  // Set default date range to current month
-  const currentDate = new Date();
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-  
+  // Default date range: first–last day of current local month (matches SmartHub upgraded)
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
@@ -1225,8 +1233,8 @@ export default function BillingDashboard() {
   const [selectedClientType, setSelectedClientType] = useState<string>('all');
   const [selectedSessionStatus, setSelectedSessionStatus] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>(() => currentMonthDateRange().startDate);
+  const [endDate, setEndDate] = useState<string>(() => currentMonthDateRange().endDate);
   const { openDrawer, closeTopDrawer, stack: drawerStack } = useRecordDrawer();
   const topDrawer = drawerStack[drawerStack.length - 1];
   const topInlineKey = topDrawer?.type === INLINE_DRAWER_TYPE ? topDrawer.inlineKey : undefined;
@@ -1812,7 +1820,7 @@ export default function BillingDashboard() {
                       className="w-full justify-start text-left font-normal mt-1"
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {startDate ? format(new Date(startDate), 'MMM dd, yyyy') : 'Pick a date'}
+                      {startDate ? formatDateDisplay(startDate) : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1820,14 +1828,8 @@ export default function BillingDashboard() {
                       mode="single"
                       selected={startDate ? new Date(startDate + 'T00:00:00') : undefined}
                       onSelect={(date) => {
-                        if (date) {
-                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                          setStartDate(formattedDate);
-                        }
-                      }}
-                      onDayClick={(date) => {
-                        const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                        setStartDate(formattedDate);
+                        // Calendar days are local midnights — format local yyyy-MM-dd (not UTC/NY shift)
+                        setStartDate(date ? toDateOnlyString(date) : '');
                       }}
                       initialFocus
                     />
@@ -1843,7 +1845,7 @@ export default function BillingDashboard() {
                       className="w-full justify-start text-left font-normal mt-1"
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {endDate ? format(new Date(endDate), 'MMM dd, yyyy') : 'Pick a date'}
+                      {endDate ? formatDateDisplay(endDate) : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1851,14 +1853,7 @@ export default function BillingDashboard() {
                       mode="single"
                       selected={endDate ? new Date(endDate + 'T00:00:00') : undefined}
                       onSelect={(date) => {
-                        if (date) {
-                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                          setEndDate(formattedDate);
-                        }
-                      }}
-                      onDayClick={(date) => {
-                        const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                        setEndDate(formattedDate);
+                        setEndDate(date ? toDateOnlyString(date) : '');
                       }}
                       initialFocus
                     />
@@ -1866,19 +1861,21 @@ export default function BillingDashboard() {
                 </Popover>
               </div>
               
-              {/* Reset button */}
+              {/* Reset button — current month dates, same as SmartHub default */}
               <Button 
                 variant="outline" 
                 size="sm"
                 className="whitespace-nowrap"
                 onClick={() => {
+                  const month = currentMonthDateRange();
                   setClientSearch('');
-                  setStartDate(firstDayOfMonth.toISOString().split('T')[0]);
-                  setEndDate(lastDayOfMonth.toISOString().split('T')[0]);
+                  setStartDate(month.startDate);
+                  setEndDate(month.endDate);
                   setSelectedStatus('all');
                   setSelectedTherapist('all');
                   setSelectedService('all');
                   setSelectedClientType('all');
+                  setSelectedSessionStatus('all');
                 }}
               >
                 Reset Filters
@@ -1888,7 +1885,7 @@ export default function BillingDashboard() {
             {/* Display selected range */}
             {startDate && endDate && (
               <div className="mt-3 text-sm text-muted-foreground">
-                Selected: {format(new Date(startDate), "MMM dd, yyyy")} - {format(new Date(endDate), "MMM dd, yyyy")}
+                Selected: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
               </div>
             )}
           </div>

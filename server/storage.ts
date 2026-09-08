@@ -9862,10 +9862,11 @@ export class DatabaseStorage implements IStorage {
         sql`NOT (${sessions.status} = 'scheduled' AND ${sessions.sessionDate} >= now())`,
       ];
       if (params.startDate) {
-        ubConditions.push(sql`DATE(${sessions.sessionDate}) >= ${params.startDate}`);
+        // Practice TZ day bounds (America/New_York) — matches SmartHub exclusive-end filter
+        ubConditions.push(sql`${sessions.sessionDate} >= (${params.startDate}::timestamp AT TIME ZONE 'America/New_York')`);
       }
       if (params.endDate) {
-        ubConditions.push(sql`DATE(${sessions.sessionDate}) <= ${params.endDate}`);
+        ubConditions.push(sql`${sessions.sessionDate} < (((${params.endDate})::date + interval '1 day')::timestamp AT TIME ZONE 'America/New_York')`);
       }
       if (params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0) {
         ubConditions.push(inArray(sessions.therapistId, params.supervisedTherapistIds));
@@ -9919,11 +9920,12 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     
     if (params.startDate) {
-      conditions.push(sql`DATE(${sessions.sessionDate}) >= ${params.startDate}`);
+      // Practice TZ day bounds (America/New_York) — matches SmartHub exclusive-end filter
+      conditions.push(sql`${sessions.sessionDate} >= (${params.startDate}::timestamp AT TIME ZONE 'America/New_York')`);
     }
     
     if (params.endDate) {
-      conditions.push(sql`DATE(${sessions.sessionDate}) <= ${params.endDate}`);
+      conditions.push(sql`${sessions.sessionDate} < (((${params.endDate})::date + interval '1 day')::timestamp AT TIME ZONE 'America/New_York')`);
     }
     
     if (params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0) {
@@ -9953,11 +9955,11 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      const results = await query.where(and(...conditions)).orderBy(desc(sessionBilling.billingDate));
+      const results = await query.where(and(...conditions)).orderBy(desc(sessionBilling.billingDate), desc(sessionBilling.id));
       return results;
     }
     
-    const results = await query.orderBy(desc(sessionBilling.billingDate));
+    const results = await query.orderBy(desc(sessionBilling.billingDate), desc(sessionBilling.id));
     return results;
   }
 
