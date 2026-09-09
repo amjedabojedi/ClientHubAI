@@ -46,20 +46,24 @@ import {
   Percent
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { formatDateDisplay } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { PracticeHeader } from "@/components/shared/practice-header";
 
-/** Local calendar yyyy-MM-dd — avoids UTC off-by-one from toISOString(). */
+const PRACTICE_TZ = "America/New_York";
+
+/** Calendar yyyy-MM-dd from a Date's local fields — no UTC/ISO shift. */
 function toDateOnlyString(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+/** Current month in practice timezone (matches SmartHub billing defaults). */
 function currentMonthDateRange(): { startDate: string; endDate: string } {
-  const now = new Date();
+  const practiceNow = toZonedTime(new Date(), PRACTICE_TZ);
   return {
-    startDate: toDateOnlyString(startOfMonth(now)),
-    endDate: toDateOnlyString(endOfMonth(now)),
+    startDate: toDateOnlyString(startOfMonth(practiceNow)),
+    endDate: toDateOnlyString(endOfMonth(practiceNow)),
   };
 }
 
