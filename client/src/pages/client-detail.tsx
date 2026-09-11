@@ -86,7 +86,7 @@ import type { LucideIcon } from "lucide-react";
 // Utils and Hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { downloadPdf, downloadFile } from "@/lib/download-pdf";
+import { downloadPdf, downloadFile, previewPdf } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import {
   useDuplicateInsurancePayment,
@@ -1479,39 +1479,19 @@ export default function ClientDetailPage({
 
   // Session Note PDF Handlers
   const handlePreviewNotePDF = async (noteId: number) => {
-    const previewWindow = window.open('', '_blank');
-    if (!previewWindow) {
-      toast({
-        title: "Preview blocked",
-        description: "Please allow pop-ups for this site to preview the session note.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    previewWindow.document.title = "Generating session note PDF…";
-
     try {
-      const response = await fetch(`/api/session-notes/${noteId}/pdf`, {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        let message = "Failed to generate PDF";
-        try {
-          const data = await response.json();
-          if (data?.message) message = data.message;
-        } catch {
-          // Keep the default message when the server did not return JSON.
-        }
-        throw new Error(message);
+      const opened = await previewPdf(
+        `/api/session-notes/${noteId}/pdf`,
+        `session-note-${noteId}.pdf`,
+      );
+      if (!opened) {
+        toast({
+          title: "Preview blocked",
+          description: "Please allow pop-ups for this site to preview the session note.",
+          variant: "destructive",
+        });
       }
-
-      const pdfBlob = await response.blob();
-      const previewUrl = window.URL.createObjectURL(pdfBlob);
-      previewWindow.location.href = previewUrl;
-      window.setTimeout(() => window.URL.revokeObjectURL(previewUrl), 60_000);
     } catch (error) {
-      previewWindow.close();
       toast({ 
         title: "Error generating PDF preview", 
         description: error instanceof Error ? error.message : "Failed to generate PDF",

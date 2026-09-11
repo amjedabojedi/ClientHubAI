@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useConnectedEntries } from "@/hooks/use-connected-entries";
-import { downloadPdf } from "@/lib/download-pdf";
+import { downloadPdf, previewPdf } from "@/lib/download-pdf";
 
 // Hooks and Data
 import { useState, useEffect, useRef } from "react";
@@ -985,40 +985,19 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Handle PDF preview. Open the tab synchronously so popup blockers do not
   // mistake the request for an unsolicited popup, then load the PDF bytes.
   const handlePreviewPDF = async (note: SessionNote) => {
-    const previewWindow = window.open('', '_blank');
-    if (!previewWindow) {
-      toast({
-        title: "Preview blocked",
-        description: "Please allow pop-ups for this site to preview the session note.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    previewWindow.document.title = "Generating session note PDF…";
-
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        let message = 'Failed to generate PDF';
-        try {
-          const data = await response.json();
-          if (data?.message) message = data.message;
-        } catch {
-          // Keep the default message when the server did not return JSON.
-        }
-        throw new Error(message);
+      const opened = await previewPdf(
+        `/api/session-notes/${note.id}/pdf`,
+        `session-note-${note.id}.pdf`,
+      );
+      if (!opened) {
+        toast({
+          title: "Preview blocked",
+          description: "Please allow pop-ups for this site to preview the session note.",
+          variant: "destructive",
+        });
       }
-
-      const pdfBlob = await response.blob();
-      const previewUrl = window.URL.createObjectURL(pdfBlob);
-      previewWindow.location.href = previewUrl;
-      window.setTimeout(() => window.URL.revokeObjectURL(previewUrl), 60_000);
     } catch (error) {
-      previewWindow.close();
       toast({ 
         title: "Error generating PDF preview", 
         description: error instanceof Error ? error.message : "Failed to generate PDF",
