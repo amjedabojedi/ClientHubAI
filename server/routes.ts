@@ -7233,18 +7233,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       const validatedData = insertSessionNoteSchema.parse(req.body);
       
-      // Check if user can access the session for this note (service visibility check)
-      const includeHiddenServices = req.user.role === 'admin';
-      if (!includeHiddenServices && validatedData.sessionId) {
-        const sessionResults = await storage.getSessionsWithFiltering({
-          includeHiddenServices: false,
-          page: 1,
-          limit: 1000
-        });
-        const hasAccess = sessionResults.sessions.some(session => session.id === validatedData.sessionId);
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Cannot create notes for this session" });
-        }
+      const { canCreateSessionNote } = await import("./lib/session-note-create-access");
+      if (!await canCreateSessionNote(
+        storage, req.user.role, validatedData.sessionId, validatedData.clientId,
+      )) {
+        return res.status(403).json({ message: "Cannot create notes for this session" });
       }
       
       const sessionNote = await storage.createSessionNote(validatedData);
