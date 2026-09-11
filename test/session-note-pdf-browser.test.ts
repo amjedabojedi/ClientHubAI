@@ -4,8 +4,9 @@
  * The server-level PDF tests prove the response is authenticated, valid PDF
  * bytes, and advertises the expected filename. This suite covers the user-facing
  * path: a logged-in therapist opens a client's Sessions tab, clicks Download PDF,
- * and the browser turns the response into a file download. It also verifies that
- * both download and preview actions remain usable when PDF generation fails.
+ * and the browser turns the response into a file download. It also verifies
+ * successful preview behavior and that both download and preview actions remain
+ * usable when PDF generation fails.
  *
  * Run with: npx tsx test/session-note-pdf-browser.test.ts
  *
@@ -56,6 +57,47 @@ function assertEqual(actual: unknown, expected: unknown, message: string) {
     console.error(`   Actual:   ${JSON.stringify(actual)}`);
     testsFailed++;
   }
+}
+
+/**
+ * PDF text is compressed in the response, so checking the raw bytes for the
+ * note marker would not prove that the rendered document contains the marker.
+ * Use the same PDF.js worker setup as the server-level rendering regression.
+ */
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const moduleApi: any = await import("module");
+  const { pathToFileURL } = await import("url");
+  const nodeRequire = moduleApi.createRequire(import.meta.url);
+  const workerPath = nodeRequire.resolve(
+    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+  );
+
+  if (pdfjs.GlobalWorkerOptions) {
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+  }
+
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    useSystemFonts: true,
+    isEvalSupported: false,
+  });
+  const document = await loadingTask.promise;
+  const pages: string[] = [];
+
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {
+    const page = await document.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(
+      content.items
+        .map((item: any) => (typeof item.str === "string" ? item.str : ""))
+        .filter(Boolean)
+        .join(" "),
+    );
+  }
+
+  await document.destroy();
+  return pages.join("\n\n");
 }
 
 const SUFFIX = `t-pdf-browser-${Date.now()}`;
@@ -219,8 +261,10 @@ async function main() {
       `${devServer.baseUrl}/clients/${client.id}?tab=sessions`,
       { waitUntil: "domcontentloaded" },
     );
+    const sessionsUrl = page.url();
+    const previewSelector = `[data-testid="button-preview-pdf-${session.id}"]`;
     await page.waitForSelector(
-      `[data-testid="button-preview-pdf-${session.id}"]`,
+      previewSelector,
       { timeout: 45_000 },
     );
 
@@ -238,15 +282,16 @@ async function main() {
       const originalCreateObjectURL = URL.createObjectURL.bind(URL);
       (URL as any).createObjectURL = (blob: Blob) => {
         blob
-          .slice(0, 5)
           .arrayBuffer()
           .then((buffer) => {
             const previous = w.__sessionPdfDownload || {};
+            const bytes = Array.from(new Uint8Array(buffer));
             w.__sessionPdfDownload = {
               ...previous,
               mimeType: blob.type,
               size: blob.size,
-              signature: Array.from(new Uint8Array(buffer)),
+              signature: bytes.slice(0, 5),
+              bytes,
             };
           });
         return originalCreateObjectURL(blob);
@@ -321,7 +366,102 @@ async function main() {
     );
 
     // -----------------------------------------------------------------------
-    // Test 2: Download failure surfaces an error and leaves the UI usable.
+    // Test 2: Successful preview opens a PDF blob in a new tab with note text.
+    // -----------------------------------------------------------------------
+    pdfMode = "success";
+    await page.evaluate(() => {
+      (window as any).__sessionPdfDownload = null;
+    });
+    const previewResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(pdfPath) &&
+        response.request().method() === "GET",
+      { timeout: 60_000 },
+    );
+    const previewTargetPromise = browser.waitForTarget(
+      (target) =>
+        target.type() === "page" && target.opener() === page!.target(),
+      { timeout: 60_000 },
+    );
+
+    await trustedClick(page, previewSelector);
+
+    const previewResponse = await previewResponsePromise;
+    assertEqual(
+      previewResponse.status(),
+      200,
+      "Preview action receives a successful PDF response",
+    );
+    assertEqual(
+      previewResponse.headers()["content-type"],
+      "application/pdf",
+      "Preview action receives application/pdf",
+    );
+    await page.waitForFunction(
+      () => {
+        const preview = (window as any).__sessionPdfDownload;
+        return (
+          preview?.mimeType === "application/pdf" &&
+          preview?.size > 0 &&
+          Array.isArray(preview?.bytes) &&
+          preview.bytes.length > 5
+        );
+      },
+      { timeout: 30_000 },
+    );
+    const capturedPreview = await page.evaluate(
+      () => (window as any).__sessionPdfDownload,
+    );
+    assertEqual(
+      capturedPreview.mimeType,
+      "application/pdf",
+      "Preview creates an application/pdf Blob",
+    );
+    const previewPdfBytes = Buffer.from(capturedPreview.bytes);
+    assert(
+      previewPdfBytes.subarray(0, 5).equals(Buffer.from("%PDF-")),
+      "Preview response contains a real PDF signature",
+    );
+    const previewPdfText = await extractPdfText(previewPdfBytes);
+    assert(
+      previewPdfText.includes(`Browser PDF marker ${SUFFIX}`),
+      "Preview PDF contains the finalized session-note content",
+    );
+
+    const previewTarget = await previewTargetPromise;
+    const previewPage = await previewTarget.page();
+    if (!previewPage) throw new Error("Preview did not open a browser page");
+    await previewPage.waitForFunction(() => location.href !== "about:blank", {
+      timeout: 30_000,
+    });
+    const previewState = await previewPage.evaluate(() => ({
+      href: location.href,
+      text: document.body?.innerText?.slice(0, 20) || "",
+    }));
+    assert(
+      previewState.href.startsWith("blob:") ||
+        previewState.href.startsWith("chrome-extension:"),
+      "Preview opens the PDF blob/viewer in a new tab",
+    );
+    assert(
+      !previewState.text.startsWith("%PDF-"),
+      "Preview does not write raw PDF bytes into the new tab",
+    );
+    assertEqual(
+      page.url(),
+      sessionsUrl,
+      "Original Sessions page remains available after preview opens",
+    );
+    assertEqual(
+      await page.$(previewSelector) !== null,
+      true,
+      "Original Sessions page still shows the finalized note action",
+    );
+    await previewPage.close();
+    await page.bringToFront();
+
+    // -----------------------------------------------------------------------
+    // Test 3: Download failure surfaces an error and leaves the UI usable.
     // -----------------------------------------------------------------------
     pdfMode = "fail";
     await openSessionMenu(page, session.id);
@@ -346,11 +486,11 @@ async function main() {
     );
 
     // -----------------------------------------------------------------------
-    // Test 3: Preview failure closes its temporary window and shows an error.
+    // Test 4: Preview failure closes its temporary window and shows an error.
     // -----------------------------------------------------------------------
     await trustedClick(
       page,
-      `[data-testid="button-preview-pdf-${session.id}"]`,
+      previewSelector,
     );
     await page.waitForFunction(
       () => document.body.innerText.includes("Error generating PDF preview"),

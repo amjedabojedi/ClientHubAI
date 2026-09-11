@@ -118,3 +118,18 @@ asserts the disabled/spinner state; then `respond()` 200. For the failure path,
 `respond({status:500, body: JSON.stringify({message})})` and assert the toast
 text (downloadFile surfaces `response.json().message`). Wrap the handler body in
 try/catch with a fallback `continue()` so an already-handled request never hangs.
+
+## Capturing client-side binary responses
+When a page fetches a binary response and consumes it before the test reads the
+Puppeteer `HTTPResponse`, `response.buffer()` can be empty even when the status
+and headers are correct. Wrap `URL.createObjectURL` before the action and capture
+the Blob's `arrayBuffer()` there; validate the signature and decoded content from
+those bytes while using `page.waitForResponse` for status and headers.
+
+**Why:** This verifies the actual client-side Blob handoff (not just an endpoint
+response) and avoids a false empty-body failure caused by the browser's fetch
+consumer.
+
+**How to apply:** Install the wrapper after navigating to the app origin, reset
+its capture before each binary action, and wait for the captured Blob bytes before
+decoding them in Node.
